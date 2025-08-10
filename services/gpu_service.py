@@ -51,7 +51,11 @@ class GPUService:
             torch.backends.cudnn.deterministic = False  # Allow non-deterministic for speed
             
             print(f"✅ GPU service initialized on {self.device}")
-            print(f"📊 GPU Memory: {self.gpu_info.get('total_memory_gb', 'Unknown'):.1f}GB")
+            memory_gb = self.gpu_info.get('total_memory_gb')
+            if memory_gb is not None:
+                print(f"📊 GPU Memory: {memory_gb:.1f}GB")
+            else:
+                print("📊 GPU Memory: Unknown")
             print(f"📊 CUDA Version: {torch.version.cuda}")
             
         except Exception as e:
@@ -66,7 +70,11 @@ class GPUService:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
                 
                 # Get GPU info
-                name = pynvml.nvmlDeviceGetName(handle).decode('utf-8')
+                name_raw = pynvml.nvmlDeviceGetName(handle)
+                if isinstance(name_raw, bytes):
+                    name = name_raw.decode('utf-8')
+                else:
+                    name = str(name_raw)
                 total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 
                 self.gpu_info = {

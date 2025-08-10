@@ -110,7 +110,7 @@ class MiniCPMV26Model:
             
             # This would download the model to the specified path
             # For now, we'll use a placeholder
-            model_name = "openbmb/MiniCPM-V-2.6"
+            model_name = "openbmb/MiniCPM-V"
             
             print(f"📥 Model {model_name} would be downloaded here")
             print(f"📁 Target path: {self.model_path}")
@@ -121,7 +121,7 @@ class MiniCPMV26Model:
     
     async def _warmup_model(self):
         """Warm up the model for optimal performance"""
-        print("🔥 Warming up MiniCPM-V 2.6 model...")
+        print("🔥 Warming up MiniCPM-V model...")
         
         try:
             # Create dummy input for warmup
@@ -171,7 +171,7 @@ class MiniCPMV26Model:
     async def generate_text(self, prompt: str, max_new_tokens: int = None, 
                            temperature: float = None, top_p: float = None, 
                            top_k: int = None) -> str:
-        """Generate text using MiniCPM-V 2.6"""
+        """Generate text using MiniCPM-V"""
         if not self.is_initialized:
             await self.initialize()
         

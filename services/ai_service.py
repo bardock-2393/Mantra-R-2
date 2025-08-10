@@ -24,17 +24,17 @@ class MiniCPMV26Service:
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
         
-    def initialize(self):
-        """Initialize the MiniCPM-V 2.6 model on GPU"""
+    async def initialize(self):
+        """Initialize the MiniCPM-V model on GPU"""
         try:
-            print(f"🚀 Initializing MiniCPM-V 2.6 on {self.device}...")
+            print(f"🚀 Initializing MiniCPM-V on {self.device}...")
             
             # Check GPU availability
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
             # Initialize GPU service
-            self.gpu_service.initialize()
+            await self.gpu_service.initialize()
             
             # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -60,15 +60,15 @@ class MiniCPMV26Service:
             self._warmup_model()
             
             self.is_initialized = True
-            print(f"✅ MiniCPM-V 2.6 initialized successfully on {self.device}")
+            print(f"✅ MiniCPM-V initialized successfully on {self.device}")
             
         except Exception as e:
-            print(f"❌ Failed to initialize MiniCPM-V 2.6: {e}")
+            print(f"❌ Failed to initialize MiniCPM-V: {e}")
             raise
     
     def _warmup_model(self):
         """Warm up the model for optimal performance"""
-        print("🔥 Warming up MiniCPM-V 2.6 model...")
+        print("🔥 Warming up MiniCPM-V model...")
         
         # Create dummy input for warmup
         dummy_text = "Hello, this is a warmup message for the AI model."
@@ -84,10 +84,10 @@ class MiniCPMV26Service:
         
         print("✅ Model warmup completed")
     
-    def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
-        """Analyze video using local GPU-powered MiniCPM-V 2.6"""
+    async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
+        """Analyze video using local GPU-powered MiniCPM-V"""
         if not self.is_initialized:
-            self.initialize()
+            await self.initialize()
         
         start_time = time.time()
         
