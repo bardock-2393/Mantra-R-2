@@ -26,9 +26,9 @@ class Config:
     }
     
     # MiniCPM-V Model Configuration
-    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V')
+    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
     MINICPM_CONFIG = {
-        'model_name': 'openbmb/MiniCPM-V',
+        'model_name': 'openbmb/MiniCPM-V-2_6',
         'hf_token': os.getenv('HF_TOKEN', ''),
         'max_length': 32768,
         'temperature': 0.2,

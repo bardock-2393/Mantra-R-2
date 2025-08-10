@@ -1,5 +1,5 @@
 """
-MiniCPM-V 2.6 Model Management for Round 2
+MiniCPM-V-2_6 Model Management for Round 2
 Handles model loading, GPU optimization, and inference for local AI processing
 """
 
@@ -12,7 +12,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from config import Config
 
 class MiniCPMV26Model:
-    """MiniCPM-V 2.6 model manager with GPU optimization"""
+    """MiniCPM-V-2_6 model manager with GPU optimization"""
     
     def __init__(self):
         self.model = None
@@ -23,9 +23,9 @@ class MiniCPMV26Model:
         self.config = Config.MINICPM_CONFIG
         
     async def initialize(self):
-        """Initialize the MiniCPM-V 2.6 model on GPU"""
+        """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
-            print(f"🚀 Initializing MiniCPM-V 2.6 on GPU...")
+            print(f"🚀 Initializing MiniCPM-V-2_6 on GPU...")
             
             # Check CUDA availability
             if not torch.cuda.is_available():
@@ -76,13 +76,13 @@ class MiniCPMV26Model:
             await self._warmup_model()
             
             self.is_initialized = True
-            print(f"✅ MiniCPM-V 2.6 initialized successfully on {self.device}")
+            print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
             
             # Print model info
             await self._print_model_info()
             
         except Exception as e:
-            print(f"❌ Failed to initialize MiniCPM-V 2.6: {e}")
+            print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
     
     def _get_quantization_config(self):
@@ -104,14 +104,13 @@ class MiniCPMV26Model:
             return None
     
     async def _download_model(self):
-        """Download model from Hugging Face if not available locally"""
+        """Download the MiniCPM-V-2_6 model if not already present"""
         try:
-            print("📥 Downloading MiniCPM-V 2.6 from Hugging Face...")
+            model_name = "openbmb/MiniCPM-V-2_6"
+            print("📥 Downloading MiniCPM-V-2_6 from Hugging Face...")
             
             # This would download the model to the specified path
             # For now, we'll use a placeholder
-            model_name = "openbmb/MiniCPM-V"
-            
             print(f"📥 Model {model_name} would be downloaded here")
             print(f"📁 Target path: {self.model_path}")
             
@@ -121,7 +120,7 @@ class MiniCPMV26Model:
     
     async def _warmup_model(self):
         """Warm up the model for optimal performance"""
-        print("🔥 Warming up MiniCPM-V model...")
+        print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
             # Create dummy input for warmup
@@ -171,7 +170,7 @@ class MiniCPMV26Model:
     async def generate_text(self, prompt: str, max_new_tokens: int = None, 
                            temperature: float = None, top_p: float = None, 
                            top_k: int = None) -> str:
-        """Generate text using MiniCPM-V"""
+        """Generate text using MiniCPM-V-2_6"""
         if not self.is_initialized:
             await self.initialize()
         
@@ -224,7 +223,7 @@ class MiniCPMV26Model:
     
     async def analyze_video_content(self, video_summary: str, analysis_type: str, 
                                    user_focus: str) -> str:
-        """Analyze video content using MiniCPM-V 2.6"""
+        """Analyze video content using MiniCPM-V-2_6"""
         try:
             # Generate analysis prompt
             analysis_prompt = self._generate_analysis_prompt(analysis_type, user_focus)
@@ -354,7 +353,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
     async def cleanup(self):
         """Clean up model resources"""
         try:
-            print("🧹 Cleaning up MiniCPM-V 2.6 model...")
+            print("🧹 Cleaning up MiniCPM-V-2_6 model...")
             
             if self.model:
                 del self.model
@@ -369,7 +368,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
                 torch.cuda.empty_cache()
             
             self.is_initialized = False
-            print("✅ MiniCPM-V 2.6 model cleaned up")
+            print("✅ MiniCPM-V-2_6 model cleaned up")
             
         except Exception as e:
             print(f"⚠️ Warning: Model cleanup failed: {e}")

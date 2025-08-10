@@ -44,7 +44,7 @@ def main():
         os.makedirs(session_dir)
         print(f"📁 Created session storage directory: {session_dir}")
     
-    print("🤖 Local AI: MiniCPM-V 2.6 ready for video analysis")
+    print("🤖 Local AI: MiniCPM-V-2_6 ready for video analysis")
     print("🎯 Performance: <1000ms latency, 90fps processing")
     print("🌐 Server: Starting on http://localhost:8000")
     print()

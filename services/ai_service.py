@@ -1,6 +1,6 @@
 """
 AI Service Module for Round 2 - GPU-powered local AI
-Handles MiniCPM-V 2.6 local inference and GPU optimization
+Handles MiniCPM-V-2_6 local inference and GPU optimization
 """
 
 import os
@@ -14,7 +14,7 @@ from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
 
 class MiniCPMV26Service:
-    """Local GPU-powered MiniCPM-V 2.6 service for video analysis"""
+    """Local GPU-powered MiniCPM-V-2_6 service for video analysis"""
     
     def __init__(self):
         self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
@@ -25,9 +25,9 @@ class MiniCPMV26Service:
         self.is_initialized = False
         
     async def initialize(self):
-        """Initialize the MiniCPM-V model on GPU"""
+        """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
-            print(f"🚀 Initializing MiniCPM-V on {self.device}...")
+            print(f"🚀 Initializing MiniCPM-V-2_6 on {self.device}...")
             
             # Check GPU availability
             if not torch.cuda.is_available():
@@ -60,15 +60,15 @@ class MiniCPMV26Service:
             self._warmup_model()
             
             self.is_initialized = True
-            print(f"✅ MiniCPM-V initialized successfully on {self.device}")
+            print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
             
         except Exception as e:
-            print(f"❌ Failed to initialize MiniCPM-V: {e}")
+            print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
     
     def _warmup_model(self):
         """Warm up the model for optimal performance"""
-        print("🔥 Warming up MiniCPM-V model...")
+        print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         # Create dummy input for warmup
         dummy_text = "Hello, this is a warmup message for the AI model."
@@ -85,7 +85,7 @@ class MiniCPMV26Service:
         print("✅ Model warmup completed")
     
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
-        """Analyze video using local GPU-powered MiniCPM-V"""
+        """Analyze video using local GPU-powered MiniCPM-V-2_6"""
         if not self.is_initialized:
             await self.initialize()
         
@@ -101,7 +101,7 @@ class MiniCPMV26Service:
             # Combine prompt with video summary
             full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
-            # Generate analysis using MiniCPM-V 2.6
+            # Generate analysis using MiniCPM-V-2_6
             analysis_result = self._generate_analysis(full_prompt)
             
             # Record performance metrics
@@ -167,7 +167,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         return base_prompt
     
     def _generate_analysis(self, prompt: str) -> str:
-        """Generate analysis using MiniCPM-V 2.6"""
+        """Generate analysis using MiniCPM-V-2_6"""
         try:
             # Tokenize input
             inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=Config.MINICPM_CONFIG['max_length']).to(self.device)
@@ -254,10 +254,10 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         
         self.gpu_service.cleanup()
         torch.cuda.empty_cache()
-        print("🧹 MiniCPM-V 2.6 service cleaned up")
+        print("🧹 MiniCPM-V-2_6 service cleaned up")
 
 # Global instance
 minicpm_service = MiniCPMV26Service()
 
-# Round 2: All AI processing is now done locally with MiniCPM-V 2.6
+# Round 2: All AI processing is now done locally with MiniCPM-V-2_6
 # No external API dependencies required 
