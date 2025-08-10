@@ -1,6 +1,7 @@
 """
 AI Service Module for Round 2 - GPU-powered local AI
 Handles MiniCPM-V-2_6 local inference and GPU optimization
+Based on official Hugging Face documentation: https://huggingface.co/openbmb/MiniCPM-V-2_6
 """
 
 import os
@@ -9,7 +10,7 @@ import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
+from transformers import AutoTokenizer, AutoModel, AutoProcessor
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -76,7 +77,7 @@ class MiniCPMV26Service:
             # Load model with optimizations
             print(f"Loading model from {Config.MINICPM_MODEL_PATH}...")
             try:
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model = AutoModel.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
                     torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
                     device_map="auto",
@@ -139,29 +140,22 @@ class MiniCPMV26Service:
         print("Using vision-language warmup...")
         
         try:
-            # Create a dummy image (1x3x224x224 - standard size)
-            dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
+            # Create a dummy image using PIL as shown in the official documentation
+            dummy_image = Image.new('RGB', (224, 224), color='red')
             dummy_text = "Hello, this is a warmup message."
             
-            # Process inputs using the processor
-            inputs = self.processor(
-                text=dummy_text,
-                images=dummy_image,
-                return_tensors="pt"
-            )
-            
-            # Move to device
-            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+            # Use the proper chat method as shown in the official documentation
+            msgs = [{'role': 'user', 'content': [dummy_image, dummy_text]}]
             
             with torch.no_grad():
                 for i in range(3):
                     print(f"Vision-language warmup iteration {i+1}/3...")
-                    output = self.model.generate(
-                        **inputs,
+                    response = self.model.chat(
+                        image=None,
+                        msgs=msgs,
+                        tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
                         max_new_tokens=8,
-                        do_sample=False,
-                        pad_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0),
-                        eos_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0)
+                        do_sample=False
                     )
                     print(f"  Vision-language warmup iteration {i+1} successful")
                     
@@ -178,28 +172,18 @@ class MiniCPMV26Service:
         try:
             dummy_text = "Hello, this is a warmup message."
             
-            # Use processor if available, otherwise tokenizer
-            if self.processor:
-                inputs = self.processor(
-                    text=dummy_text,
-                    return_tensors="pt"
-                )
-            elif self.tokenizer:
-                inputs = self.tokenizer(dummy_text, return_tensors="pt")
-            else:
-                raise RuntimeError("Neither processor nor tokenizer available")
-            
-            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+            # Use the proper chat method for text-only input
+            msgs = [{'role': 'user', 'content': [dummy_text]}]
             
             with torch.no_grad():
                 for i in range(3):
                     print(f"Text warmup iteration {i+1}/3...")
-                    output = self.model.generate(
-                        **inputs,
+                    response = self.model.chat(
+                        image=None,
+                        msgs=msgs,
+                        tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
                         max_new_tokens=8,
-                        do_sample=False,
-                        pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
-                        eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
+                        do_sample=False
                     )
                     print(f"  Text warmup iteration {i+1} successful")
                     
