@@ -51,7 +51,7 @@ def store_session_data(session_id, data):
         metadata = {
             'created_at': datetime.now().isoformat(),
             'last_accessed': datetime.now().isoformat(),
-            'expires_at': (datetime.now().timestamp() + Config.SESSION_EXPIRY).isoformat(),
+            'expires_at': datetime.fromtimestamp(datetime.now().timestamp() + Config.SESSION_EXPIRY).isoformat(),
             'data_keys': list(data.keys())
         }
         

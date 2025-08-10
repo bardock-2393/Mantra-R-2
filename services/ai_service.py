@@ -5,7 +5,6 @@ Handles MiniCPM-V 2.6 local inference and GPU optimization
 
 import os
 import time
-import asyncio
 import torch
 import numpy as np
 from typing import Dict, List, Optional, Tuple
@@ -175,12 +174,12 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             
             # Generate response
             with torch.no_grad():
-                            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=Config.MINICPM_CONFIG['max_length'],
-                temperature=Config.MINICPM_CONFIG['temperature'],
-                top_p=Config.MINICPM_CONFIG['top_p'],
-                top_k=Config.MINICPM_CONFIG['top_k'],
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=Config.MINICPM_CONFIG['max_length'],
+                    temperature=Config.MINICPM_CONFIG['temperature'],
+                    top_p=Config.MINICPM_CONFIG['top_p'],
+                    top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
