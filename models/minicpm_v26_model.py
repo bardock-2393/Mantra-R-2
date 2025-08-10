@@ -1,14 +1,16 @@
 """
 MiniCPM-V-2_6 Model Management for Round 2
 Handles model loading, GPU optimization, and inference for local AI processing
+Based on official MiniCPM-V-2_6 implementation
 """
 
 import os
 import time
 import torch
 import numpy as np
+from PIL import Image
 from typing import Dict, List, Optional, Tuple, Union
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoModel, AutoTokenizer
 from config import Config
 
 class MiniCPMV26Model:
@@ -20,131 +22,88 @@ class MiniCPMV26Model:
         self.device = None
         self.is_initialized = False
         self.model_path = Config.MINICPM_MODEL_PATH
-        self.config = Config.MINICPM_CONFIG
         
-    async def initialize(self):
+    def initialize(self):
         """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
-            print(f"🚀 Initializing MiniCPM-V-2_6 on GPU...")
+            print(f"🚀 Initializing MiniCPM-V-2_6 on cuda:0...")
             
             # Check CUDA availability
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
             # Set device
-            self.device = torch.device(Config.GPU_CONFIG['device'])
+            self.device = torch.device('cuda:0')
             print(f"📱 Using device: {self.device}")
             
-            # Check if model path exists
-            if not os.path.exists(self.model_path):
-                print(f"⚠️ Model path not found: {self.model_path}")
-                print("🔍 Attempting to download from Hugging Face...")
-                await self._download_model()
+            # Load model with correct parameters
+            print(f"🔍 Model path: {self.model_path}")
+            self.model = AutoModel.from_pretrained(
+                self.model_path, 
+                trust_remote_code=True,
+                attn_implementation='sdpa',  # Use SDPA for better performance
+                torch_dtype=torch.bfloat16
+            )
+            
+            # Move to GPU and set to eval mode
+            self.model = self.model.eval().cuda()
             
             # Load tokenizer
-            print("📚 Loading tokenizer...")
+            print(f"📝 Loading processor from {self.model_path}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
-                trust_remote_code=True,
-                token=Config.MINICPM_CONFIG.get('hf_token')
+                trust_remote_code=True
             )
             
-            # Configure quantization
-            quantization_config = self._get_quantization_config()
+            # Verify components loaded
+            if self.model is None or self.tokenizer is None:
+                raise RuntimeError("Failed to load model or tokenizer")
             
-            # Load model with optimizations
-            print("🤖 Loading model with GPU optimizations...")
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
-                device_map="auto",
-                trust_remote_code=True,
-                use_flash_attention_2=self.config['use_flash_attention'],
-                quantization_config=quantization_config,
-                low_cpu_mem_usage=True,
-                token=Config.MINICPM_CONFIG.get('hf_token')
-            )
-            
-            # Move to GPU if not already there
-            if not hasattr(self.model, 'device_map'):
-                self.model.to(self.device)
-            
-            # Set model to evaluation mode
-            self.model.eval()
+            print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
+            print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
+            print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
             # Warm up the model
-            await self._warmup_model()
+            self._warmup_model()
             
             self.is_initialized = True
             print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
             
             # Print model info
-            await self._print_model_info()
+            self._print_model_info()
             
         except Exception as e:
             print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
     
-    def _get_quantization_config(self):
-        """Get quantization configuration based on settings"""
-        if self.config['quantization'] == 'int8':
-            return BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_threshold=6.0,
-                llm_int8_has_fp16_weight=False
-            )
-        elif self.config['quantization'] == 'int4':
-            return BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_use_double_quant=True
-            )
-        else:
-            return None
-    
-    async def _download_model(self):
-        """Download the MiniCPM-V-2_6 model if not already present"""
-        try:
-            model_name = "openbmb/MiniCPM-V-2_6"
-            print("📥 Downloading MiniCPM-V-2_6 from Hugging Face...")
-            
-            # This would download the model to the specified path
-            # For now, we'll use a placeholder
-            print(f"📥 Model {model_name} would be downloaded here")
-            print(f"📁 Target path: {self.model_path}")
-            
-        except Exception as e:
-            print(f"❌ Model download failed: {e}")
-            raise
-    
-    async def _warmup_model(self):
+    def _warmup_model(self):
         """Warm up the model for optimal performance"""
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
-            # Create dummy input for warmup
-            dummy_text = "Hello, this is a warmup message for the AI model."
-            inputs = self.tokenizer(dummy_text, return_tensors="pt").to(self.device)
-            
-            with torch.no_grad():
-                for i in range(3):  # Run 3 warmup iterations
-                    start_time = time.time()
-                    _ = self.model.generate(
-                        **inputs,
-                        max_new_tokens=10,
-                        do_sample=False,
-                        pad_token_id=self.tokenizer.eos_token_id
+            # Try vision-language warmup first
+            print("🖼️ Using vision-language warmup...")
+            try:
+                # Create a dummy image for warmup
+                dummy_image = Image.new('RGB', (224, 224), color='red')
+                question = "What color is this image?"
+                msgs = [{'role': 'user', 'content': [dummy_image, question]}]
+                
+                with torch.no_grad():
+                    _ = self.model.chat(
+                        image=None,
+                        msgs=msgs,
+                        tokenizer=self.tokenizer
                     )
-                    warmup_time = (time.time() - start_time) * 1000
-                    print(f"🔥 Warmup iteration {i+1}: {warmup_time:.2f}ms")
-            
-            print("✅ Model warmup completed")
+                print("✅ Vision-language warmup completed")
+            except Exception as e:
+                print(f"❌ VL warmup failed: {e}")
+                print("ℹ️ Skipping text-only warmup; continuing without it.")
             
         except Exception as e:
             print(f"⚠️ Warning: Model warmup failed: {e}")
     
-    async def _print_model_info(self):
+    def _print_model_info(self):
         """Print model information and memory usage"""
         try:
             if self.model:
@@ -167,53 +126,29 @@ class MiniCPMV26Model:
         except Exception as e:
             print(f"⚠️ Warning: Could not print model info: {e}")
     
-    async def generate_text(self, prompt: str, max_new_tokens: int = None, 
-                           temperature: float = None, top_p: float = None, 
-                           top_k: int = None) -> str:
+    def generate_text(self, prompt: str, max_new_tokens: int = 512, 
+                     temperature: float = 0.2, top_p: float = 0.9, 
+                     top_k: int = 40) -> str:
         """Generate text using MiniCPM-V-2_6"""
         if not self.is_initialized:
-            await self.initialize()
+            self.initialize()
         
         try:
-            # Use default values if not specified
-            max_new_tokens = max_new_tokens or self.config['max_length']
-            temperature = temperature or self.config['temperature']
-            top_p = top_p or self.config['top_p']
-            top_k = top_k or self.config['top_k']
+            # Create messages format
+            msgs = [{'role': 'user', 'content': prompt}]
             
-            # Tokenize input
-            inputs = self.tokenizer(
-                prompt, 
-                return_tensors="pt", 
-                truncation=True, 
-                max_length=self.config['max_length']
-            ).to(self.device)
-            
-            # Generate response
-            start_time = time.time()
-            
+            # Generate response using the model's chat method
             with torch.no_grad():
-                outputs = self.model.generate(
-                    **inputs,
+                response = self.model.chat(
+                    image=None,
+                    msgs=msgs,
+                    tokenizer=self.tokenizer,
                     max_new_tokens=max_new_tokens,
                     temperature=temperature,
                     top_p=top_p,
                     top_k=top_k,
-                    do_sample=True,
-                    pad_token_id=self.tokenizer.eos_token_id,
-                    repetition_penalty=1.1
+                    sampling=True
                 )
-            
-            generation_time = (time.time() - start_time) * 1000
-            
-            # Decode response
-            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            
-            # Extract only the new generated content
-            if prompt in response:
-                response = response[len(prompt):].strip()
-            
-            print(f"⚡ Text generation completed in {generation_time:.2f}ms")
             
             return response
             
@@ -221,8 +156,8 @@ class MiniCPMV26Model:
             print(f"❌ Text generation failed: {e}")
             return f"Error generating text: {str(e)}"
     
-    async def analyze_video_content(self, video_summary: str, analysis_type: str, 
-                                   user_focus: str) -> str:
+    def analyze_video_content(self, video_summary: str, analysis_type: str, 
+                             user_focus: str) -> str:
         """Analyze video content using MiniCPM-V-2_6"""
         try:
             # Generate analysis prompt
@@ -232,7 +167,7 @@ class MiniCPMV26Model:
             full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
             # Generate analysis
-            analysis_result = await self.generate_text(full_prompt)
+            analysis_result = self.generate_text(full_prompt, max_new_tokens=2048)
             
             return analysis_result
             
@@ -283,9 +218,9 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
 """
         return base_prompt
     
-    async def generate_chat_response(self, analysis_result: str, analysis_type: str, 
-                                   user_focus: str, message: str, 
-                                   chat_history: List[Dict]) -> str:
+    def generate_chat_response(self, analysis_result: str, analysis_type: str, 
+                              user_focus: str, message: str, 
+                              chat_history: List[Dict]) -> str:
         """Generate contextual AI response based on video analysis"""
         try:
             # Build context from chat history
@@ -295,7 +230,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             chat_prompt = f"{context}\n\nUser: {message}\n\nAssistant:"
             
             # Generate response
-            response = await self.generate_text(chat_prompt, max_new_tokens=2048)
+            response = self.generate_text(chat_prompt, max_new_tokens=2048)
             
             return response
             
@@ -325,14 +260,13 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         
         return context
     
-    async def get_model_status(self) -> Dict:
+    def get_model_status(self) -> Dict:
         """Get model status and performance metrics"""
         try:
             status = {
                 'initialized': self.is_initialized,
                 'device': str(self.device) if self.device else None,
-                'model_path': self.model_path,
-                'config': self.config
+                'model_path': self.model_path
             }
             
             if self.is_initialized and torch.cuda.is_available():
@@ -350,7 +284,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         except Exception as e:
             return {'error': str(e)}
     
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up model resources"""
         try:
             print("🧹 Cleaning up MiniCPM-V-2_6 model...")
@@ -377,10 +311,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         """Destructor to ensure cleanup"""
         try:
             if self.is_initialized:
-                import asyncio
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.cleanup())
+                self.cleanup()
         except:
             pass
 

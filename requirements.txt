@@ -7,14 +7,15 @@ itsdangerous==2.2.0
 click==8.2.1
 blinker==1.9.0
 
-# GPU-Accelerated AI and Machine Learning (Round 2)
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
-transformers>=4.41.0
+# GPU-Accelerated AI and Machine Learning (Round 2) - Fixed Versions
+Pillow==10.1.0
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+transformers==4.40.0
 accelerate>=0.30.0
 bitsandbytes>=0.41.0
-sentencepiece>=0.1.99
+sentencepiece==0.1.99
 protobuf>=4.25.0
 einops>=0.7.0
 safetensors>=0.4.2
@@ -25,12 +26,11 @@ opencv-python-headless>=4.8.0
 av>=10.0.0
 imageio>=2.31.0
 imageio-ffmpeg>=0.4.8
-decord>=0.6.0
-Pillow>=11.2.1
+decord
+numpy>=1.26.0
 
 # GPU Monitoring and Optimization
 pynvml>=11.5.0
-numpy>=1.26.0
 
 # FastAPI for High-Performance API (Round 2)
 fastapi>=0.110.0
