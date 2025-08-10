@@ -9,6 +9,7 @@ import torch
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from PIL import Image
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -189,7 +190,6 @@ class MiniCPMV26Service:
         """Extract first frame from video for analysis"""
         try:
             import av
-            from PIL import Image
             
             container = av.open(video_path)
             for frame in container.decode(video=0):
