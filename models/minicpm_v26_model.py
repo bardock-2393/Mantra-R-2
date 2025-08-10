@@ -9,7 +9,7 @@ import torch
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Union
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-from config import Config, MINICPM_CONFIG
+from config import Config
 
 class MiniCPMV26Model:
     """MiniCPM-V 2.6 model manager with GPU optimization"""
@@ -20,7 +20,7 @@ class MiniCPMV26Model:
         self.device = None
         self.is_initialized = False
         self.model_path = Config.MINICPM_MODEL_PATH
-        self.config = MINICPM_CONFIG
+        self.config = Config.MINICPM_CONFIG
         
     async def initialize(self):
         """Initialize the MiniCPM-V 2.6 model on GPU"""
@@ -45,7 +45,8 @@ class MiniCPMV26Model:
             print("📚 Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
-                trust_remote_code=True
+                trust_remote_code=True,
+                token=Config.MINICPM_CONFIG.get('hf_token')
             )
             
             # Configure quantization
@@ -60,7 +61,8 @@ class MiniCPMV26Model:
                 trust_remote_code=True,
                 use_flash_attention_2=self.config['use_flash_attention'],
                 quantization_config=quantization_config,
-                low_cpu_mem_usage=True
+                low_cpu_mem_usage=True,
+                token=Config.MINICPM_CONFIG.get('hf_token')
             )
             
             # Move to GPU if not already there
@@ -108,7 +110,7 @@ class MiniCPMV26Model:
             
             # This would download the model to the specified path
             # For now, we'll use a placeholder
-            model_name = "openbmb/MiniCPM-V-2.6"
+            model_name = "openbmb/MiniCPM-V-2_6"
             
             print(f"📥 Model {model_name} would be downloaded here")
             print(f"📁 Target path: {self.model_path}")
