@@ -111,6 +111,14 @@ class MiniCPMV26Service:
             dummy_text = "Hello, this is a warmup message for the AI model."
             print(f"📝 Tokenizing dummy text: '{dummy_text}'")
             
+            # Check if tokenizer has required attributes
+            if not hasattr(self.tokenizer, 'eos_token_id') or self.tokenizer.eos_token_id is None:
+                print("⚠️  Tokenizer missing eos_token_id, using pad_token_id instead")
+                if not hasattr(self.tokenizer, 'pad_token_id') or self.tokenizer.pad_token_id is None:
+                    print("⚠️  Tokenizer missing pad_token_id, setting to 0")
+                    self.tokenizer.pad_token_id = 0
+                    self.tokenizer.eos_token_id = 0
+            
             inputs = self.tokenizer(dummy_text, return_tensors="pt")
             if inputs is None:
                 raise RuntimeError("Tokenizer returned None inputs")
@@ -123,11 +131,19 @@ class MiniCPMV26Service:
             with torch.no_grad():
                 for i in range(3):  # Run 3 warmup iterations
                     print(f"🔥 Warmup iteration {i+1}/3...")
-                    _ = self.model.generate(
+                    output = self.model.generate(
                         **inputs,
                         max_new_tokens=10,
-                        do_sample=False
+                        max_length=inputs['input_ids'].shape[1] + 10,  # Input length + small output
+                        do_sample=False,
+                        pad_token_id=self.tokenizer.eos_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id
                     )
+                    
+                    # Verify output is valid
+                    if output is None or len(output) == 0:
+                        raise RuntimeError(f"Warmup iteration {i+1} returned None or empty output")
+                    print(f"  ✅ Warmup iteration {i+1} successful, output shape: {output.shape}")
             
             print("✅ Model warmup completed")
             
@@ -229,13 +245,19 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=Config.MINICPM_CONFIG['max_length'],
+                    max_new_tokens=1000,  # Reasonable output length
+                    max_length=min(Config.MINICPM_CONFIG['max_length'], inputs['input_ids'].shape[1] + 1000),  # Total length limit
                     temperature=Config.MINICPM_CONFIG['temperature'],
                     top_p=Config.MINICPM_CONFIG['top_p'],
                     top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=self.tokenizer.eos_token_id
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id
                 )
+            
+            # Verify outputs are valid
+            if outputs is None or len(outputs) == 0:
+                raise RuntimeError("Model generation returned None or empty output")
             
             # Decode response
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)

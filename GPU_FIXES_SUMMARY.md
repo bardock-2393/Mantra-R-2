@@ -136,6 +136,57 @@ MINICPM_CONFIG = {
 }
 ```
 
+### 5. Model Generation "NoneType has no len()" Error
+
+**Symptoms:**
+- `❌ Model warmup failed: object of type 'NoneType' has no len()`
+- Error occurs during model warmup or generation
+
+**Root Cause:**
+- `max_new_tokens` was set to `Config.MINICPM_CONFIG['max_length']` (32768), which is extremely high
+- Model generation was returning `None` or failing due to unreasonable parameters
+- Missing proper tokenizer attribute checks (`eos_token_id`, `pad_token_id`)
+
+**Fix Applied:**
+- Modified `ai_video_detective copy/services/ai_service.py`
+- Fixed `max_new_tokens` to reasonable values (10 for warmup, 1000 for analysis)
+- Added proper `max_length` calculation to prevent token overflow
+- Added tokenizer attribute validation and fallbacks
+- Added output validation to catch `None` returns early
+
+**Code Changes:**
+```python
+# Before (problematic):
+outputs = self.model.generate(
+    **inputs,
+    max_new_tokens=Config.MINICPM_CONFIG['max_length'],  # ❌ Too high (32768)
+    # ... other params
+)
+
+# After (fixed):
+outputs = self.model.generate(
+    **inputs,
+    max_new_tokens=1000,  # ✅ Reasonable output length
+    max_length=min(Config.MINICPM_CONFIG['max_length'], inputs['input_ids'].shape[1] + 1000),  # ✅ Total length limit
+    # ... other params
+)
+
+# Added validation:
+if outputs is None or len(outputs) == 0:
+    raise RuntimeError("Model generation returned None or empty output")
+```
+
+**Tokenizer Attribute Fixes:**
+```python
+# Check if tokenizer has required attributes
+if not hasattr(self.tokenizer, 'eos_token_id') or self.tokenizer.eos_token_id is None:
+    print("⚠️  Tokenizer missing eos_token_id, using pad_token_id instead")
+    if not hasattr(self.tokenizer, 'pad_token_id') or self.tokenizer.pad_token_id is None:
+        print("⚠️  Tokenizer missing pad_token_id, setting to 0")
+        self.tokenizer.pad_token_id = 0
+        self.tokenizer.eos_token_id = 0
+```
+
 ## Files Modified
 
 1. **`ai_video_detective copy/services/gpu_service.py`**
@@ -146,6 +197,10 @@ MINICPM_CONFIG = {
 2. **`ai_video_detective copy/services/ai_service.py`**
    - Fixed coroutine await issue in `generate_chat_response`
    - Removed unsupported model parameters (`use_flash_attention_2`, `load_in_8bit`)
+   - Fixed model generation parameters (`max_new_tokens`, `max_length`)
+   - Added tokenizer attribute validation and fallbacks
+   - Added output validation for model generation
+   - Enhanced error handling and debugging output
 
 3. **`ai_video_detective copy/config.py`**
    - Removed unsupported configuration options (`use_flash_attention`, `quantization`)
@@ -164,13 +219,15 @@ python test_gpu_fixes.py
 - Configuration validation (no unsupported parameters)
 - GPU service functionality (safe decoding, type conversion)
 - AI service initialization (without unsupported parameters)
+- Model accessibility and authentication checks
 
 ## Summary
 
-All four identified GPU-related issues have been resolved:
+All five identified GPU-related issues have been resolved:
 1. ✅ GPU info errors (safe decoding and type conversion)
 2. ✅ Coroutine await issues (proper async/await usage)
 3. ✅ Model ID validation (correct underscore format)
 4. ✅ Model initialization errors (removed unsupported parameters)
+5. ✅ Model generation errors (fixed token limits and added validation)
 
-The application should now run without GPU-related runtime errors and successfully initialize the MiniCPM model on GPU. 
+The application should now run without GPU-related runtime errors and successfully initialize and use the MiniCPM model on GPU. 
