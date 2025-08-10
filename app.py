@@ -42,7 +42,7 @@ async def initialize_gpu_services():
         
         # Initialize performance monitor
         performance_monitor = PerformanceMonitor()
-        performance_monitor.start_monitoring()
+        performance_monitor.start()
         
         print("✅ GPU services initialized successfully")
         return gpu_service, performance_monitor

@@ -1,4 +1,4 @@
-"""
+﻿"""
 AI Service Module for Round 2 - GPU-powered local AI
 Handles MiniCPM-V-2_6 local inference and GPU optimization
 """
@@ -29,14 +29,14 @@ class MiniCPMV26Service:
     async def initialize(self):
         """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
-            print(f"Initializing MiniCPM-V-2_6 on {self.device}...")
+            print(f"🚀 Initializing MiniCPM-V-2_6 on {self.device}...")
             
             # Check GPU availability
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
             # Check model path
-            print(f"Model path: {Config.MINICPM_MODEL_PATH}")
+            print(f"🔍 Model path: {Config.MINICPM_MODEL_PATH}")
             if not Config.MINICPM_MODEL_PATH:
                 raise RuntimeError("MINICPM_MODEL_PATH is empty or None")
             
@@ -44,7 +44,7 @@ class MiniCPMV26Service:
             await self.gpu_service.initialize()
             
             # Load processor (handles both text and image inputs)
-            print(f"Loading processor from {Config.MINICPM_MODEL_PATH}...")
+            print(f"📝 Loading processor from {Config.MINICPM_MODEL_PATH}...")
             try:
                 self.processor = AutoProcessor.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
@@ -54,10 +54,10 @@ class MiniCPMV26Service:
                 # Verify processor loaded successfully
                 if self.processor is None:
                     raise RuntimeError("Processor failed to load - returned None")
-                print(f"Processor loaded successfully: {type(self.processor).__name__}")
+                print(f"✅ Processor loaded successfully: {type(self.processor).__name__}")
                 
             except Exception as e:
-                print(f"Processor loading failed: {e}")
+                print(f"❌ Processor loading failed: {e}")
                 print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
                 print(f"   Error type: {type(e).__name__}")
                 raise RuntimeError(f"Failed to load processor: {e}")
@@ -68,13 +68,13 @@ class MiniCPMV26Service:
                     Config.MINICPM_MODEL_PATH,
                     trust_remote_code=True
                 )
-                print(f"Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
+                print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             except Exception as e:
-                print(f"Tokenizer loading failed, using processor only: {e}")
+                print(f"⚠️ Tokenizer loading failed, using processor only: {e}")
                 self.tokenizer = None
             
             # Load model with optimizations
-            print(f"Loading model from {Config.MINICPM_MODEL_PATH}...")
+            print(f"🤖 Loading model from {Config.MINICPM_MODEL_PATH}...")
             try:
                 self.model = AutoModelForCausalLM.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
@@ -86,37 +86,32 @@ class MiniCPMV26Service:
                 # Verify model loaded successfully
                 if self.model is None:
                     raise RuntimeError("Model failed to load - returned None")
-                print(f"Model loaded successfully: {type(self.model).__name__}")
+                print(f"✅ Model loaded successfully: {type(self.model).__name__}")
                 
             except Exception as e:
-                print(f"Model loading failed: {e}")
+                print(f"❌ Model loading failed: {e}")
                 print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
                 print(f"   Error type: {type(e).__name__}")
                 raise RuntimeError(f"Failed to load model: {e}")
             
             # Move to GPU
-            print(f"Moving model to device: {self.device}")
+            print(f"🚀 Moving model to device: {self.device}")
             self.model.to(self.device)
             self.model.eval()
             
             # Warm up the model
-            print("Warming up model...")
             self._warmup_model()
             
-            # Start performance monitoring
-            self.performance_monitor.start()
-            
             self.is_initialized = True
-            print("MiniCPM-V-2_6 service initialized successfully!")
+            print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
             
         except Exception as e:
-            print(f"Initialization failed: {e}")
-            self.cleanup()
+            print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
     
     def _warmup_model(self):
         """Warm up the model for optimal performance"""
-        print("Warming up MiniCPM-V-2_6 model...")
+        print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
             if self.processor is None:
@@ -125,18 +120,18 @@ class MiniCPMV26Service:
                 raise RuntimeError("Model is None - cannot perform warmup")
             
             # MiniCPM-V-2_6 is a vision-language model, use image + text warmup
-            print("Using vision-language warmup for MiniCPM-V-2_6...")
+            print("🖼️ Using vision-language warmup for MiniCPM-V-2_6...")
             self._warmup_model_vision_language()
                 
         except Exception as e:
-            print(f"Model warmup failed: {e}")
+            print(f"❌ Model warmup failed: {e}")
             print(f"   Processor type: {type(self.processor)}")
             print(f"   Model type: {type(self.model)}")
             raise
     
     def _warmup_model_vision_language(self):
         """Warmup method using dummy image + text for vision-language model"""
-        print("Using vision-language warmup...")
+        print("🖼️ Using vision-language warmup...")
         
         try:
             # Create a dummy image (1x3x224x224 - standard size)
@@ -155,7 +150,7 @@ class MiniCPMV26Service:
             
             with torch.no_grad():
                 for i in range(3):
-                    print(f"Vision-language warmup iteration {i+1}/3...")
+                    print(f"🔥 Vision-language warmup iteration {i+1}/3...")
                     output = self.model.generate(
                         **inputs,
                         max_new_tokens=8,
@@ -163,17 +158,17 @@ class MiniCPMV26Service:
                         pad_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0),
                         eos_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0)
                     )
-                    print(f"  Vision-language warmup iteration {i+1} successful")
+                    print(f"  ✅ Vision-language warmup iteration {i+1} successful")
                     
         except Exception as e:
-            print(f"Vision-language warmup failed: {e}")
+            print(f"❌ Vision-language warmup failed: {e}")
             # Fallback to text-only warmup if vision fails
-            print("Falling back to text-only warmup...")
+            print("📝 Falling back to text-only warmup...")
             self._warmup_model_text_only()
     
     def _warmup_model_text_only(self):
         """Fallback warmup method using text-only input"""
-        print("Using text-only warmup fallback...")
+        print("📝 Using text-only warmup fallback...")
         
         try:
             dummy_text = "Hello, this is a warmup message."
@@ -193,7 +188,7 @@ class MiniCPMV26Service:
             
             with torch.no_grad():
                 for i in range(3):
-                    print(f"Text warmup iteration {i+1}/3...")
+                    print(f"🔥 Text warmup iteration {i+1}/3...")
                     output = self.model.generate(
                         **inputs,
                         max_new_tokens=8,
@@ -201,11 +196,13 @@ class MiniCPMV26Service:
                         pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
                         eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
                     )
-                    print(f"  Text warmup iteration {i+1} successful")
+                    print(f"  ✅ Text warmup iteration {i+1} successful")
                     
         except Exception as e:
-            print(f"Text warmup failed: {e}")
+            print(f"❌ Text warmup failed: {e}")
             raise
+    
+
     
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered MiniCPM-V-2_6"""
@@ -215,54 +212,78 @@ class MiniCPMV26Service:
         start_time = time.time()
         
         try:
-            # Extract video summary for context
+            # Generate analysis prompt
+            analysis_prompt = self._generate_analysis_prompt(analysis_type, user_focus)
+            
+            # Process video frames (simplified for now - will be enhanced with DeepStream)
             video_summary = self._extract_video_summary(video_path)
             
-            # Generate analysis prompt
-            prompt = self._generate_analysis_prompt(analysis_type, user_focus)
+            # Combine prompt with video summary
+            full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
-            # Add video context to prompt
-            full_prompt = f"{prompt}\n\nVideo Context: {video_summary}\n\nAnalysis:"
-            
-            # Generate analysis
+            # Generate analysis using MiniCPM-V-2_6
             analysis_result = self._generate_analysis(full_prompt)
             
             # Record performance metrics
-            latency = (time.time() - start_time) * 1000
+            latency = (time.time() - start_time) * 1000  # Convert to ms
             self.performance_monitor.record_analysis_latency(latency)
+            
+            if latency > Config.PERFORMANCE_TARGETS['latency_target']:
+                print(f"⚠️ Warning: Analysis latency ({latency:.2f}ms) exceeds target ({Config.PERFORMANCE_TARGETS['latency_target']}ms)")
             
             return analysis_result
             
         except Exception as e:
-            print(f"Video analysis failed: {e}")
+            print(f"❌ Video analysis failed: {e}")
             return f"Error analyzing video: {str(e)}"
     
     def _extract_video_summary(self, video_path: str) -> str:
-        """Extract basic video information for context"""
-        try:
-            # For now, return basic file info
-            # In a full implementation, you'd extract frames, metadata, etc.
-            file_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
-            return f"Video file: {os.path.basename(video_path)}, Size: {file_size:.1f} MB"
-        except Exception as e:
-            return f"Video file: {os.path.basename(video_path)}"
+        """Extract key information from video for analysis"""
+        # This will be enhanced with DeepStream integration
+        # For now, return a basic summary
+        return f"Video file: {os.path.basename(video_path)}\nDuration: [To be extracted]\nResolution: [To be extracted]"
     
     def _generate_analysis_prompt(self, analysis_type: str, user_focus: str) -> str:
         """Generate analysis prompt based on type and user focus"""
-        base_prompt = f"""You are an AI video analysis expert. Analyze the following video content comprehensively.
+        base_prompt = f"""
+You are an **exceptional AI video analysis agent** with unparalleled understanding capabilities. Your mission is to provide **comprehensive, precise, and insightful analysis** that serves as the foundation for high-quality user interactions.
 
-Analysis Type: {analysis_type}
-User Focus: {user_focus}
+## ANALYSIS REQUEST
+- **Analysis Type**: {analysis_type}
+- **User Focus**: {user_focus}
 
-Please provide a detailed analysis including:
-1. Key events and activities
-2. Important objects and people
-3. Temporal sequence of events
-4. Notable patterns or behaviors
-5. Any concerning or interesting observations
+## AGENT ANALYSIS PROTOCOL
 
-Be thorough and professional in your analysis."""
-        
+### Analysis Quality Standards:
+1. **Maximum Precision**: Provide exact timestamps, durations, and measurements
+2. **Comprehensive Coverage**: Analyze every significant aspect of the video
+3. **Detailed Descriptions**: Use vivid, descriptive language for visual elements
+4. **Quantitative Data**: Include specific numbers, counts, and measurements
+5. **Pattern Recognition**: Identify recurring themes, behaviors, and sequences
+6. **Contextual Understanding**: Explain significance and relationships between elements
+7. **Professional Structure**: Organize information logically with clear sections
+8. **Evidence-Based**: Support all observations with specific visual evidence
+
+### Enhanced Analysis Focus:
+- **Temporal Precision**: Exact timestamps for all events and transitions
+- **Spatial Relationships**: Detailed descriptions of positioning and movement
+- **Visual Details**: Colors, lighting, composition, and technical quality
+- **Behavioral Analysis**: Actions, interactions, and human elements
+- **Technical Assessment**: Quality, production values, and technical specifications
+- **Narrative Structure**: Story flow, pacing, and dramatic elements
+- **Environmental Context**: Setting, atmosphere, and contextual factors
+
+### Output Quality Requirements:
+- Use **bold formatting** for emphasis on key information
+- Include **specific timestamps** for all temporal references
+- Provide **quantitative measurements** (durations, counts, sizes)
+- Use **bullet points** for lists and multiple items
+- Structure with **clear headings** for different analysis areas
+- Include **cross-references** between related information
+- Offer **insights and interpretations** beyond simple description
+
+Your analysis will be used for **high-quality user interactions**, so ensure every detail is **precise, comprehensive, and well-structured** for optimal user experience.
+"""
         return base_prompt
     
     def _generate_analysis(self, prompt: str) -> str:
@@ -328,7 +349,7 @@ Be thorough and professional in your analysis."""
             return response
             
         except Exception as e:
-            print(f"Analysis generation failed: {e}")
+            print(f"❌ Analysis generation failed: {e}")
             return f"Error generating analysis: {str(e)}"
     
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
@@ -355,7 +376,7 @@ Be thorough and professional in your analysis."""
             return response
             
         except Exception as e:
-            print(f"Chat response generation failed: {e}")
+            print(f"❌ Chat response generation failed: {e}")
             return f"Error generating chat response: {str(e)}"
     
     def _build_chat_context(self, analysis_result: str, analysis_type: str, user_focus: str, chat_history: List[Dict]) -> str:
@@ -390,7 +411,7 @@ Be thorough and professional in your analysis."""
         
         self.gpu_service.cleanup()
         torch.cuda.empty_cache()
-        print("MiniCPM-V-2_6 service cleaned up")
+        print("🧹 MiniCPM-V-2_6 service cleaned up")
 
 # Global instance
 minicpm_service = MiniCPMV26Service()

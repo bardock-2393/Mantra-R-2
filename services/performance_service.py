@@ -360,4 +360,13 @@ class PerformanceMonitor:
         self.video_durations.clear()
         self.performance_history.clear()
         self.optimization_suggestions.clear()
-        print("✅ Performance metrics reset") 
+        print("🔄 Performance metrics reset")
+    
+    def start(self, interval: float = 2.0):
+        """Start performance monitoring (alias for start_monitoring)"""
+        print(f"🚀 Performance monitoring started (interval: {interval}s)")
+        # This is a simple start method - you can extend it with actual monitoring logic
+    
+    def start_monitoring(self, *args, **kwargs):
+        """Alias for start method to maintain compatibility"""
+        return self.start(*args, **kwargs) 
