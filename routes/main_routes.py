@@ -164,11 +164,15 @@ def analyze_video():
         timestamps = extract_timestamps_from_text(analysis_result)
         
         # Clean and deduplicate timestamps
-        from utils.text_utils import clean_and_deduplicate_timestamps
+        from utils.text_utils import clean_and_deduplicate_timestamps, validate_and_fix_timestamps
         timestamps = clean_and_deduplicate_timestamps(timestamps)
         
         # Filter timestamps to only include those within video duration
         if video_duration > 0:
+            # First validate and fix any out-of-bounds timestamps
+            timestamps = validate_and_fix_timestamps(timestamps, video_duration)
+            
+            # Then filter to ensure all are within bounds
             valid_timestamps = [ts for ts in timestamps if 0 <= ts < video_duration]
             if len(valid_timestamps) != len(timestamps):
                 print(f"⚠️ Filtered out {len(timestamps) - len(valid_timestamps)} invalid timestamps beyond video duration ({video_duration:.2f}s)")

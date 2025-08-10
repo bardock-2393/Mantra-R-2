@@ -116,8 +116,8 @@ class VideoDetective {
             return;
         }
 
-        if (file.size > 100 * 1024 * 1024) { // 100MB limit
-            this.showError('File size must be less than 100MB');
+        if (file.size > 500 * 1024 * 1024) { // 500MB limit
+            this.showError('File size must be less than 500MB');
             return;
         }
 

@@ -79,11 +79,15 @@ def chat():
                     timestamp_ranges = extract_timestamp_ranges_from_text(ai_response)
                     
                     # Clean and deduplicate timestamps
-                    from utils.text_utils import clean_and_deduplicate_timestamps
+                    from utils.text_utils import clean_and_deduplicate_timestamps, validate_and_fix_timestamps
                     response_timestamps = clean_and_deduplicate_timestamps(response_timestamps)
                     
                     # Filter timestamps to only include those within video duration
                     if video_duration > 0:
+                        # First validate and fix any out-of-bounds timestamps
+                        response_timestamps = validate_and_fix_timestamps(response_timestamps, video_duration)
+                        
+                        # Then filter to ensure all are within bounds
                         valid_timestamps = [ts for ts in response_timestamps if 0 <= ts < video_duration]
                         if len(valid_timestamps) != len(response_timestamps):
                             print(f"⚠️ Chat: Filtered out {len(response_timestamps) - len(valid_timestamps)} invalid timestamps beyond video duration ({video_duration:.2f}s)")
