@@ -10,7 +10,7 @@ import torch
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from config import Config, MINICPM_CONFIG
+from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
 
@@ -25,7 +25,7 @@ class MiniCPMV26Service:
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
         
-    async def initialize(self):
+    def initialize(self):
         """Initialize the MiniCPM-V 2.6 model on GPU"""
         try:
             print(f"🚀 Initializing MiniCPM-V 2.6 on {self.device}...")
@@ -35,7 +35,7 @@ class MiniCPMV26Service:
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
             # Initialize GPU service
-            await self.gpu_service.initialize()
+            self.gpu_service.initialize()
             
             # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -49,8 +49,8 @@ class MiniCPMV26Service:
                 torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
                 device_map="auto",
                 trust_remote_code=True,
-                use_flash_attention_2=MINICPM_CONFIG['use_flash_attention'],
-                load_in_8bit=MINICPM_CONFIG['quantization'] == 'int8'
+                use_flash_attention_2=Config.MINICPM_CONFIG['use_flash_attention'],
+                load_in_8bit=Config.MINICPM_CONFIG['quantization'] == 'int8'
             )
             
             # Move to GPU
@@ -58,7 +58,7 @@ class MiniCPMV26Service:
             self.model.eval()
             
             # Warm up the model
-            await self._warmup_model()
+            self._warmup_model()
             
             self.is_initialized = True
             print(f"✅ MiniCPM-V 2.6 initialized successfully on {self.device}")
@@ -67,7 +67,7 @@ class MiniCPMV26Service:
             print(f"❌ Failed to initialize MiniCPM-V 2.6: {e}")
             raise
     
-    async def _warmup_model(self):
+    def _warmup_model(self):
         """Warm up the model for optimal performance"""
         print("🔥 Warming up MiniCPM-V 2.6 model...")
         
@@ -85,10 +85,10 @@ class MiniCPMV26Service:
         
         print("✅ Model warmup completed")
     
-    async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
+    def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered MiniCPM-V 2.6"""
         if not self.is_initialized:
-            await self.initialize()
+            self.initialize()
         
         start_time = time.time()
         
@@ -97,13 +97,13 @@ class MiniCPMV26Service:
             analysis_prompt = self._generate_analysis_prompt(analysis_type, user_focus)
             
             # Process video frames (simplified for now - will be enhanced with DeepStream)
-            video_summary = await self._extract_video_summary(video_path)
+            video_summary = self._extract_video_summary(video_path)
             
             # Combine prompt with video summary
             full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
             # Generate analysis using MiniCPM-V 2.6
-            analysis_result = await self._generate_analysis(full_prompt)
+            analysis_result = self._generate_analysis(full_prompt)
             
             # Record performance metrics
             latency = (time.time() - start_time) * 1000  # Convert to ms
@@ -118,7 +118,7 @@ class MiniCPMV26Service:
             print(f"❌ Video analysis failed: {e}")
             return f"Error analyzing video: {str(e)}"
     
-    async def _extract_video_summary(self, video_path: str) -> str:
+    def _extract_video_summary(self, video_path: str) -> str:
         """Extract key information from video for analysis"""
         # This will be enhanced with DeepStream integration
         # For now, return a basic summary
@@ -167,20 +167,20 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
 """
         return base_prompt
     
-    async def _generate_analysis(self, prompt: str) -> str:
+    def _generate_analysis(self, prompt: str) -> str:
         """Generate analysis using MiniCPM-V 2.6"""
         try:
             # Tokenize input
-            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MINICPM_CONFIG['max_length']).to(self.device)
+            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=Config.MINICPM_CONFIG['max_length']).to(self.device)
             
             # Generate response
             with torch.no_grad():
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=MINICPM_CONFIG['max_length'],
-                    temperature=MINICPM_CONFIG['temperature'],
-                    top_p=MINICPM_CONFIG['top_p'],
-                    top_k=MINICPM_CONFIG['top_k'],
+                            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=Config.MINICPM_CONFIG['max_length'],
+                temperature=Config.MINICPM_CONFIG['temperature'],
+                top_p=Config.MINICPM_CONFIG['top_p'],
+                top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
@@ -198,10 +198,10 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             print(f"❌ Analysis generation failed: {e}")
             return f"Error generating analysis: {str(e)}"
     
-    async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
+    def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate contextual AI response based on video analysis"""
         if not self.is_initialized:
-            await self.initialize()
+            self.initialize()
         
         start_time = time.time()
         
@@ -213,7 +213,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             chat_prompt = f"{context}\n\nUser: {message}\n\nAssistant:"
             
             # Generate response
-            response = await self._generate_analysis(chat_prompt)
+            response = self._generate_analysis(chat_prompt)
             
             # Record performance metrics
             latency = (time.time() - start_time) * 1000
@@ -246,14 +246,14 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         
         return context
     
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up GPU resources"""
         if self.model:
             del self.model
         if self.tokenizer:
             del self.tokenizer
         
-        await self.gpu_service.cleanup()
+        self.gpu_service.cleanup()
         torch.cuda.empty_cache()
         print("🧹 MiniCPM-V 2.6 service cleaned up")
 

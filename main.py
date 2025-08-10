@@ -46,7 +46,7 @@ def main():
     
     print("🤖 Local AI: MiniCPM-V 2.6 ready for video analysis")
     print("🎯 Performance: <1000ms latency, 90fps processing")
-    print("🌐 Server: Starting on http://localhost:5000")
+    print("🌐 Server: Starting on http://localhost:8000")
     print()
     print("Press Ctrl+C to stop the server")
     print("=" * 60)
@@ -56,7 +56,7 @@ def main():
         app.run(
             debug=True,
             host='0.0.0.0',
-            port=5000,
+            port=8000,
             threaded=True
         )
     except KeyboardInterrupt:
