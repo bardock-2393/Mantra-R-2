@@ -84,4 +84,36 @@ def extract_timestamp_ranges_from_text(text):
         if 0 <= start_time <= end_time <= 3600:  # Reasonable range
             ranges.append((start_time, end_time))
     
-    return ranges 
+    return ranges
+
+def validate_timestamps_against_duration(timestamps, video_duration):
+    """Validate that all timestamps are within the video duration bounds"""
+    if not video_duration or video_duration <= 0:
+        return timestamps
+    
+    valid_timestamps = []
+    
+    for timestamp in timestamps:
+        if isinstance(timestamp, (int, float)):
+            if 0 <= timestamp <= video_duration:
+                valid_timestamps.append(timestamp)
+        elif isinstance(timestamp, tuple) and len(timestamp) == 2:
+            start_time, end_time = timestamp
+            if 0 <= start_time <= end_time <= video_duration:
+                valid_timestamps.append(timestamp)
+    
+    return valid_timestamps
+
+def extract_and_validate_timestamps(text, video_duration=None):
+    """Extract timestamps and validate them against video duration if provided"""
+    timestamps = extract_timestamps_from_text(text)
+    ranges = extract_timestamp_ranges_from_text(text)
+    
+    # Combine all timestamps
+    all_timestamps = timestamps + ranges
+    
+    # Validate against video duration if provided
+    if video_duration:
+        all_timestamps = validate_timestamps_against_duration(all_timestamps, video_duration)
+    
+    return all_timestamps 

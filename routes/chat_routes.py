@@ -11,7 +11,7 @@ from config import Config
 from services.session_service import get_session_data, store_session_data
 from services.ai_service_fixed import minicpm_service
 from utils.video_utils import create_evidence_for_timestamps
-from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
+from utils.text_utils import extract_and_validate_timestamps
 
 # Create Blueprint
 chat_bp = Blueprint('chat', __name__)
@@ -57,7 +57,8 @@ def chat():
         
         # Generate contextual AI response based on video analysis
         if analysis_result:
-            ai_response = minicpm_service.generate_chat_response(analysis_result, analysis_type, user_focus, message, chat_list)
+            video_duration = session_data.get('video_duration')
+            ai_response = minicpm_service.generate_chat_response(analysis_result, analysis_type, user_focus, message, chat_list, video_duration)
         else:
             # No analysis available yet
             ai_response = f"I don't have the video analysis results yet. Please first analyze the uploaded video, then I can help you with: {message}. Click 'Start Analysis' to begin the video analysis."
@@ -67,24 +68,17 @@ def chat():
         if analysis_result and ai_response:
             try:
                 video_path = session_data.get('filepath', '')
+                video_duration = session_data.get('video_duration')
+                
                 if video_path and os.path.exists(video_path):
-                    # Extract timestamps from response
-                    response_timestamps = extract_timestamps_from_text(ai_response)
-                    # Extract timestamp ranges from response
-                    timestamp_ranges = extract_timestamp_ranges_from_text(ai_response)
+                    # Extract and validate timestamps from response using video duration
+                    response_timestamps = extract_and_validate_timestamps(ai_response, video_duration)
                     
-                    # Create evidence for individual timestamps
+                    # Create evidence for validated timestamps
                     if response_timestamps:
                         additional_evidence.extend(create_evidence_for_timestamps(response_timestamps, video_path, session_id, Config.UPLOAD_FOLDER))
                     
-                    # Create video clips for timestamp ranges
-                    for start_time, end_time in timestamp_ranges:
-                        from utils.video_utils import extract_video_clip
-                        clip_data = extract_video_clip(video_path, start_time, end_time, session_id, Config.UPLOAD_FOLDER)
-                        if clip_data:
-                            additional_evidence.append(clip_data)
-                    
-                    print(f"Debug: Chat - Captured {len(additional_evidence)} additional evidence items")
+                    print(f"Debug: Chat - Captured {len(additional_evidence)} additional evidence items (video duration: {video_duration}s)")
             except Exception as e:
                 print(f"Debug: Chat - Error capturing additional evidence: {e}")
         
