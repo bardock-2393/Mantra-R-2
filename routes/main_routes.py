@@ -14,7 +14,7 @@ from config import Config
 from services.session_service import generate_session_id, store_session_data, get_session_data, cleanup_old_uploads
 from services.ai_service_fixed import minicpm_service
 from utils.video_utils import extract_video_metadata, create_evidence_for_timestamps
-from utils.text_utils import extract_and_validate_timestamps
+from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
 from analysis_templates import ANALYSIS_TEMPLATES
 
 # Create Blueprint
@@ -153,19 +153,28 @@ def analyze_video():
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': 'Video file not found'})
         
-        # Extract video metadata first
-        video_metadata = extract_video_metadata(video_path)
-        print(f"Debug: Video metadata extracted: {video_metadata}")
-        
         # Perform analysis using synchronous method
         analysis_result = minicpm_service.analyze_video(video_path, analysis_type, user_focus)
         
-        # Extract timestamps and validate them against video duration
-        video_duration = video_metadata.get('duration') if video_metadata else None
-        timestamps = extract_and_validate_timestamps(analysis_result, video_duration)
+        # Extract video metadata to validate timestamps
+        video_metadata = extract_video_metadata(video_path)
+        video_duration = video_metadata.get('duration', 0) if video_metadata else 0
         
-        if video_duration:
-            print(f"Video duration: {video_duration:.2f}s, Valid timestamps: {len(timestamps)}")
+        # Extract timestamps and capture screenshots automatically
+        timestamps = extract_timestamps_from_text(analysis_result)
+        
+        # Clean and deduplicate timestamps
+        from utils.text_utils import clean_and_deduplicate_timestamps
+        timestamps = clean_and_deduplicate_timestamps(timestamps)
+        
+        # Filter timestamps to only include those within video duration
+        if video_duration > 0:
+            valid_timestamps = [ts for ts in timestamps if 0 <= ts < video_duration]
+            if len(valid_timestamps) != len(timestamps):
+                print(f"⚠️ Filtered out {len(timestamps) - len(valid_timestamps)} invalid timestamps beyond video duration ({video_duration:.2f}s)")
+                timestamps = valid_timestamps
+        else:
+            print("⚠️ Warning: Could not determine video duration, using all extracted timestamps")
         
         evidence = []
         
@@ -180,9 +189,7 @@ def analyze_video():
             'user_focus': user_focus,
             'timestamps_found': timestamps,
             'evidence': evidence,
-            'analysis_time': datetime.now().isoformat(),
-            'video_duration': video_duration,
-            'video_metadata': video_metadata
+            'analysis_time': datetime.now().isoformat()
         }
         
         # Update session data
