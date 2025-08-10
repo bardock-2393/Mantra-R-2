@@ -13,7 +13,7 @@ This document details the complete transformation of your AI Video Detective fro
 - ❌ Redis dependency for sessions
 - ❌ Network latency (2000ms+)
 - ❌ API rate limits and costs
-- ❌ Limited video processing (100MB, 10 minutes)
+- ❌ Limited video processing (500MB, 10 minutes)
 - ❌ No GPU optimization
 
 ### **Round 2 (After)**
@@ -390,7 +390,7 @@ Improvement: Unlimited local processing
 
 ### **3. Video Support Improvements**
 ```
-Round 1: 100MB, 10 minutes max
+Round 1: 500MB, 10 minutes max
 Round 2: 500MB, 120 minutes max
 Improvement: 5x file size, 12x duration
 ```

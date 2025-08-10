@@ -278,7 +278,7 @@ EOF
 - Click "Choose Video File" or drag-and-drop a video
 - Supported formats: MP4, AVI, MOV, WMV, FLV
 - Maximum duration: 2 minutes
-- Maximum size: 100MB
+- Maximum size: 500MB
 
 #### **2. Start Analysis**
 - Select analysis type (Comprehensive, Safety, Performance, etc.)
@@ -437,7 +437,7 @@ CLEANUP_INTERVAL=1800
 # config.py
 class Config:
     # File upload settings
-    MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB
     UPLOAD_FOLDER = 'static/uploads'
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv', 'flv'}
     
@@ -516,7 +516,7 @@ echo $GOOGLE_API_KEY
 ```bash
 # Error: File too large
 # Check file size limit in config.py
-# Default: 100MB
+# Default: 500MB
 
 # Error: Unsupported format
 # Supported: MP4, AVI, MOV, WMV, FLV
