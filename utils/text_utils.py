@@ -5,31 +5,6 @@ Handles timestamp extraction and text processing functionality
 
 import re
 
-def validate_and_fix_timestamps(timestamps, video_duration):
-    """Validate and fix timestamps to ensure they're within video duration"""
-    if not timestamps or video_duration <= 0:
-        return []
-    
-    fixed_timestamps = []
-    for ts in timestamps:
-        if 0 <= ts < video_duration:
-            fixed_timestamps.append(ts)
-        else:
-            # If timestamp is out of bounds, try to fix it
-            if ts >= video_duration:
-                # Scale down the timestamp proportionally
-                scaled_ts = (ts / (ts + 1)) * video_duration * 0.9  # Use 90% of video duration
-                if 0 <= scaled_ts < video_duration:
-                    print(f"⚠️ Fixed out-of-bounds timestamp {ts:.2f}s -> {scaled_ts:.2f}s")
-                    fixed_timestamps.append(scaled_ts)
-            elif ts < 0:
-                # If negative, use a small positive value
-                fixed_ts = min(1.0, video_duration * 0.1)
-                print(f"⚠️ Fixed negative timestamp {ts:.2f}s -> {fixed_ts:.2f}s")
-                fixed_timestamps.append(fixed_ts)
-    
-    return sorted(list(set(fixed_timestamps)))
-
 def clean_and_deduplicate_timestamps(timestamps):
     """Clean and deduplicate timestamps, removing duplicates and sorting"""
     if not timestamps:

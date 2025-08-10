@@ -70,10 +70,6 @@ class MiniCPMV26Service:
             # Generate analysis using the model
             analysis_result = minicpm_v26_model.generate_text(full_prompt, max_new_tokens=2048)
             
-            # Post-process the response to fix any out-of-bounds timestamps
-            if video_duration > 0:
-                analysis_result = self._fix_out_of_bounds_timestamps_in_text(analysis_result, video_duration)
-            
             # Record performance metrics
             latency = (time.time() - start_time) * 1000
             self.performance_monitor.record_analysis_latency(latency)
@@ -83,36 +79,6 @@ class MiniCPMV26Service:
         except Exception as e:
             print(f"❌ Video analysis failed: {e}")
             return f"Error analyzing video: {str(e)}"
-    
-    def _fix_out_of_bounds_timestamps_in_text(self, text: str, video_duration: float) -> str:
-        """Fix any out-of-bounds timestamps in the AI response text"""
-        if not text or video_duration <= 0:
-            return text
-        
-        import re
-        
-        # Pattern to find MM:SS timestamps
-        timestamp_pattern = r'(\d{1,2}):(\d{2})'
-        
-        def replace_timestamp(match):
-            minutes = int(match.group(1))
-            seconds = int(match.group(2))
-            total_seconds = minutes * 60 + seconds
-            
-            if total_seconds >= video_duration:
-                # Scale down the timestamp to be within video duration
-                scaled_seconds = int((total_seconds / (total_seconds + 1)) * video_duration * 0.9)
-                new_minutes = scaled_seconds // 60
-                new_seconds = scaled_seconds % 60
-                print(f"⚠️ Fixed out-of-bounds timestamp in text: {match.group()} -> {new_minutes:02d}:{new_seconds:02d}")
-                return f"{new_minutes:02d}:{new_seconds:02d}"
-            else:
-                return match.group()
-        
-        # Replace out-of-bounds timestamps
-        fixed_text = re.sub(timestamp_pattern, replace_timestamp, text)
-        
-        return fixed_text
     
     def _extract_video_metadata(self, video_path: str) -> dict:
         """Extract video metadata including duration"""
@@ -153,8 +119,6 @@ class MiniCPMV26Service:
     def _generate_analysis_prompt(self, analysis_type: str, user_focus: str, video_duration: float) -> str:
         """Generate analysis prompt based on type and user focus"""
         duration_minutes = video_duration / 60 if video_duration > 0 else 0
-        max_minutes = int(video_duration / 60)
-        max_seconds = int(video_duration % 60)
         
         base_prompt = f"""
 You are an **exceptional AI video analysis agent** with unparalleled understanding capabilities. Your mission is to provide **comprehensive, precise, and insightful analysis** that serves as the foundation for high-quality user interactions.
@@ -164,24 +128,18 @@ You are an **exceptional AI video analysis agent** with unparalleled understandi
 - **User Focus**: {user_focus}
 - **Video Duration**: {video_duration:.2f} seconds ({duration_minutes:.1f} minutes)
 
-## 🚨 CRITICAL TIMESTAMP CONSTRAINTS - READ CAREFULLY 🚨
-
-⚠️ **ABSOLUTELY FORBIDDEN**: This video is only {video_duration:.2f} seconds long.
-🚫 **NEVER** generate timestamps beyond {video_duration:.2f} seconds
-🚫 **NEVER** reference events after {video_duration:.2f} seconds  
-🚫 **NEVER** mention time ranges that extend beyond {video_duration:.2f} seconds
-🚫 **NEVER** create fictional content beyond the actual video duration
-🚫 **NEVER** assume the video continues beyond {video_duration:.2f} seconds
-
-✅ **ONLY ALLOWED**: Analyze content within 0-{video_duration:.2f} seconds
-✅ **ONLY ALLOWED**: Generate timestamps between 00:00 and {max_minutes:02d}:{max_seconds:02d}
-✅ **ONLY ALLOWED**: Reference events that actually exist in the video
+## IMPORTANT CONSTRAINT
+⚠️ **CRITICAL**: This video is only {video_duration:.2f} seconds long. 
+- **NEVER** generate timestamps beyond {video_duration:.2f} seconds
+- **NEVER** reference events after {video_duration:.2f} seconds
+- **ONLY** analyze content within the actual video duration
+- **ALWAYS** validate that any timestamps you mention are within 0-{video_duration:.2f} seconds
 
 ## AGENT ANALYSIS PROTOCOL
 
 ### Analysis Quality Standards:
-1. **Maximum Precision**: Provide exact timestamps, durations, and measurements (within video bounds)
-2. **Comprehensive Coverage**: Analyze every significant aspect of the video (within duration)
+1. **Maximum Precision**: Provide exact timestamps, durations, and measurements
+2. **Comprehensive Coverage**: Analyze every significant aspect of the video
 3. **Detailed Descriptions**: Use vivid, descriptive language for visual elements
 4. **Quantitative Data**: Include specific numbers, counts, and measurements
 5. **Pattern Recognition**: Identify recurring themes, behaviors, and sequences
@@ -190,7 +148,7 @@ You are an **exceptional AI video analysis agent** with unparalleled understandi
 8. **Evidence-Based**: Support all observations with specific visual evidence
 
 ### Enhanced Analysis Focus:
-- **Temporal Precision**: Exact timestamps for all events and transitions (0-{video_duration:.2f}s ONLY)
+- **Temporal Precision**: Exact timestamps for all events and transitions (within video duration)
 - **Spatial Relationships**: Detailed descriptions of positioning and movement
 - **Visual Details**: Colors, lighting, composition, and technical quality
 - **Behavioral Analysis**: Actions, interactions, and human elements
@@ -200,18 +158,12 @@ You are an **exceptional AI video analysis agent** with unparalleled understandi
 
 ### Output Quality Requirements:
 - Use **bold formatting** for emphasis on key information
-- Include **specific timestamps** for all temporal references (0-{video_duration:.2f}s ONLY)
+- Include **specific timestamps** for all temporal references (0-{video_duration:.2f}s only)
 - Provide **quantitative measurements** (durations, counts, sizes)
 - Use **bullet points** for lists and multiple items
 - Structure with **clear headings** for different analysis areas
 - Include **cross-references** between related information
 - Offer **insights and interpretations** beyond simple description
-
-### ⚠️ FINAL WARNING ⚠️
-**This video ends at {video_duration:.2f} seconds.**
-**Any timestamp beyond this point is WRONG and will cause errors.**
-**Double-check every timestamp you generate.**
-**If unsure, use timestamps closer to the beginning of the video.**
 
 Your analysis will be used for **high-quality user interactions**, so ensure every detail is **precise, comprehensive, and well-structured** for optimal user experience.
 
