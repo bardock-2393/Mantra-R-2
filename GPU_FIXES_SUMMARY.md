@@ -143,37 +143,34 @@ MINICPM_CONFIG = {
 - Error occurs during model warmup or generation
 
 **Root Cause:**
+- MiniCPM-V-2_6 is a **vision-language model** that expects both image and text inputs
+- The warmup was using text-only input, causing the model's forward pass to fail when expecting image features
 - `max_new_tokens` was set to `Config.MINICPM_CONFIG['max_length']` (32768), which is extremely high
 - Model generation was returning `None` or failing due to unreasonable parameters
 - Missing proper tokenizer attribute checks (`eos_token_id`, `pad_token_id`)
 
 **Fix Applied:**
 - Modified `ai_video_detective copy/services/ai_service.py`
-- Fixed `max_new_tokens` to reasonable values (10 for warmup, 1000 for analysis)
+- **Fixed warmup to use dummy image + text** (vision-language model requirement)
+- Fixed `max_new_tokens` to reasonable values (8 for warmup, 1000 for analysis)
 - Added proper `max_length` calculation to prevent token overflow
 - Added tokenizer attribute validation and fallbacks
 - Added output validation to catch `None` returns early
+- Added fallback text-only warmup method for environments without PIL
 
 **Code Changes:**
 ```python
-# Before (problematic):
-outputs = self.model.generate(
-    **inputs,
-    max_new_tokens=Config.MINICPM_CONFIG['max_length'],  # ❌ Too high (32768)
-    # ... other params
-)
+# Before (problematic - text-only for vision-language model):
+dummy_text = "Hello, this is a warmup message for the AI model."
+inputs = self.tokenizer(dummy_text, return_tensors="pt")
 
-# After (fixed):
-outputs = self.model.generate(
-    **inputs,
-    max_new_tokens=1000,  # ✅ Reasonable output length
-    max_length=min(Config.MINICPM_CONFIG['max_length'], inputs['input_ids'].shape[1] + 1000),  # ✅ Total length limit
-    # ... other params
-)
+# After (fixed - vision-language model compatible):
+# Create dummy image and text for vision-language model warmup
+dummy_img = Image.fromarray(np.zeros((224, 224, 3), dtype=np.uint8))
+dummy_text = "Describe the image in one short word."
 
-# Added validation:
-if outputs is None or len(outputs) == 0:
-    raise RuntimeError("Model generation returned None or empty output")
+# Use the processor to handle both image and text
+inputs = processor(images=dummy_img, text=dummy_text, return_tensors="pt")
 ```
 
 **Tokenizer Attribute Fixes:**
@@ -185,6 +182,14 @@ if not hasattr(self.tokenizer, 'eos_token_id') or self.tokenizer.eos_token_id is
         print("⚠️  Tokenizer missing pad_token_id, setting to 0")
         self.tokenizer.pad_token_id = 0
         self.tokenizer.eos_token_id = 0
+```
+
+**Fallback Support:**
+```python
+# Added fallback text-only warmup for environments without PIL
+def _warmup_model_text_only(self):
+    """Fallback warmup method using text-only input"""
+    # ... text-only warmup implementation
 ```
 
 ## Files Modified

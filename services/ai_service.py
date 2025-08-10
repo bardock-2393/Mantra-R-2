@@ -101,57 +101,108 @@ class MiniCPMV26Service:
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
-            # Verify tokenizer and model are loaded
             if self.tokenizer is None:
                 raise RuntimeError("Tokenizer is None - cannot perform warmup")
             if self.model is None:
                 raise RuntimeError("Model is None - cannot perform warmup")
             
-            # Create dummy input for warmup
-            dummy_text = "Hello, this is a warmup message for the AI model."
-            print(f"📝 Tokenizing dummy text: '{dummy_text}'")
-            
-            # Check if tokenizer has required attributes
-            if not hasattr(self.tokenizer, 'eos_token_id') or self.tokenizer.eos_token_id is None:
-                print("⚠️  Tokenizer missing eos_token_id, using pad_token_id instead")
-                if not hasattr(self.tokenizer, 'pad_token_id') or self.tokenizer.pad_token_id is None:
-                    print("⚠️  Tokenizer missing pad_token_id, setting to 0")
-                    self.tokenizer.pad_token_id = 0
-                    self.tokenizer.eos_token_id = 0
-            
-            inputs = self.tokenizer(dummy_text, return_tensors="pt")
-            if inputs is None:
-                raise RuntimeError("Tokenizer returned None inputs")
-            
-            print(f"✅ Tokenization successful, input shape: {inputs['input_ids'].shape}")
-            
-            # Move inputs to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                for i in range(3):  # Run 3 warmup iterations
-                    print(f"🔥 Warmup iteration {i+1}/3...")
-                    output = self.model.generate(
-                        **inputs,
-                        max_new_tokens=10,
-                        max_length=inputs['input_ids'].shape[1] + 10,  # Input length + small output
-                        do_sample=False,
-                        pad_token_id=self.tokenizer.eos_token_id,
-                        eos_token_id=self.tokenizer.eos_token_id
-                    )
-                    
-                    # Verify output is valid
-                    if output is None or len(output) == 0:
-                        raise RuntimeError(f"Warmup iteration {i+1} returned None or empty output")
-                    print(f"  ✅ Warmup iteration {i+1} successful, output shape: {output.shape}")
-            
-            print("✅ Model warmup completed")
-            
+            # Create dummy image and text for vision-language model warmup
+            try:
+                from PIL import Image
+                import numpy as np
+                
+                # Create a 224x224 black dummy image
+                dummy_img = Image.fromarray(np.zeros((224, 224, 3), dtype=np.uint8))
+                dummy_text = "Describe the image in one short word."
+                
+                print(f"🖼️  Created dummy image: {dummy_img.size}")
+                print(f"📝 Using dummy text: '{dummy_text}'")
+                
+                # Use the processor to handle both image and text
+                if hasattr(self.tokenizer, 'processor'):
+                    processor = self.tokenizer.processor
+                else:
+                    # If no processor attribute, try to use the tokenizer directly
+                    processor = self.tokenizer
+                
+                # Process image + text inputs
+                inputs = processor(images=dummy_img, text=dummy_text, return_tensors="pt")
+                if inputs is None:
+                    raise RuntimeError("Processor returned None inputs")
+                
+                print(f"✅ Processing successful, input keys: {list(inputs.keys())}")
+                
+                # Move inputs to device
+                inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+                
+                # Warm up the model with multiple forward passes
+                with torch.no_grad():
+                    for i in range(3):  # Run 3 warmup iterations
+                        print(f"🔥 Warmup iteration {i+1}/3...")
+                        output = self.model.generate(
+                            **inputs,
+                            max_new_tokens=8,  # Small output for warmup
+                            do_sample=False,
+                            pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
+                            eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
+                        )
+                        
+                        # Verify output is valid
+                        if output is None or len(output) == 0:
+                            raise RuntimeError(f"Warmup iteration {i+1} returned None or empty output")
+                        print(f"  ✅ Warmup iteration {i+1} successful, output shape: {output.shape}")
+                
+                print("✅ Model warmup completed")
+                
+            except ImportError as e:
+                print(f"⚠️  PIL not available, falling back to text-only warmup: {e}")
+                # Fallback to text-only if PIL is not available
+                self._warmup_model_text_only()
+                
         except Exception as e:
             print(f"❌ Model warmup failed: {e}")
             print(f"   Tokenizer type: {type(self.tokenizer)}")
             print(f"   Model type: {type(self.model)}")
             raise
+    
+    def _warmup_model_text_only(self):
+        """Fallback warmup method using text-only input"""
+        print("📝 Using text-only warmup fallback...")
+        
+        dummy_text = "Hello, this is a warmup message."
+        inputs = self.tokenizer(dummy_text, return_tensors="pt")
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        with torch.no_grad():
+            for i in range(3):
+                print(f"🔥 Text warmup iteration {i+1}/3...")
+                output = self.model.generate(
+                    **inputs,
+                    max_new_tokens=8,
+                    do_sample=False,
+                    pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
+                    eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
+                )
+                print(f"  ✅ Text warmup iteration {i+1} successful")
+    
+    def _extract_first_frame(self, video_path: str) -> Optional[Image.Image]:
+        """Extract first frame from video for analysis"""
+        try:
+            import av
+            from PIL import Image
+            
+            container = av.open(video_path)
+            for frame in container.decode(video=0):
+                img = frame.to_image().convert("RGB")
+                container.close()
+                return img
+                
+        except ImportError:
+            print("⚠️  PyAV not available for video frame extraction")
+            return None
+        except Exception as e:
+            print(f"⚠️  Failed to extract video frame: {e}")
+            return None
     
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered MiniCPM-V-2_6"""
@@ -238,8 +289,22 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
     def _generate_analysis(self, prompt: str) -> str:
         """Generate analysis using MiniCPM-V-2_6"""
         try:
-            # Tokenize input
-            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=Config.MINICPM_CONFIG['max_length']).to(self.device)
+            # Use the processor for proper tokenization
+            if hasattr(self.tokenizer, 'processor'):
+                processor = self.tokenizer.processor
+            else:
+                processor = self.tokenizer
+            
+            # Tokenize input (text-only for analysis)
+            inputs = processor(
+                text=prompt, 
+                return_tensors="pt", 
+                truncation=True, 
+                max_length=Config.MINICPM_CONFIG['max_length']
+            )
+            
+            # Move to device
+            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
             
             # Generate response
             with torch.no_grad():
@@ -251,8 +316,8 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
                     top_p=Config.MINICPM_CONFIG['top_p'],
                     top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=self.tokenizer.eos_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id
+                    pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
+                    eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
                 )
             
             # Verify outputs are valid
