@@ -33,24 +33,56 @@ class MiniCPMV26Service:
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
+            # Check model path
+            print(f"🔍 Model path: {Config.MINICPM_MODEL_PATH}")
+            if not Config.MINICPM_MODEL_PATH:
+                raise RuntimeError("MINICPM_MODEL_PATH is empty or None")
+            
             # Initialize GPU service
             await self.gpu_service.initialize()
             
             # Load tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                Config.MINICPM_MODEL_PATH,
-                trust_remote_code=True
-            )
+            print(f"📝 Loading tokenizer from {Config.MINICPM_MODEL_PATH}...")
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    Config.MINICPM_MODEL_PATH,
+                    trust_remote_code=True
+                )
+                
+                # Verify tokenizer loaded successfully
+                if self.tokenizer is None:
+                    raise RuntimeError("Tokenizer failed to load - returned None")
+                print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
+                
+            except Exception as e:
+                print(f"❌ Tokenizer loading failed: {e}")
+                print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
+                print(f"   Error type: {type(e).__name__}")
+                raise RuntimeError(f"Failed to load tokenizer: {e}")
             
             # Load model with optimizations
-            self.model = AutoModelForCausalLM.from_pretrained(
-                Config.MINICPM_MODEL_PATH,
-                torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
-                device_map="auto",
-                trust_remote_code=True
-            )
+            print(f"🤖 Loading model from {Config.MINICPM_MODEL_PATH}...")
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    Config.MINICPM_MODEL_PATH,
+                    torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+                
+                # Verify model loaded successfully
+                if self.model is None:
+                    raise RuntimeError("Model failed to load - returned None")
+                print(f"✅ Model loaded successfully: {type(self.model).__name__}")
+                
+            except Exception as e:
+                print(f"❌ Model loading failed: {e}")
+                print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
+                print(f"   Error type: {type(e).__name__}")
+                raise RuntimeError(f"Failed to load model: {e}")
             
             # Move to GPU
+            print(f"🚀 Moving model to device: {self.device}")
             self.model.to(self.device)
             self.model.eval()
             
@@ -68,19 +100,42 @@ class MiniCPMV26Service:
         """Warm up the model for optimal performance"""
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
-        # Create dummy input for warmup
-        dummy_text = "Hello, this is a warmup message for the AI model."
-        inputs = self.tokenizer(dummy_text, return_tensors="pt").to(self.device)
-        
-        with torch.no_grad():
-            for _ in range(3):  # Run 3 warmup iterations
-                _ = self.model.generate(
-                    **inputs,
-                    max_new_tokens=10,
-                    do_sample=False
-                )
-        
-        print("✅ Model warmup completed")
+        try:
+            # Verify tokenizer and model are loaded
+            if self.tokenizer is None:
+                raise RuntimeError("Tokenizer is None - cannot perform warmup")
+            if self.model is None:
+                raise RuntimeError("Model is None - cannot perform warmup")
+            
+            # Create dummy input for warmup
+            dummy_text = "Hello, this is a warmup message for the AI model."
+            print(f"📝 Tokenizing dummy text: '{dummy_text}'")
+            
+            inputs = self.tokenizer(dummy_text, return_tensors="pt")
+            if inputs is None:
+                raise RuntimeError("Tokenizer returned None inputs")
+            
+            print(f"✅ Tokenization successful, input shape: {inputs['input_ids'].shape}")
+            
+            # Move inputs to device
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                for i in range(3):  # Run 3 warmup iterations
+                    print(f"🔥 Warmup iteration {i+1}/3...")
+                    _ = self.model.generate(
+                        **inputs,
+                        max_new_tokens=10,
+                        do_sample=False
+                    )
+            
+            print("✅ Model warmup completed")
+            
+        except Exception as e:
+            print(f"❌ Model warmup failed: {e}")
+            print(f"   Tokenizer type: {type(self.tokenizer)}")
+            print(f"   Model type: {type(self.model)}")
+            raise
     
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered MiniCPM-V-2_6"""

@@ -45,6 +45,51 @@ async def test_gpu_service():
         print(f"❌ GPU Service test failed: {e}")
         return False
 
+def test_model_accessibility():
+    """Test if the model path is accessible and authenticated"""
+    print("🧪 Testing model accessibility...")
+    
+    try:
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from huggingface_hub import HfApi
+        
+        # Check if we can access the model repository
+        api = HfApi()
+        model_path = Config.MINICPM_MODEL_PATH
+        
+        print(f"  → Checking access to: {model_path}")
+        
+        try:
+            # Try to get model info
+            model_info = api.model_info(model_path)
+            print(f"✅ Model accessible: {model_info.modelId}")
+            print(f"✅ Model type: {model_info.pipeline_tag}")
+            print(f"✅ Last modified: {model_info.lastModified}")
+            
+            # Check if model is gated/private
+            if hasattr(model_info, 'private') and model_info.private:
+                print("⚠️  Model is private - authentication required")
+            else:
+                print("✅ Model is public")
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ Cannot access model: {e}")
+            print(f"   This might be due to:")
+            print(f"   - Model doesn't exist")
+            print(f"   - Authentication required (run: huggingface-cli login)")
+            print(f"   - Network connectivity issues")
+            return False
+            
+    except ImportError as e:
+        print(f"❌ Required packages not available: {e}")
+        print(f"   Install with: pip install transformers huggingface_hub")
+        return False
+    except Exception as e:
+        print(f"❌ Model accessibility test failed: {e}")
+        return False
+
 async def test_ai_service_initialization():
     """Test AI service initialization without unsupported parameters"""
     print("🧪 Testing AI Service initialization...")
@@ -52,7 +97,8 @@ async def test_ai_service_initialization():
     try:
         ai_service = MiniCPMV26Service()
         
-        # Test initialization
+        # Test initialization with detailed error handling
+        print("  → Starting initialization...")
         await ai_service.initialize()
         
         if ai_service.is_initialized:
@@ -60,6 +106,11 @@ async def test_ai_service_initialization():
             print(f"✅ Model device: {ai_service.device}")
             print(f"✅ Tokenizer loaded: {ai_service.tokenizer is not None}")
             print(f"✅ Model loaded: {ai_service.model is not None}")
+            
+            if ai_service.tokenizer:
+                print(f"✅ Tokenizer type: {type(ai_service.tokenizer).__name__}")
+            if ai_service.model:
+                print(f"✅ Model type: {type(ai_service.model).__name__}")
             
             # Cleanup
             ai_service.cleanup()
@@ -70,6 +121,13 @@ async def test_ai_service_initialization():
             
     except Exception as e:
         print(f"❌ AI Service test failed: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        
+        # Print more details about the error
+        import traceback
+        print("   Full traceback:")
+        traceback.print_exc()
+        
         return False
 
 def test_config_values():
