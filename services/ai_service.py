@@ -7,8 +7,9 @@ import os
 import time
 import torch
 import numpy as np
+from PIL import Image
 from typing import Dict, List, Optional, Tuple
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -20,6 +21,7 @@ class MiniCPMV26Service:
         self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
         self.model = None
         self.tokenizer = None
+        self.processor = None
         self.gpu_service = GPUService()
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
@@ -41,24 +43,35 @@ class MiniCPMV26Service:
             # Initialize GPU service
             await self.gpu_service.initialize()
             
-            # Load tokenizer
-            print(f"📝 Loading tokenizer from {Config.MINICPM_MODEL_PATH}...")
+            # Load processor (handles both text and image inputs)
+            print(f"📝 Loading processor from {Config.MINICPM_MODEL_PATH}...")
+            try:
+                self.processor = AutoProcessor.from_pretrained(
+                    Config.MINICPM_MODEL_PATH,
+                    trust_remote_code=True
+                )
+                
+                # Verify processor loaded successfully
+                if self.processor is None:
+                    raise RuntimeError("Processor failed to load - returned None")
+                print(f"✅ Processor loaded successfully: {type(self.processor).__name__}")
+                
+            except Exception as e:
+                print(f"❌ Processor loading failed: {e}")
+                print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
+                print(f"   Error type: {type(e).__name__}")
+                raise RuntimeError(f"Failed to load processor: {e}")
+            
+            # Load tokenizer as fallback
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
                     trust_remote_code=True
                 )
-                
-                # Verify tokenizer loaded successfully
-                if self.tokenizer is None:
-                    raise RuntimeError("Tokenizer failed to load - returned None")
                 print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
-                
             except Exception as e:
-                print(f"❌ Tokenizer loading failed: {e}")
-                print(f"   Model path: {Config.MINICPM_MODEL_PATH}")
-                print(f"   Error type: {type(e).__name__}")
-                raise RuntimeError(f"Failed to load tokenizer: {e}")
+                print(f"⚠️ Tokenizer loading failed, using processor only: {e}")
+                self.tokenizer = None
             
             # Load model with optimizations
             print(f"🤖 Loading model from {Config.MINICPM_MODEL_PATH}...")
@@ -101,40 +114,93 @@ class MiniCPMV26Service:
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
-            if self.tokenizer is None:
-                raise RuntimeError("Tokenizer is None - cannot perform warmup")
+            if self.processor is None:
+                raise RuntimeError("Processor is None - cannot perform warmup")
             if self.model is None:
                 raise RuntimeError("Model is None - cannot perform warmup")
             
-            # MiniCPM-V-2_6 is a text-only model, use text-only warmup
-            print("📝 Using text-only warmup for MiniCPM-V-2_6...")
-            self._warmup_model_text_only()
+            # MiniCPM-V-2_6 is a vision-language model, use image + text warmup
+            print("🖼️ Using vision-language warmup for MiniCPM-V-2_6...")
+            self._warmup_model_vision_language()
                 
         except Exception as e:
             print(f"❌ Model warmup failed: {e}")
-            print(f"   Tokenizer type: {type(self.tokenizer)}")
+            print(f"   Processor type: {type(self.processor)}")
             print(f"   Model type: {type(self.model)}")
             raise
+    
+    def _warmup_model_vision_language(self):
+        """Warmup method using dummy image + text for vision-language model"""
+        print("🖼️ Using vision-language warmup...")
+        
+        try:
+            # Create a dummy image (1x3x224x224 - standard size)
+            dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
+            dummy_text = "Hello, this is a warmup message."
+            
+            # Process inputs using the processor
+            inputs = self.processor(
+                text=dummy_text,
+                images=dummy_image,
+                return_tensors="pt"
+            )
+            
+            # Move to device
+            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                for i in range(3):
+                    print(f"🔥 Vision-language warmup iteration {i+1}/3...")
+                    output = self.model.generate(
+                        **inputs,
+                        max_new_tokens=8,
+                        do_sample=False,
+                        pad_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0),
+                        eos_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0)
+                    )
+                    print(f"  ✅ Vision-language warmup iteration {i+1} successful")
+                    
+        except Exception as e:
+            print(f"❌ Vision-language warmup failed: {e}")
+            # Fallback to text-only warmup if vision fails
+            print("📝 Falling back to text-only warmup...")
+            self._warmup_model_text_only()
     
     def _warmup_model_text_only(self):
         """Fallback warmup method using text-only input"""
         print("📝 Using text-only warmup fallback...")
         
-        dummy_text = "Hello, this is a warmup message."
-        inputs = self.tokenizer(dummy_text, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        
-        with torch.no_grad():
-            for i in range(3):
-                print(f"🔥 Text warmup iteration {i+1}/3...")
-                output = self.model.generate(
-                    **inputs,
-                    max_new_tokens=8,
-                    do_sample=False,
-                    pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
-                    eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
+        try:
+            dummy_text = "Hello, this is a warmup message."
+            
+            # Use processor if available, otherwise tokenizer
+            if self.processor:
+                inputs = self.processor(
+                    text=dummy_text,
+                    return_tensors="pt"
                 )
-                print(f"  ✅ Text warmup iteration {i+1} successful")
+            elif self.tokenizer:
+                inputs = self.tokenizer(dummy_text, return_tensors="pt")
+            else:
+                raise RuntimeError("Neither processor nor tokenizer available")
+            
+            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                for i in range(3):
+                    print(f"🔥 Text warmup iteration {i+1}/3...")
+                    output = self.model.generate(
+                        **inputs,
+                        max_new_tokens=8,
+                        do_sample=False,
+                        pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
+                        eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
+                    )
+                    print(f"  ✅ Text warmup iteration {i+1} successful")
+                    
+        except Exception as e:
+            print(f"❌ Text warmup failed: {e}")
+            raise
     
 
     
@@ -223,24 +289,34 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
     def _generate_analysis(self, prompt: str) -> str:
         """Generate analysis using MiniCPM-V-2_6"""
         try:
-            # Use the processor for proper tokenization
-            if hasattr(self.tokenizer, 'processor'):
-                processor = self.tokenizer.processor
-            else:
-                processor = self.tokenizer
+            # For vision-language model, we need to provide both text and a dummy image
+            # Since this is text-only analysis, we'll use a placeholder image
+            dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
             
-            # Tokenize input (text-only for analysis)
-            inputs = processor(
-                text=prompt, 
-                return_tensors="pt", 
-                truncation=True, 
-                max_length=Config.MINICPM_CONFIG['max_length']
-            )
+            # Use the processor for proper vision-language model input handling
+            if self.processor:
+                inputs = self.processor(
+                    text=prompt,
+                    images=dummy_image,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)  # Reasonable limit
+                )
+            elif self.tokenizer:
+                # Fallback to tokenizer-only if processor not available
+                inputs = self.tokenizer(
+                    prompt,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)
+                )
+            else:
+                raise RuntimeError("Neither processor nor tokenizer available")
             
             # Move to device
             inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
             
-            # Generate response
+            # Generate response with reasonable parameters
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
@@ -250,16 +326,21 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
                     top_p=Config.MINICPM_CONFIG['top_p'],
                     top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
-                    eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
+                    pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
+                    eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
                 )
             
             # Verify outputs are valid
             if outputs is None or len(outputs) == 0:
                 raise RuntimeError("Model generation returned None or empty output")
             
-            # Decode response
-            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # Decode response using the appropriate tokenizer
+            if self.processor and hasattr(self.processor, 'tokenizer'):
+                response = self.processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            elif self.tokenizer:
+                response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            else:
+                raise RuntimeError("No tokenizer available for decoding")
             
             # Extract only the new generated content
             if prompt in response:
@@ -325,6 +406,8 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             del self.model
         if self.tokenizer:
             del self.tokenizer
+        if self.processor:
+            del self.processor
         
         self.gpu_service.cleanup()
         torch.cuda.empty_cache()
