@@ -47,9 +47,7 @@ class MiniCPMV26Service:
                 Config.MINICPM_MODEL_PATH,
                 torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
                 device_map="auto",
-                trust_remote_code=True,
-                use_flash_attention_2=Config.MINICPM_CONFIG['use_flash_attention'],
-                load_in_8bit=Config.MINICPM_CONFIG['quantization'] == 'int8'
+                trust_remote_code=True
             )
             
             # Move to GPU

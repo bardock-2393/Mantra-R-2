@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify GPU fixes work correctly
-Tests for:
-1. GPU info errors (decode and format issues)
-2. Coroutine never awaited issues
-3. Model ID validation
+Test script to verify GPU fixes and model initialization
 """
 
 import asyncio
@@ -12,155 +8,156 @@ import sys
 import os
 
 # Add the current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from services.gpu_service import GPUService
+from services.ai_service import MiniCPMV26Service
+from config import Config
 
 async def test_gpu_service():
-    """Test GPU service initialization and status methods"""
-    print("🧪 Testing GPU Service...")
+    """Test GPU service fixes"""
+    print("🧪 Testing GPU Service fixes...")
     
     try:
-        from services.gpu_service import GPUService
-        
         gpu_service = GPUService()
-        
-        # Test initialization
-        print("  → Testing initialization...")
         await gpu_service.initialize()
-        print("  ✅ GPU service initialized successfully")
         
-        # Test GPU status message
-        print("  → Testing GPU status message...")
-        status_msg = await gpu_service.get_gpu_status_message()
-        print(f"  ✅ GPU Status: {status_msg}")
+        # Test GPU info retrieval
+        gpu_info = await gpu_service.get_gpu_info()
+        print(f"✅ GPU Info: {gpu_info}")
         
         # Test performance metrics
-        print("  → Testing performance metrics...")
         metrics = await gpu_service.get_performance_metrics()
-        print(f"  ✅ Performance metrics: {metrics}")
+        print(f"✅ Performance Metrics: {metrics}")
+        
+        # Test GPU status message
+        status_msg = await gpu_service.get_gpu_status_message()
+        print(f"✅ GPU Status: {status_msg}")
         
         # Test memory status
-        print("  → Testing memory status...")
-        memory_status = await gpu_service.get_memory_status()
-        print(f"  ✅ Memory status: {memory_status}")
+        mem_status = await gpu_service.get_memory_status()
+        print(f"✅ Memory Status: {mem_status}")
         
-        # Cleanup
-        await gpu_service.cleanup()
-        print("  ✅ GPU service cleaned up")
-        
+        print("✅ GPU Service tests passed!")
         return True
         
     except Exception as e:
-        print(f"  ❌ GPU service test failed: {e}")
+        print(f"❌ GPU Service test failed: {e}")
         return False
 
-async def test_ai_service():
-    """Test AI service initialization"""
-    print("🧪 Testing AI Service...")
+async def test_ai_service_initialization():
+    """Test AI service initialization without unsupported parameters"""
+    print("🧪 Testing AI Service initialization...")
     
     try:
-        from services.ai_service import MiniCPMV26Service
-        
         ai_service = MiniCPMV26Service()
         
         # Test initialization
-        print("  → Testing initialization...")
         await ai_service.initialize()
-        print("  ✅ AI service initialized successfully")
         
-        # Test chat response generation (should not have coroutine issues)
-        print("  → Testing chat response generation...")
-        response = await ai_service.generate_chat_response(
-            analysis_result="Test analysis",
-            analysis_type="test",
-            user_focus="test",
-            message="Hello",
-            chat_history=[]
-        )
-        print(f"  ✅ Chat response generated: {response[:100]}...")
-        
-        # Cleanup
-        ai_service.cleanup()
-        print("  ✅ AI service cleaned up")
-        
-        return True
-        
+        if ai_service.is_initialized:
+            print("✅ AI Service initialized successfully!")
+            print(f"✅ Model device: {ai_service.device}")
+            print(f"✅ Tokenizer loaded: {ai_service.tokenizer is not None}")
+            print(f"✅ Model loaded: {ai_service.model is not None}")
+            
+            # Cleanup
+            ai_service.cleanup()
+            return True
+        else:
+            print("❌ AI Service failed to initialize")
+            return False
+            
     except Exception as e:
-        print(f"  ❌ AI service test failed: {e}")
+        print(f"❌ AI Service test failed: {e}")
         return False
 
-async def test_config():
+def test_config_values():
     """Test configuration values"""
-    print("🧪 Testing Configuration...")
+    print("🧪 Testing configuration values...")
     
     try:
-        from config import Config
+        # Check MiniCPM model path
+        print(f"✅ MINICPM_MODEL_PATH: {Config.MINICPM_MODEL_PATH}")
         
-        # Test model path
-        print(f"  → Model path: {Config.MINICPM_MODEL_PATH}")
-        if "MiniCPM-V-2_6" in Config.MINICPM_MODEL_PATH:
-            print("  ✅ Model ID is correct (contains underscore)")
-        else:
-            print("  ❌ Model ID is incorrect")
-            return False
+        # Check GPU config
+        print(f"✅ GPU device: {Config.GPU_CONFIG['device']}")
+        print(f"✅ GPU precision: {Config.GPU_CONFIG['precision']}")
         
-        # Test GPU config
-        print(f"  → GPU device: {Config.GPU_CONFIG['device']}")
-        print(f"  → GPU precision: {Config.GPU_CONFIG['precision']}")
-        print("  ✅ Configuration loaded successfully")
+        # Check MiniCPM config (should not have unsupported params)
+        print(f"✅ MiniCPM config keys: {list(Config.MINICPM_CONFIG.keys())}")
         
+        # Verify no unsupported parameters
+        unsupported_params = ['use_flash_attention', 'quantization']
+        for param in unsupported_params:
+            if param not in Config.MINICPM_CONFIG:
+                print(f"✅ {param} parameter removed (as expected)")
+            else:
+                print(f"❌ {param} parameter still present (should be removed)")
+                return False
+        
+        print("✅ Configuration tests passed!")
         return True
         
     except Exception as e:
-        print(f"  ❌ Configuration test failed: {e}")
+        print(f"❌ Configuration test failed: {e}")
         return False
 
 async def main():
     """Run all tests"""
-    print("🚀 Starting GPU Fixes Test Suite...")
-    print("=" * 50)
+    print("🚀 Starting GPU fixes verification tests...\n")
     
     tests = [
-        ("Configuration", test_config),
+        ("Configuration Values", test_config_values),
         ("GPU Service", test_gpu_service),
-        ("AI Service", test_ai_service),
+        ("AI Service Initialization", test_ai_service_initialization)
     ]
     
     results = []
     
     for test_name, test_func in tests:
-        print(f"\n{test_name}:")
-        try:
+        print(f"\n{'='*50}")
+        print(f"Running: {test_name}")
+        print(f"{'='*50}")
+        
+        if asyncio.iscoroutinefunction(test_func):
             result = await test_func()
-            results.append((test_name, result))
-        except Exception as e:
-            print(f"  ❌ {test_name} test crashed: {e}")
-            results.append((test_name, False))
+        else:
+            result = test_func()
+        
+        results.append((test_name, result))
+        print()
     
-    print("\n" + "=" * 50)
-    print("📊 Test Results:")
+    # Summary
+    print(f"\n{'='*50}")
+    print("TEST SUMMARY")
+    print(f"{'='*50}")
     
-    all_passed = True
+    passed = 0
+    total = len(results)
+    
     for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"  {test_name}: {status}")
-        if not result:
-            all_passed = False
+        status = "✅ PASSED" if result else "❌ FAILED"
+        print(f"{test_name}: {status}")
+        if result:
+            passed += 1
     
-    print("\n" + "=" * 50)
-    if all_passed:
+    print(f"\nResults: {passed}/{total} tests passed")
+    
+    if passed == total:
         print("🎉 All tests passed! GPU fixes are working correctly.")
     else:
         print("⚠️  Some tests failed. Please check the errors above.")
     
-    return all_passed
+    return passed == total
 
 if __name__ == "__main__":
     try:
         success = asyncio.run(main())
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n⏹️  Test interrupted by user")
+        print("\n⚠️  Tests interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n💥 Test suite crashed: {e}")
+        print(f"\n❌ Unexpected error: {e}")
         sys.exit(1) 

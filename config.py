@@ -33,9 +33,7 @@ class Config:
         'max_length': 32768,
         'temperature': 0.2,
         'top_p': 0.9,
-        'top_k': 40,
-        'use_flash_attention': True,
-        'quantization': 'int8'  # Use INT8 for speed
+        'top_k': 40
     }
     
     # DeepStream Configuration
