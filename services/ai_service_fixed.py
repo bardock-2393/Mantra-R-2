@@ -9,7 +9,7 @@ import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
+from transformers import AutoTokenizer, AutoModel, AutoProcessor
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -76,7 +76,7 @@ class MiniCPMV26Service:
             # Load model with optimizations
             print(f"🤖 Loading model from {Config.MINICPM_MODEL_PATH}...")
             try:
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model = AutoModel.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
                     torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
                     device_map="auto",
@@ -138,10 +138,13 @@ class MiniCPMV26Service:
             dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
             dummy_text = "Hello, this is a warmup message."
             
+            # Convert to PIL Image for the processor
+            dummy_pil_image = Image.fromarray((dummy_image.squeeze(0).cpu().numpy() * 255).astype(np.uint8))
+            
             # Process inputs using the processor
             inputs = self.processor(
                 text=dummy_text,
-                images=dummy_image,
+                images=dummy_pil_image,
                 return_tensors="pt"
             )
             
@@ -289,15 +292,19 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
     def _generate_analysis(self, prompt: str) -> str:
         """Generate analysis using MiniCPM-V-2_6"""
         try:
-            # For vision-language model, we need to provide both text and a dummy image
-            # Since this is text-only analysis, we'll use a placeholder image
+            # MiniCPM-V-2_6 uses a specific chat interface
+            # Create a dummy image for the vision-language model
             dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
+            
+            # Convert to PIL Image for the processor
+            dummy_pil_image = Image.fromarray((dummy_image.squeeze(0).cpu().numpy() * 255).astype(np.uint8))
             
             # Use the processor for proper vision-language model input handling
             if self.processor:
+                # Process the image and text together
                 inputs = self.processor(
                     text=prompt,
-                    images=dummy_image,
+                    images=dummy_pil_image,
                     return_tensors="pt",
                     truncation=True,
                     max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)  # Reasonable limit

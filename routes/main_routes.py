@@ -12,7 +12,7 @@ from flask import Blueprint, render_template, request, jsonify, session, send_fi
 from werkzeug.utils import secure_filename
 from config import Config
 from services.session_service import generate_session_id, store_session_data, get_session_data, cleanup_old_uploads
-from services.ai_service import minicpm_service
+from services.ai_service_fixed import minicpm_service
 from utils.video_utils import extract_video_metadata, create_evidence_for_timestamps
 from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
 from analysis_templates import ANALYSIS_TEMPLATES

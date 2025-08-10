@@ -184,7 +184,7 @@ def test_local_ai_model():
     print("\n🤖 Testing local AI model...")
     
     try:
-        from services.ai_service import minicpm_service
+        from services.ai_service_fixed import minicpm_service
         
         # Test if the service can be imported
         print("✅ MiniCPM-V 2.6 service imported successfully")

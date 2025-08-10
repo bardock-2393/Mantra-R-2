@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 from dataclasses import dataclass, asdict
 from config import Config
-from services.ai_service import minicpm_service
+from services.ai_service_fixed import minicpm_service
 from services.video_processing_service import video_processor
 from services.performance_service import PerformanceMonitor
 

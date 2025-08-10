@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from services.gpu_service import GPUService
-from services.ai_service import MiniCPMV26Service
+from services.ai_service_fixed import MiniCPMV26Service
 from config import Config
 
 async def test_gpu_service():
