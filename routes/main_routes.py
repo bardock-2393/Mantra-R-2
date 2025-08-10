@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 from config import Config
 from services.session_service import generate_session_id, store_session_data, get_session_data, cleanup_old_uploads
 from services.ai_service_fixed import minicpm_service
+from services.vector_search_service import vector_search_service
 from utils.video_utils import extract_video_metadata, create_evidence_for_timestamps
 from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
 from analysis_templates import ANALYSIS_TEMPLATES
@@ -160,19 +161,22 @@ def analyze_video():
         video_metadata = extract_video_metadata(video_path)
         video_duration = video_metadata.get('duration', 0) if video_metadata else 0
         
+        print(f"🎯 Video duration: {video_duration:.2f} seconds")
+        
         # Extract timestamps and capture screenshots automatically
         timestamps = extract_timestamps_from_text(analysis_result)
+        print(f"🎯 Raw extracted timestamps: {timestamps}")
         
         # Clean and deduplicate timestamps
-        from utils.text_utils import clean_and_deduplicate_timestamps
+        from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
         timestamps = clean_and_deduplicate_timestamps(timestamps)
+        print(f"🎯 Cleaned timestamps: {timestamps}")
         
         # Filter timestamps to only include those within video duration
         if video_duration > 0:
-            valid_timestamps = [ts for ts in timestamps if 0 <= ts < video_duration]
-            if len(valid_timestamps) != len(timestamps):
-                print(f"⚠️ Filtered out {len(timestamps) - len(valid_timestamps)} invalid timestamps beyond video duration ({video_duration:.2f}s)")
-                timestamps = valid_timestamps
+            # Use aggressive validation to completely remove out-of-bounds timestamps
+            timestamps = aggressive_timestamp_validation(timestamps, video_duration)
+            print(f"🎯 Final valid timestamps: {timestamps}")
         else:
             print("⚠️ Warning: Could not determine video duration, using all extracted timestamps")
         
@@ -189,19 +193,30 @@ def analyze_video():
             'user_focus': user_focus,
             'timestamps_found': timestamps,
             'evidence': evidence,
-            'analysis_time': datetime.now().isoformat()
+            'analysis_time': datetime.now().isoformat(),
+            'video_duration': video_duration,
+            'video_metadata': video_metadata
         }
         
         # Update session data
         session_data.update(analysis_data)
         store_session_data(session_id, session_data)
         
+        # Create vector embeddings for semantic search
+        try:
+            vector_search_service.create_embeddings(session_id, analysis_data)
+            print(f"✅ Vector embeddings created for session {session_id}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not create vector embeddings: {e}")
+        
         return jsonify({
             'success': True,
             'analysis': analysis_result,
             'timestamps': timestamps,
             'evidence': evidence,
-            'evidence_count': len(evidence)
+            'evidence_count': len(evidence),
+            'video_duration': video_duration,
+            'vector_search_available': True
         })
         
     except Exception as e:

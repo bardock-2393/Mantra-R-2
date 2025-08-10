@@ -147,43 +147,60 @@ def create_evidence_for_timestamps(timestamps, video_path, session_id, upload_fo
     # First, get the actual video duration to validate timestamps
     video_metadata = extract_video_metadata(video_path)
     if not video_metadata:
-        print("Warning: Could not extract video metadata, skipping evidence creation")
+        print("❌ Warning: Could not extract video metadata, skipping evidence creation")
         return evidence
     
     video_duration = video_metadata['duration']
-    print(f"Video duration: {video_duration:.2f} seconds")
+    print(f"📹 Video duration: {video_duration:.2f} seconds")
     
     # Filter timestamps to only include those within video duration
     valid_timestamps = [ts for ts in timestamps if 0 <= ts < video_duration]
     
     if not valid_timestamps:
-        print("No valid timestamps found within video duration")
+        print("❌ No valid timestamps found within video duration")
         return evidence
     
-    print(f"Valid timestamps: {valid_timestamps}")
+    print(f"✅ Valid timestamps: {valid_timestamps}")
     
+    # Create evidence for each valid timestamp
     for i, timestamp in enumerate(valid_timestamps):
-        # Determine if this is a single timestamp or a range
-        if i < len(valid_timestamps) - 1:
-            next_timestamp = valid_timestamps[i + 1]
-            timeframe_length = next_timestamp - timestamp
-        else:
-            # For the last timestamp, use a short duration
-            timeframe_length = 2.0  # 2 seconds for single timestamp
-        
-        # Ensure end_time doesn't exceed video duration
-        end_time = min(timestamp + timeframe_length, video_duration)
-        
-        # If timeframe is longer than 3 seconds, create a video clip
-        if timeframe_length > 3.0:
-            clip_data = extract_video_clip(video_path, timestamp, end_time, session_id, upload_folder)
-            if clip_data:
-                evidence.append(clip_data)
-        else:
-            # For shorter timeframes, create a screenshot
-            screenshot_data = capture_screenshot(video_path, timestamp, session_id, upload_folder)
-            if screenshot_data:
-                screenshot_data['type'] = 'screenshot'
-                evidence.append(screenshot_data)
+        try:
+            # Determine if this is a single timestamp or a range
+            if i < len(valid_timestamps) - 1:
+                next_timestamp = valid_timestamps[i + 1]
+                timeframe_length = next_timestamp - timestamp
+            else:
+                # For the last timestamp, use a short duration
+                timeframe_length = 2.0  # 2 seconds for single timestamp
+            
+            # Ensure end_time doesn't exceed video duration
+            end_time = min(timestamp + timeframe_length, video_duration)
+            
+            print(f"🔍 Processing timestamp {timestamp:.2f}s -> {end_time:.2f}s (duration: {timeframe_length:.2f}s)")
+            
+            # If timeframe is longer than 3 seconds, create a video clip
+            if timeframe_length > 3.0:
+                print(f"🎬 Creating video clip for {timestamp:.2f}s - {end_time:.2f}s")
+                clip_data = extract_video_clip(video_path, timestamp, end_time, session_id, upload_folder)
+                if clip_data:
+                    evidence.append(clip_data)
+                    print(f"✅ Video clip created: {clip_data['filename']}")
+                else:
+                    print(f"❌ Failed to create video clip for {timestamp:.2f}s - {end_time:.2f}s")
+            else:
+                # For shorter timeframes, create a screenshot
+                print(f"📸 Creating screenshot for {timestamp:.2f}s")
+                screenshot_data = capture_screenshot(video_path, timestamp, session_id, upload_folder)
+                if screenshot_data:
+                    screenshot_data['type'] = 'screenshot'
+                    evidence.append(screenshot_data)
+                    print(f"✅ Screenshot created: {screenshot_data['filename']}")
+                else:
+                    print(f"❌ Failed to create screenshot for {timestamp:.2f}s")
+                    
+        except Exception as e:
+            print(f"❌ Error processing timestamp {timestamp:.2f}s: {e}")
+            continue
     
+    print(f"🎯 Evidence creation complete: {len(evidence)} items created")
     return evidence 

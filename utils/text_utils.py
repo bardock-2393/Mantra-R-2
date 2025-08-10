@@ -5,6 +5,34 @@ Handles timestamp extraction and text processing functionality
 
 import re
 
+def aggressive_timestamp_validation(timestamps, video_duration):
+    """Aggressively validate timestamps and remove any that are out of bounds"""
+    if not timestamps or video_duration <= 0:
+        return []
+    
+    # Convert to seconds if needed and filter
+    valid_timestamps = []
+    for ts in timestamps:
+        # Ensure timestamp is within bounds - use actual video duration
+        if 0 <= ts < video_duration:
+            valid_timestamps.append(ts)
+        else:
+            print(f"🚫 Removed out-of-bounds timestamp: {ts:.2f}s (video duration: {video_duration:.2f}s)")
+    
+    # Remove duplicates and sort
+    unique_timestamps = sorted(list(set(valid_timestamps)))
+    
+    # Ensure minimum spacing between timestamps (at least 2 seconds)
+    spaced_timestamps = []
+    for ts in unique_timestamps:
+        if not spaced_timestamps or abs(ts - spaced_timestamps[-1]) >= 2.0:
+            spaced_timestamps.append(ts)
+        else:
+            print(f"🚫 Removed too-close timestamp: {ts:.2f}s (too close to {spaced_timestamps[-1]:.2f}s)")
+    
+    print(f"✅ Timestamp validation: {len(timestamps)} -> {len(spaced_timestamps)} valid timestamps")
+    return spaced_timestamps
+
 def clean_and_deduplicate_timestamps(timestamps):
     """Clean and deduplicate timestamps, removing duplicates and sorting"""
     if not timestamps:
@@ -13,8 +41,8 @@ def clean_and_deduplicate_timestamps(timestamps):
     # Remove duplicates and sort
     unique_timestamps = sorted(list(set(timestamps)))
     
-    # Remove any invalid timestamps (negative or too large)
-    valid_timestamps = [ts for ts in unique_timestamps if 0 <= ts <= 1800]
+    # Remove any invalid timestamps (negative) - don't limit upper bound here
+    valid_timestamps = [ts for ts in unique_timestamps if ts >= 0]
     
     # Remove timestamps that are too close together (within 1 second)
     cleaned_timestamps = []
@@ -59,8 +87,8 @@ def extract_timestamps_from_text(text):
             else:
                 continue
                 
-            # More restrictive range: 0 to 30 minutes (1800 seconds) for typical videos
-            if 0 <= timestamp <= 1800:
+            # Allow any positive timestamp - validation will be done later with actual video duration
+            if timestamp >= 0:
                 timestamps.append(timestamp)
     
     # Remove duplicates and sort
@@ -72,7 +100,7 @@ def extract_timestamps_from_text(text):
     for match in re.finditer(r'(\d{1,2}):(\d{2})', text):
         minutes, seconds = int(match.group(1)), int(match.group(2))
         timestamp = minutes * 60 + seconds
-        if 0 <= timestamp <= 1800:  # Same range restriction
+        if timestamp >= 0:  # Allow any positive timestamp
             key_events.append(timestamp)
     
     # Combine and prioritize key events
@@ -81,8 +109,8 @@ def extract_timestamps_from_text(text):
     # Clean and deduplicate
     cleaned_timestamps = clean_and_deduplicate_timestamps(all_timestamps)
     
-    # Return up to 8 most relevant timestamps
-    return cleaned_timestamps[:8]
+    # Return up to 12 most relevant timestamps (increased from 8)
+    return cleaned_timestamps[:12]
 
 def extract_timestamp_ranges_from_text(text):
     """Extract timestamp ranges from text (e.g., '00:15-00:17')"""
@@ -103,8 +131,8 @@ def extract_timestamp_ranges_from_text(text):
         end_seconds = int(match.group(5))
         end_time = end_hours * 3600 + end_minutes * 60 + end_seconds
         
-        # More restrictive validation: 0 to 30 minutes (1800 seconds) and ensure logical order
-        if 0 <= start_time <= end_time <= 1800 and (end_time - start_time) <= 300:  # Max 5 minute range
+        # Validate logical order and reasonable range - allow longer ranges for longer videos
+        if start_time >= 0 and end_time > start_time and (end_time - start_time) <= 600:  # Max 10 minute range
             ranges.append((start_time, end_time))
     
     return ranges 

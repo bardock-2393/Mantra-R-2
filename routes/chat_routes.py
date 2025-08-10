@@ -1,6 +1,6 @@
 """
 Chat Routes Module
-Handles chat functionality and AI responses
+Handles chat functionality and AI responses with vector search
 """
 
 import os
@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify, session
 from config import Config
 from services.session_service import get_session_data, store_session_data
 from services.ai_service_fixed import minicpm_service
+from services.vector_search_service import vector_search_service
 from utils.video_utils import create_evidence_for_timestamps
 from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
 
@@ -18,7 +19,7 @@ chat_bp = Blueprint('chat', __name__)
 
 @chat_bp.route('/chat', methods=['POST'])
 def chat():
-    """Handle chat messages with enhanced AI responses"""
+    """Handle chat messages with enhanced AI responses using vector search"""
     try:
         data = request.get_json()
         message = data.get('message', '')
@@ -55,9 +56,38 @@ def chat():
         
         print(f"Debug: Chat - Analysis result length: {len(analysis_result) if analysis_result else 0}")
         
-        # Generate contextual AI response based on video analysis
+        # Use vector search to find relevant content for the question
+        relevant_content = []
         if analysis_result:
-            ai_response = minicpm_service.generate_chat_response(analysis_result, analysis_type, user_focus, message, chat_list)
+            try:
+                # Search for content similar to the user's question
+                relevant_content = vector_search_service.search_similar_content(session_id, message, top_k=3)
+                print(f"🔍 Vector search found {len(relevant_content)} relevant content items")
+                
+                # Format relevant content for context
+                context_info = ""
+                if relevant_content:
+                    context_info = "\n\n**Relevant Content Found:**\n"
+                    for i, content in enumerate(relevant_content, 1):
+                        context_info += f"{i}. {content['text']}\n"
+                        if content.get('timestamp'):
+                            context_info += f"   Timestamp: {content['timestamp']:.2f}s\n"
+                        if content.get('start_time') and content.get('end_time'):
+                            context_info += f"   Range: {content['start_time']:.2f}s - {content['end_time']:.2f}s\n"
+                        context_info += f"   Relevance: {content['similarity_score']:.3f}\n\n"
+                
+                # Generate contextual AI response based on video analysis and relevant content
+                enhanced_message = f"{message}\n\n{context_info}" if context_info else message
+                ai_response = minicpm_service.generate_chat_response(
+                    analysis_result, analysis_type, user_focus, enhanced_message, chat_list
+                )
+                
+            except Exception as e:
+                print(f"⚠️ Vector search failed, falling back to basic response: {e}")
+                # Fallback to basic response
+                ai_response = minicpm_service.generate_chat_response(
+                    analysis_result, analysis_type, user_focus, message, chat_list
+                )
         else:
             # No analysis available yet
             ai_response = f"I don't have the video analysis results yet. Please first analyze the uploaded video, then I can help you with: {message}. Click 'Start Analysis' to begin the video analysis."
@@ -68,32 +98,10 @@ def chat():
             try:
                 video_path = session_data.get('filepath', '')
                 if video_path and os.path.exists(video_path):
-                    # Extract video metadata to validate timestamps
-                    from utils.video_utils import extract_video_metadata
-                    video_metadata = extract_video_metadata(video_path)
-                    video_duration = video_metadata.get('duration', 0) if video_metadata else 0
-                    
                     # Extract timestamps from response
                     response_timestamps = extract_timestamps_from_text(ai_response)
                     # Extract timestamp ranges from response
                     timestamp_ranges = extract_timestamp_ranges_from_text(ai_response)
-                    
-                    # Clean and deduplicate timestamps
-                    from utils.text_utils import clean_and_deduplicate_timestamps
-                    response_timestamps = clean_and_deduplicate_timestamps(response_timestamps)
-                    
-                    # Filter timestamps to only include those within video duration
-                    if video_duration > 0:
-                        valid_timestamps = [ts for ts in response_timestamps if 0 <= ts < video_duration]
-                        if len(valid_timestamps) != len(response_timestamps):
-                            print(f"⚠️ Chat: Filtered out {len(response_timestamps) - len(valid_timestamps)} invalid timestamps beyond video duration ({video_duration:.2f}s)")
-                            response_timestamps = valid_timestamps
-                        
-                        # Filter timestamp ranges
-                        valid_ranges = [(start, end) for start, end in timestamp_ranges if 0 <= start <= end < video_duration]
-                        if len(valid_ranges) != len(timestamp_ranges):
-                            print(f"⚠️ Chat: Filtered out {len(timestamp_ranges) - len(valid_ranges)} invalid timestamp ranges beyond video duration")
-                            timestamp_ranges = valid_ranges
                     
                     # Create evidence for individual timestamps
                     if response_timestamps:
@@ -128,11 +136,58 @@ def chat():
             'success': True,
             'response': ai_response,
             'chat_history': chat_list,
-            'additional_screenshots': additional_evidence
+            'additional_screenshots': additional_evidence,
+            'relevant_content': relevant_content,
+            'vector_search_used': len(relevant_content) > 0
         })
         
     except Exception as e:
         print(f"Debug: Chat - Error in chat endpoint: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'Chat failed: {str(e)}'}), 500 
+        return jsonify({'error': f'Chat failed: {str(e)}'}), 500
+
+@chat_bp.route('/search', methods=['POST'])
+def search_content():
+    """Search for specific content in the video analysis"""
+    try:
+        data = request.get_json()
+        query = data.get('query', '')
+        
+        session_id = session.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 400
+        
+        # Search for relevant content
+        relevant_content = vector_search_service.search_similar_content(session_id, query, top_k=5)
+        
+        return jsonify({
+            'success': True,
+            'query': query,
+            'results': relevant_content,
+            'result_count': len(relevant_content)
+        })
+        
+    except Exception as e:
+        print(f"Search error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@chat_bp.route('/vector-status', methods=['GET'])
+def get_vector_status():
+    """Get the status of vector search for the current session"""
+    try:
+        session_id = session.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 400
+        
+        summary = vector_search_service.get_session_summary(session_id)
+        
+        return jsonify({
+            'success': True,
+            'vector_search_available': summary['available'],
+            'summary': summary
+        })
+        
+    except Exception as e:
+        print(f"Vector status error: {e}")
+        return jsonify({'error': str(e)}), 500 

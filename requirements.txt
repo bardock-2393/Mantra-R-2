@@ -21,6 +21,9 @@ einops>=0.7.0
 safetensors>=0.4.2
 huggingface-hub>=0.23.0
 
+# Vector Search and Embeddings
+sentence-transformers>=2.2.2
+
 # Video Processing and Computer Vision
 opencv-python-headless>=4.8.0
 av>=10.0.0
