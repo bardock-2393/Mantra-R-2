@@ -197,10 +197,10 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             print(f"❌ Analysis generation failed: {e}")
             return f"Error generating analysis: {str(e)}"
     
-    def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
+    async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate contextual AI response based on video analysis"""
         if not self.is_initialized:
-            self.initialize()
+            await self.initialize()
         
         start_time = time.time()
         

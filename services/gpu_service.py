@@ -72,7 +72,10 @@ class GPUService:
                 # Get GPU info
                 name_raw = pynvml.nvmlDeviceGetName(handle)
                 if isinstance(name_raw, bytes):
-                    name = name_raw.decode('utf-8')
+                    try:
+                        name = name_raw.decode('utf-8', errors='ignore')
+                    except (UnicodeDecodeError, AttributeError):
+                        name = str(name_raw)
                 else:
                     name = str(name_raw)
                 total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
@@ -180,11 +183,17 @@ class GPUService:
             except:
                 power = 0
             
+            # Safe formatting - ensure all values are proper types
+            gpu_util = float(utilization.gpu) if hasattr(utilization, 'gpu') else 0.0
+            mem_util = float(utilization.memory) if hasattr(utilization, 'memory') else 0.0
+            temp_celsius = float(temperature) if temperature is not None else 0.0
+            power_watts = float(power) if power is not None else 0.0
+            
             return {
-                'gpu_utilization_percent': utilization.gpu,
-                'memory_utilization_percent': utilization.memory,
-                'temperature_celsius': temperature,
-                'power_usage_watts': power,
+                'gpu_utilization_percent': gpu_util,
+                'memory_utilization_percent': mem_util,
+                'temperature_celsius': temp_celsius,
+                'power_usage_watts': power_watts,
                 'memory_status': await self.get_memory_status()
             }
             
@@ -215,6 +224,46 @@ class GPUService:
                 
         except Exception as e:
             print(f"⚠️ Warning: Failed to set optimization mode: {e}")
+    
+    async def get_gpu_status_message(self) -> str:
+        """Get a formatted GPU status message for display"""
+        try:
+            if not self.is_initialized:
+                return "GPU service not initialized"
+            
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+            
+            # Get GPU name
+            name_raw = pynvml.nvmlDeviceGetName(handle)
+            if isinstance(name_raw, bytes):
+                try:
+                    name = name_raw.decode('utf-8', errors='ignore')
+                except (UnicodeDecodeError, AttributeError):
+                    name = str(name_raw)
+            else:
+                name = str(name_raw)
+            
+            # Get utilization
+            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+            gpu_util = float(util.gpu) if hasattr(util, 'gpu') else 0.0
+            
+            # Get temperature
+            try:
+                temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+                gpu_temp = float(temp) if temp is not None else 0.0
+            except:
+                gpu_temp = 0.0
+            
+            # Get memory info
+            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            mem_used_gb = float(mem.used) / (1024 ** 3)
+            mem_total_gb = float(mem.total) / (1024 ** 3)
+            
+            # Safe formatting with proper type conversion
+            return f"{name} | util {gpu_util:.1f}% | temp {gpu_temp:.0f}°C | mem {mem_used_gb:.1f}/{mem_total_gb:.1f} GB"
+            
+        except Exception as e:
+            return f"GPU status unavailable: {str(e)}"
     
     async def cleanup(self):
         """Clean up GPU resources"""
