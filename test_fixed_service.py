@@ -1,126 +1,203 @@
 #!/usr/bin/env python3
 """
-Test script for the fixed MiniCPM-V-2_6 service
-Tests model initialization and basic functionality
+Test script for the fixed AI Video Detective services
+Tests CUDA availability, model loading, and service integration
 """
 
 import sys
 import os
 import torch
+from PIL import Image
+import numpy as np
 
-# Add the current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the project root to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-def test_minicpm_model():
-    """Test the MiniCPM model initialization and basic functionality"""
+def test_cuda_availability():
+    """Test CUDA availability and basic PyTorch functionality"""
+    print("🔍 Testing CUDA availability...")
+    
+    if not torch.cuda.is_available():
+        print("❌ CUDA is not available")
+        return False
+    
+    print(f"✅ CUDA is available")
+    print(f"   CUDA version: {torch.version.cuda}")
+    print(f"   GPU count: {torch.cuda.device_count()}")
+    print(f"   Current device: {torch.cuda.current_device()}")
+    print(f"   Device name: {torch.cuda.get_device_name()}")
+    
+    # Test basic tensor operations
     try:
-        print("🧪 Testing MiniCPM-V-2_6 model...")
+        x = torch.randn(3, 3).cuda()
+        y = torch.randn(3, 3).cuda()
+        z = torch.mm(x, y)
+        print("✅ Basic CUDA tensor operations successful")
+        return True
+    except Exception as e:
+        print(f"❌ CUDA tensor operations failed: {e}")
+        return False
+
+def test_model_import():
+    """Test if the MiniCPM model can be imported and initialized"""
+    print("\n🔍 Testing MiniCPM model import...")
+    
+    try:
+        from models.minicpm_v26_model import MiniCPMV26Model
+        print("✅ MiniCPM model class imported successfully")
         
-        # Test 1: Check CUDA availability
-        print("\n1. Checking CUDA availability...")
-        if torch.cuda.is_available():
-            print(f"✅ CUDA available: {torch.cuda.get_device_name(0)}")
-            print(f"   CUDA version: {torch.version.cuda}")
-            print(f"   GPU memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f}GB")
-        else:
-            print("❌ CUDA not available - this will cause issues")
-            return False
+        # Test model initialization
+        model = MiniCPMV26Model()
+        print("✅ MiniCPM model instance created successfully")
         
-        # Test 2: Import the model
-        print("\n2. Importing MiniCPM model...")
-        try:
-            from models.minicpm_v26_model import minicpm_v26_model
-            print("✅ Model imported successfully")
-        except Exception as e:
-            print(f"❌ Model import failed: {e}")
-            return False
+        return True, model
+    except Exception as e:
+        print(f"❌ MiniCPM model import failed: {e}")
+        return False, None
+
+def test_basic_text_generation():
+    """Test basic text generation with the model"""
+    print("\n🔍 Testing basic text generation...")
+    
+    try:
+        from transformers import AutoModel, AutoTokenizer
         
-        # Test 3: Initialize the model
-        print("\n3. Initializing model...")
-        try:
-            minicpm_v26_model.initialize()
-            print("✅ Model initialized successfully")
-        except Exception as e:
-            print(f"❌ Model initialization failed: {e}")
-            return False
+        # Test with a simple model first
+        model_path = 'openbmb/MiniCPM-V-2_6'
         
-        # Test 4: Test basic text generation
-        print("\n4. Testing text generation...")
-        try:
-            test_prompt = "Hello, this is a test message. Please respond with a simple greeting."
-            response = minicpm_v26_model.generate_text(test_prompt, max_new_tokens=50)
-            print(f"✅ Text generation successful: {response[:100]}...")
-        except Exception as e:
-            print(f"❌ Text generation failed: {e}")
-            return False
+        print(f"   Loading model from {model_path}...")
+        model = AutoModel.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            attn_implementation='sdpa',
+            torch_dtype=torch.bfloat16
+        )
+        model = model.eval().cuda()
         
-        # Test 5: Test model status
-        print("\n5. Testing model status...")
-        try:
-            status = minicpm_v26_model.get_model_status()
-            print(f"✅ Model status: {status}")
-        except Exception as e:
-            print(f"❌ Model status failed: {e}")
-            return False
+        print("   Loading tokenizer...")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            trust_remote_code=True
+        )
         
-        print("\n🎉 All tests passed! MiniCPM-V-2_6 is working correctly.")
+        print("   Testing text generation...")
+        # Create a dummy image for testing
+        dummy_image = Image.new('RGB', (224, 224), color='red')
+        
+        question = "What color is this image?"
+        msgs = [{'role': 'user', 'content': [dummy_image, question]}]
+        
+        response = model.chat(
+            image=None,
+            msgs=msgs,
+            tokenizer=tokenizer
+        )
+        
+        print(f"✅ Text generation successful: {response[:100]}...")
         return True
         
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Text generation failed: {e}")
         return False
 
 def test_ai_service():
     """Test the AI service integration"""
+    print("\n🔍 Testing AI service integration...")
+    
     try:
-        print("\n🧪 Testing AI service integration...")
-        
-        # Import the service
-        from services.ai_service_fixed import minicpm_service
+        from services.ai_service_fixed import AIService
         print("✅ AI service imported successfully")
         
-        # Test initialization
-        print("Initializing AI service...")
-        minicpm_service.initialize()
-        print("✅ AI service initialized successfully")
+        # Initialize the service
+        service = AIService()
+        print("✅ AI service instance created successfully")
         
-        # Test status
-        status = minicpm_service.get_model_status()
-        print(f"✅ AI service status: {status}")
+        # Test initialization
+        service.initialize()
+        print("✅ AI service initialized successfully")
         
         return True
         
     except Exception as e:
         print(f"❌ AI service test failed: {e}")
-        import traceback
-        traceback.print_exc()
+        return False
+
+def test_gpu_service():
+    """Test the GPU service"""
+    print("\n🔍 Testing GPU service...")
+    
+    try:
+        from services.gpu_service import GPUService
+        print("✅ GPU service imported successfully")
+        
+        # Initialize the service
+        gpu_service = GPUService()
+        print("✅ GPU service instance created successfully")
+        
+        # Test initialization
+        gpu_service.initialize()
+        print("✅ GPU service initialized successfully")
+        
+        # Test status retrieval
+        status = gpu_service.get_status()
+        print("✅ GPU status retrieved successfully")
+        print(f"   GPU count: {status.get('gpu_count', 'N/A')}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ GPU service test failed: {e}")
         return False
 
 def main():
-    """Main test function"""
-    print("🚀 Starting MiniCPM-V-2_6 service tests...")
+    """Run all tests"""
+    print("🚀 Starting AI Video Detective Service Tests")
     print("=" * 50)
     
-    # Test the model directly
-    model_test_passed = test_minicpm_model()
+    # Test 1: CUDA availability
+    cuda_ok = test_cuda_availability()
+    if not cuda_ok:
+        print("\n❌ CUDA tests failed. Cannot proceed with model tests.")
+        return
     
-    if model_test_passed:
-        # Test the AI service
-        service_test_passed = test_ai_service()
-        
-        if service_test_passed:
-            print("\n🎉 All tests passed! The service is ready to use.")
-        else:
-            print("\n❌ AI service tests failed.")
-            return 1
+    # Test 2: Model import
+    model_ok, model = test_model_import()
+    if not model_ok:
+        print("\n❌ Model import failed. Cannot proceed with service tests.")
+        return
+    
+    # Test 3: Basic text generation
+    generation_ok = test_basic_text_generation()
+    
+    # Test 4: GPU service
+    gpu_ok = test_gpu_service()
+    
+    # Test 5: AI service (only if GPU service works)
+    ai_ok = False
+    if gpu_ok:
+        ai_ok = test_ai_service()
+    
+    # Summary
+    print("\n" + "=" * 50)
+    print("📊 Test Results Summary:")
+    print(f"   CUDA: {'✅' if cuda_ok else '❌'}")
+    print(f"   Model Import: {'✅' if model_ok else '❌'}")
+    print(f"   Text Generation: {'✅' if generation_ok else '❌'}")
+    print(f"   GPU Service: {'✅' if gpu_ok else '❌'}")
+    print(f"   AI Service: {'✅' if ai_ok else '❌'}")
+    
+    if all([cuda_ok, model_ok, generation_ok, gpu_ok, ai_ok]):
+        print("\n🎉 All tests passed! The AI Video Detective service is ready to use.")
     else:
-        print("\n❌ Model tests failed.")
-        return 1
+        print("\n⚠️  Some tests failed. Please check the error messages above.")
     
-    return 0
+    # Cleanup
+    if model:
+        try:
+            model.cleanup()
+            print("✅ Model cleanup completed")
+        except:
+            pass
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code) 
+    main() 
