@@ -110,7 +110,7 @@ class MiniCPMV26Model:
             
             # This would download the model to the specified path
             # For now, we'll use a placeholder
-            model_name = "openbmb/MiniCPM-V-2_6"
+            model_name = "openbmb/MiniCPM-V-2.6"
             
             print(f"📥 Model {model_name} would be downloaded here")
             print(f"📁 Target path: {self.model_path}")

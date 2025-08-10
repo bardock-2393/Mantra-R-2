@@ -31,14 +31,14 @@ def create_app():
     
     return app
 
-def initialize_gpu_services():
+async def initialize_gpu_services():
     """Initialize GPU services for Round 2"""
     try:
         print("🚀 Initializing GPU services...")
         
         # Initialize GPU service
         gpu_service = GPUService()
-        gpu_service.initialize()
+        await gpu_service.initialize()
         
         # Initialize performance monitor
         performance_monitor = PerformanceMonitor()
@@ -67,8 +67,8 @@ def start_cleanup_thread():
 
 # Create the application instance
 app = create_app()
-
-if __name__ == '__main__':
+async def main():
+    """Main async function to initialize and run the application"""
     # Create necessary directories
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(Config.SESSION_STORAGE_PATH, exist_ok=True)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     cleanup_expired_sessions()
     
     # Initialize GPU services for Round 2
-    gpu_service, performance_monitor = initialize_gpu_services()
+    gpu_service, performance_monitor = await initialize_gpu_services()
     
     # Start background cleanup thread
     cleanup_thread = start_cleanup_thread()
@@ -93,4 +93,9 @@ if __name__ == '__main__':
         print(f"🖥️  GPU Device: {Config.GPU_CONFIG['device']}")
         print(f"💾 GPU Memory: {Config.GPU_CONFIG['memory_limit'] // (1024**3)}GB")
     
-    app.run(host='0.0.0.0', port=8000, debug=True) 
+    return app
+
+if __name__ == '__main__':
+    import asyncio
+    app_instance = asyncio.run(main())
+    app_instance.run(host='0.0.0.0', port=8000, debug=True) 
