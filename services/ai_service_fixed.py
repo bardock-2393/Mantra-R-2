@@ -112,97 +112,42 @@ class MiniCPMV26Service:
     def _warmup_model(self):
         """Warm up the model for optimal performance"""
         print("🔥 Warming up MiniCPM-V-2_6 model...")
-        
+        if self.processor is None or self.model is None:
+            raise RuntimeError("Processor/Model not loaded")
+
         try:
-            if self.processor is None:
-                raise RuntimeError("Processor is None - cannot perform warmup")
-            if self.model is None:
-                raise RuntimeError("Model is None - cannot perform warmup")
-            
-            # MiniCPM-V-2_6 is a vision-language model, use image + text warmup
-            print("🖼️ Using vision-language warmup for MiniCPM-V-2_6...")
             self._warmup_model_vision_language()
-                
         except Exception as e:
-            print(f"❌ Model warmup failed: {e}")
-            print(f"   Processor type: {type(self.processor)}")
-            print(f"   Model type: {type(self.model)}")
-            raise
+            print(f"❌ VL warmup failed: {e}")
+            # If the model refuses pure-text (many VLMs do), we just skip fallback
+            # because a text-only warmup can still poke image branches inadvertently.
+            print("ℹ️ Skipping text-only warmup; continuing without it.")
     
     def _warmup_model_vision_language(self):
-        """Warmup method using dummy image + text for vision-language model"""
+        """Vision+text warmup using a guaranteed RGB image and no NumPy on CUDA."""
         print("🖼️ Using vision-language warmup...")
-        
-        try:
-            # Create a dummy image with proper shape (H, W, C) for PIL Image
-            # Use random uint8 values to avoid conversion issues
-            dummy_image_array = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-            dummy_pil_image = Image.fromarray(dummy_image_array)
-            dummy_text = "Hello, this is a warmup message."
-            
-            # Process inputs using the processor
-            inputs = self.processor(
-                text=dummy_text,
-                images=dummy_pil_image,
-                return_tensors="pt"
-            )
-            
-            # Move to device
-            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                for i in range(3):
-                    print(f"🔥 Vision-language warmup iteration {i+1}/3...")
-                    output = self.model.generate(
-                        **inputs,
-                        max_new_tokens=8,
-                        do_sample=False,
-                        pad_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0),
-                        eos_token_id=getattr(self.processor.tokenizer, 'eos_token_id', 0)
-                    )
-                    print(f"  ✅ Vision-language warmup iteration {i+1} successful")
-                    
-        except Exception as e:
-            print(f"❌ Vision-language warmup failed: {e}")
-            # Fallback to text-only warmup if vision fails
-            print("📝 Falling back to text-only warmup...")
-            self._warmup_model_text_only()
+        # Deterministic black RGB image (avoids weird shapes like (1,1,224))
+        dummy_img = Image.new("RGB", (224, 224), color="black")
+        prompt = "Say OK."
+
+        # Build inputs on CPU
+        inputs = self.processor(images=dummy_img, text=prompt, return_tensors="pt")
+
+        # Move tensors to target device
+        inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
+
+        with torch.inference_mode(), torch.cuda.amp.autocast(enabled=(self.device.type == "cuda"), dtype=torch.float16):
+            # Don't decode here; just exercise the graph
+            _ = self.model.generate(**inputs, max_new_tokens=8, do_sample=False)
+
+        print("✅ MiniCPM-V VL warmup ok")
     
     def _warmup_model_text_only(self):
-        """Fallback warmup method using text-only input"""
-        print("📝 Using text-only warmup fallback...")
-        
-        try:
-            dummy_text = "Hello, this is a warmup message."
-            
-            # Use processor if available, otherwise tokenizer
-            if self.processor:
-                inputs = self.processor(
-                    text=dummy_text,
-                    return_tensors="pt"
-                )
-            elif self.tokenizer:
-                inputs = self.tokenizer(dummy_text, return_tensors="pt")
-            else:
-                raise RuntimeError("Neither processor nor tokenizer available")
-            
-            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-            
-            with torch.no_grad():
-                for i in range(3):
-                    print(f"🔥 Text warmup iteration {i+1}/3...")
-                    output = self.model.generate(
-                        **inputs,
-                        max_new_tokens=8,
-                        do_sample=False,
-                        pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
-                        eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
-                    )
-                    print(f"  ✅ Text warmup iteration {i+1} successful")
-                    
-        except Exception as e:
-            print(f"❌ Text warmup failed: {e}")
-            raise
+        """Text-only warmup fallback (not used in current implementation)"""
+        print("📝 Text-only warmup not implemented for MiniCPM-V")
+        # This method is kept for compatibility but not used
+        # MiniCPM-V requires image input even for text-only tasks
+        pass
     
 
     
@@ -289,70 +234,45 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
         return base_prompt
     
     def _generate_analysis(self, prompt: str) -> str:
-        """Generate analysis using MiniCPM-V-2_6"""
+        """
+        Generate analysis. For MiniCPM-V we drive the vision path (even if we only have text)
+        by supplying a dummy RGB image. This avoids model internals that expect image features.
+        """
         try:
-            # MiniCPM-V-2_6 uses a specific chat interface
-            # Create a dummy image with proper shape (H, W, C) for PIL Image
-            # Use random uint8 values to avoid conversion issues
-            dummy_image_array = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-            dummy_pil_image = Image.fromarray(dummy_image_array)
-            
-            # Use the processor for proper vision-language model input handling
-            if self.processor:
-                # Process the image and text together
-                inputs = self.processor(
-                    text=prompt,
-                    images=dummy_pil_image,
-                    return_tensors="pt",
-                    truncation=True,
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)  # Reasonable limit
-                )
-            elif self.tokenizer:
-                # Fallback to tokenizer-only if processor not available
-                inputs = self.tokenizer(
-                    prompt,
-                    return_tensors="pt",
-                    truncation=True,
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)
-                )
-            else:
-                raise RuntimeError("Neither processor nor tokenizer available")
-            
-            # Move to device
+            # Use a simple RGB image to tick the vision branch
+            dummy_img = Image.new("RGB", (224, 224), color="black")
+
+            # Prepare inputs
+            inputs = self.processor(images=dummy_img, text=prompt, return_tensors="pt", truncation=True,
+                                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192))
             inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-            
-            # Generate response with reasonable parameters
-            with torch.no_grad():
+
+            with torch.inference_mode(), torch.cuda.amp.autocast(enabled=(self.device.type == "cuda"), dtype=torch.float16):
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=1000,  # Reasonable output length
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], inputs['input_ids'].shape[1] + 1000),  # Total length limit
+                    max_new_tokens=1000,
                     temperature=Config.MINICPM_CONFIG['temperature'],
                     top_p=Config.MINICPM_CONFIG['top_p'],
                     top_k=Config.MINICPM_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
-                    eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
+                    # safer token ids
+                    pad_token_id=getattr(getattr(self.processor, "tokenizer", None), "eos_token_id", 0),
+                    eos_token_id=getattr(getattr(self.processor, "tokenizer", None), "eos_token_id", 0),
                 )
-            
-            # Verify outputs are valid
-            if outputs is None or len(outputs) == 0:
-                raise RuntimeError("Model generation returned None or empty output")
-            
-            # Decode response using the appropriate tokenizer
-            if self.processor and hasattr(self.processor, 'tokenizer'):
-                response = self.processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            elif self.tokenizer:
-                response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            else:
+
+            if outputs is None or outputs.size(0) == 0:
+                raise RuntimeError("Empty generation")
+
+            # decode on CPU; avoid numpy on CUDA tensors
+            seq = outputs[0].detach().cpu().tolist()
+            tok = getattr(self.processor, "tokenizer", self.tokenizer)
+            if tok is None:
                 raise RuntimeError("No tokenizer available for decoding")
-            
-            # Extract only the new generated content
-            if prompt in response:
-                response = response[len(prompt):].strip()
-            
-            return response
-            
+            text = tok.decode(seq, skip_special_tokens=True)
+
+            # trim prompt echo if present
+            return text[len(prompt):].strip() if text.startswith(prompt) else text
+
         except Exception as e:
             print(f"❌ Analysis generation failed: {e}")
             return f"Error generating analysis: {str(e)}"
@@ -404,6 +324,19 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             context += f"{role}: {content}\n"
         
         return context
+    
+    def _vl_chat(self, image: Image.Image, text: str, max_new_tokens=512) -> str:
+        """Optional: Use the model's chat API for more robust vision-language interactions"""
+        try:
+            msgs = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": text}]}]
+            with torch.inference_mode():
+                return self.model.chat(image=image, msgs=msgs,
+                                       tokenizer=(self.processor.tokenizer if hasattr(self.processor, "tokenizer") else self.tokenizer),
+                                       max_new_tokens=max_new_tokens)
+        except Exception as e:
+            print(f"❌ VL chat failed: {e}")
+            # Fallback to regular generation
+            return self._generate_analysis(text)
     
     def cleanup(self):
         """Clean up GPU resources"""
