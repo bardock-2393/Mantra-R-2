@@ -9,7 +9,6 @@ import torch
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from PIL import Image
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -107,58 +106,9 @@ class MiniCPMV26Service:
             if self.model is None:
                 raise RuntimeError("Model is None - cannot perform warmup")
             
-            # Create dummy image and text for vision-language model warmup
-            try:
-                from PIL import Image
-                import numpy as np
-                
-                # Create a 224x224 black dummy image
-                dummy_img = Image.fromarray(np.zeros((224, 224, 3), dtype=np.uint8))
-                dummy_text = "Describe the image in one short word."
-                
-                print(f"🖼️  Created dummy image: {dummy_img.size}")
-                print(f"📝 Using dummy text: '{dummy_text}'")
-                
-                # Use the processor to handle both image and text
-                if hasattr(self.tokenizer, 'processor'):
-                    processor = self.tokenizer.processor
-                else:
-                    # If no processor attribute, try to use the tokenizer directly
-                    processor = self.tokenizer
-                
-                # Process image + text inputs
-                inputs = processor(images=dummy_img, text=dummy_text, return_tensors="pt")
-                if inputs is None:
-                    raise RuntimeError("Processor returned None inputs")
-                
-                print(f"✅ Processing successful, input keys: {list(inputs.keys())}")
-                
-                # Move inputs to device
-                inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-                
-                # Warm up the model with multiple forward passes
-                with torch.no_grad():
-                    for i in range(3):  # Run 3 warmup iterations
-                        print(f"🔥 Warmup iteration {i+1}/3...")
-                        output = self.model.generate(
-                            **inputs,
-                            max_new_tokens=8,  # Small output for warmup
-                            do_sample=False,
-                            pad_token_id=getattr(self.tokenizer, 'eos_token_id', 0),
-                            eos_token_id=getattr(self.tokenizer, 'eos_token_id', 0)
-                        )
-                        
-                        # Verify output is valid
-                        if output is None or len(output) == 0:
-                            raise RuntimeError(f"Warmup iteration {i+1} returned None or empty output")
-                        print(f"  ✅ Warmup iteration {i+1} successful, output shape: {output.shape}")
-                
-                print("✅ Model warmup completed")
-                
-            except ImportError as e:
-                print(f"⚠️  PIL not available, falling back to text-only warmup: {e}")
-                # Fallback to text-only if PIL is not available
-                self._warmup_model_text_only()
+            # MiniCPM-V-2_6 is a text-only model, use text-only warmup
+            print("📝 Using text-only warmup for MiniCPM-V-2_6...")
+            self._warmup_model_text_only()
                 
         except Exception as e:
             print(f"❌ Model warmup failed: {e}")
@@ -186,23 +136,7 @@ class MiniCPMV26Service:
                 )
                 print(f"  ✅ Text warmup iteration {i+1} successful")
     
-    def _extract_first_frame(self, video_path: str) -> Optional[Image.Image]:
-        """Extract first frame from video for analysis"""
-        try:
-            import av
-            
-            container = av.open(video_path)
-            for frame in container.decode(video=0):
-                img = frame.to_image().convert("RGB")
-                container.close()
-                return img
-                
-        except ImportError:
-            print("⚠️  PyAV not available for video frame extraction")
-            return None
-        except Exception as e:
-            print(f"⚠️  Failed to extract video frame: {e}")
-            return None
+
     
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered MiniCPM-V-2_6"""
