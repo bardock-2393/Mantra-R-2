@@ -16,7 +16,14 @@ def extract_video_metadata(video_path):
     try:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            return None
+            print(f"Warning: Could not open video file: {video_path}")
+            return {
+                'fps': 0,
+                'frame_count': 0,
+                'duration': 0,
+                'width': 0,
+                'height': 0
+            }
         
         # Get video properties
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -36,7 +43,13 @@ def extract_video_metadata(video_path):
         }
     except Exception as e:
         print(f"Error extracting video metadata: {e}")
-        return None
+        return {
+            'fps': 0,
+            'frame_count': 0,
+            'duration': 0,
+            'width': 0,
+            'height': 0
+        }
 
 def capture_screenshot(video_path, timestamp, session_id, upload_folder):
     """Capture a screenshot from video at specific timestamp"""

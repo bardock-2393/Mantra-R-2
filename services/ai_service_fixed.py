@@ -54,21 +54,50 @@ class MiniCPMV26Service:
         start_time = time.time()
         
         try:
+            # Validate input parameters
+            if not video_path or not os.path.exists(video_path):
+                raise ValueError("Invalid video path provided")
+            
+            if not analysis_type:
+                analysis_type = "general"
+            
+            if not user_focus:
+                user_focus = "Analyze this video comprehensively"
+            
             # Extract video metadata including duration
             video_metadata = self._extract_video_metadata(video_path)
-            video_duration = video_metadata.get('duration', 0)
+            video_duration = video_metadata.get('duration', 0) if video_metadata else 0
             
             # Extract video summary (simplified for now)
             video_summary = self._extract_video_summary(video_path, video_metadata)
             
+            # Ensure video_summary is not None
+            if video_summary is None:
+                video_summary = "Video file available for analysis."
+            
             # Generate analysis prompt with duration constraint
             analysis_prompt = self._generate_analysis_prompt(analysis_type, user_focus, video_duration)
+            
+            # Ensure analysis_prompt is not None
+            if analysis_prompt is None:
+                analysis_prompt = "Analyze this video comprehensively."
             
             # Combine prompt with video summary
             full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
+            # Validate the final prompt
+            if not full_prompt or not isinstance(full_prompt, str):
+                print("❌ Error: Invalid prompt generated")
+                full_prompt = "Analyze this video comprehensively.\n\nVideo Summary:\nVideo file available for analysis.\n\nAnalysis:"
+            
+            print(f"📝 Generated prompt length: {len(full_prompt)} characters")
+            
             # Generate analysis using the model
             analysis_result = minicpm_v26_model.generate_text(full_prompt, max_new_tokens=2048)
+            
+            # Ensure analysis_result is not None
+            if analysis_result is None:
+                analysis_result = "Analysis generation failed. Please try again."
             
             # Record performance metrics
             latency = (time.time() - start_time) * 1000
@@ -98,6 +127,10 @@ class MiniCPMV26Service:
     def _extract_video_summary(self, video_path: str, metadata: dict) -> str:
         """Extract basic video information for analysis"""
         try:
+            # Ensure metadata is not None and provide defaults
+            if metadata is None:
+                metadata = {}
+            
             duration = metadata.get('duration', 0)
             fps = metadata.get('fps', 0)
             width = metadata.get('width', 0)
@@ -114,10 +147,21 @@ class MiniCPMV26Service:
             
             return summary
         except Exception as e:
+            # Always return a valid string, never None
             return f"Video file available for analysis. Error extracting details: {e}"
     
     def _generate_analysis_prompt(self, analysis_type: str, user_focus: str, video_duration: float) -> str:
         """Generate analysis prompt based on type and user focus"""
+        # Ensure all parameters are valid
+        if not analysis_type:
+            analysis_type = "general"
+        
+        if not user_focus:
+            user_focus = "Analyze this video comprehensively"
+        
+        if not isinstance(video_duration, (int, float)) or video_duration < 0:
+            video_duration = 0.0
+        
         duration_minutes = video_duration / 60 if video_duration > 0 else 0
         
         base_prompt = f"""

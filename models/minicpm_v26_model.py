@@ -23,6 +23,58 @@ class MiniCPMV26Model:
         self.is_initialized = False
         self.model_path = Config.MINICPM_MODEL_PATH
         
+    def test_generation(self) -> bool:
+        """Test if the model can actually generate text"""
+        try:
+            if not self.is_initialized:
+                print("❌ Model not initialized for testing")
+                return False
+            
+            print("🧪 Testing model text generation...")
+            
+            # Simple test prompt
+            test_prompt = "Hello, how are you today?"
+            result = self.generate_text(test_prompt, max_new_tokens=10)
+            
+            if result and isinstance(result, str) and len(result) > 0:
+                print(f"✅ Model test successful: Generated '{result[:50]}...'")
+                return True
+            else:
+                print(f"❌ Model test failed: Invalid result: {result}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Model test failed with error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def _check_model_accessibility(self):
+        """Check if the model is accessible and can be loaded"""
+        try:
+            print(f"🔍 Checking model accessibility: {self.model_path}")
+            
+            # Try to access the model info without downloading
+            from transformers import AutoConfig
+            config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=True)
+            print(f"✅ Model config accessible: {config.model_type}")
+            
+            # Check if model files exist locally or can be downloaded
+            try:
+                from transformers import cached_file
+                # This will check if the model is available
+                cached_file(self.model_path, "config.json", trust_remote_code=True)
+                print("✅ Model files accessible")
+                return True
+            except Exception as e:
+                print(f"⚠️ Warning: Model files not accessible locally: {e}")
+                print("📥 Model will be downloaded on first use")
+                return True
+                
+        except Exception as e:
+            print(f"❌ Model accessibility check failed: {e}")
+            return False
+    
     def initialize(self):
         """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
@@ -36,35 +88,65 @@ class MiniCPMV26Model:
             self.device = torch.device('cuda:0')
             print(f"📱 Using device: {self.device}")
             
-            # Load model with correct parameters
+            # Validate model path
+            if not self.model_path:
+                raise RuntimeError("Model path not configured")
+            
+            # Check model accessibility
+            if not self._check_model_accessibility():
+                raise RuntimeError("Model is not accessible")
+            
             print(f"🔍 Model path: {self.model_path}")
+            print(f"🔍 CUDA device count: {torch.cuda.device_count()}")
+            print(f"🔍 Current CUDA device: {torch.cuda.current_device()}")
+            
+            # Load model with correct parameters
+            print("📥 Loading model...")
             self.model = AutoModel.from_pretrained(
                 self.model_path, 
                 trust_remote_code=True,
                 attn_implementation='sdpa',  # Use SDPA for better performance
                 torch_dtype=torch.bfloat16
             )
+            print("✅ Model loaded successfully")
             
             # Move to GPU and set to eval mode
+            print("🚀 Moving model to GPU...")
             self.model = self.model.eval().cuda()
+            print("✅ Model moved to GPU successfully")
             
             # Load tokenizer
-            print(f"📝 Loading processor from {self.model_path}...")
+            print(f"📝 Loading tokenizer from {self.model_path}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
                 trust_remote_code=True
             )
+            print("✅ Tokenizer loaded successfully")
             
             # Verify components loaded
-            if self.model is None or self.tokenizer is None:
-                raise RuntimeError("Failed to load model or tokenizer")
+            if self.model is None:
+                raise RuntimeError("Failed to load model")
+            
+            if self.tokenizer is None:
+                raise RuntimeError("Failed to load tokenizer")
             
             print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
-            # Warm up the model
-            self._warmup_model()
+            # Test tokenizer functionality
+            try:
+                test_text = "Hello, world!"
+                test_tokens = self.tokenizer(test_text, return_tensors="pt")
+                print(f"✅ Tokenizer test successful: {test_tokens.input_ids.shape}")
+            except Exception as e:
+                print(f"⚠️ Warning: Tokenizer test failed: {e}")
+            
+            # Warm up the model (don't fail if warmup fails)
+            try:
+                self._warmup_model()
+            except Exception as e:
+                print(f"⚠️ Warning: Model warmup failed, but continuing: {e}")
             
             self.is_initialized = True
             print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
@@ -74,6 +156,13 @@ class MiniCPMV26Model:
             
         except Exception as e:
             print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
+            import traceback
+            traceback.print_exc()
+            # Reset state on failure
+            self.model = None
+            self.tokenizer = None
+            self.device = None
+            self.is_initialized = False
             raise
     
     def _warmup_model(self):
@@ -86,6 +175,10 @@ class MiniCPMV26Model:
             try:
                 # Create a simple warmup prompt
                 warmup_text = "Hello, how are you?"
+                if not warmup_text or not isinstance(warmup_text, str):
+                    print("⚠️ Warning: Invalid warmup text")
+                    return
+                
                 inputs = self.tokenizer(warmup_text, return_tensors="pt").to(self.device)
                 
                 with torch.no_grad():
@@ -97,9 +190,13 @@ class MiniCPMV26Model:
                 print("✅ Text warmup completed")
             except Exception as e:
                 print(f"❌ Text warmup failed: {e}")
+                # Don't fail initialization if warmup fails
+                print("⚠️ Warning: Model warmup failed, but continuing with initialization")
                 
         except Exception as e:
             print(f"⚠️ Warning: Model warmup failed: {e}")
+            # Don't fail initialization if warmup fails
+            print("⚠️ Warning: Model warmup failed, but continuing with initialization")
     
     def _print_model_info(self):
         """Print model information and memory usage"""
@@ -128,8 +225,16 @@ class MiniCPMV26Model:
             if not self.is_initialized:
                 raise RuntimeError("Model not initialized")
             
+            # Validate input parameters
+            if not prompt or not isinstance(prompt, str):
+                print(f"❌ Error: Invalid prompt provided: {type(prompt)} - {prompt}")
+                raise ValueError("Invalid prompt provided")
+            
+            print(f"🔍 Generating text with prompt length: {len(prompt)} characters")
+            
             # Tokenize input
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+            print(f"✅ Tokenization successful, input shape: {inputs.input_ids.shape}")
             
             # Generate response
             with torch.no_grad():
@@ -143,6 +248,8 @@ class MiniCPMV26Model:
                     pad_token_id=self.tokenizer.eos_token_id
                 )
             
+            print(f"✅ Generation successful, output shape: {generated_ids.shape}")
+            
             # Decode response
             generated_ids_trimmed = [
                 out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
@@ -154,10 +261,20 @@ class MiniCPMV26Model:
                 clean_up_tokenization_spaces=False
             )
             
-            return output_text[0] if output_text else "Text generation failed"
+            print(f"✅ Decoding successful, output texts: {len(output_text)}")
+            
+            # Ensure we return a valid string
+            result = output_text[0] if output_text else "Text generation failed"
+            if result is None:
+                result = "Text generation failed"
+            
+            print(f"✅ Final result length: {len(result)} characters")
+            return result
             
         except Exception as e:
             print(f"❌ Text generation failed: {e}")
+            import traceback
+            traceback.print_exc()
             return f"Error generating text: {str(e)}"
     
     def analyze_video_content(self, video_summary: str, analysis_type: str, 
