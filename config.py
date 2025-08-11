@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Set CUDA memory management environment variables
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+
 class Config:
     """Application configuration for Round 2 - GPU-powered local AI"""
     
@@ -22,7 +26,11 @@ class Config:
         'memory_limit': 80 * 1024 * 1024 * 1024,  # 80GB
         'batch_size': 32,
         'precision': 'float16',  # Use FP16 for speed
-        'num_workers': 4
+        'num_workers': 4,
+        'memory_fraction': 0.8,  # Use 80% of GPU memory instead of 90%
+        'fallback_to_cpu': True,  # Allow fallback to CPU if GPU memory insufficient
+        'memory_cleanup_threshold': 0.1,  # Cleanup when less than 10% free
+        'max_retry_attempts': 3
     }
     
     # MiniCPM-V Model Configuration
@@ -33,10 +41,12 @@ class Config:
         'max_length': 32768,
         'temperature': 0.2,
         'top_p': 0.9,
-        'top_k': 40
+        'top_k': 40,
+        'use_8bit': True,  # Use 8-bit quantization to reduce memory usage
+        'use_4bit': False,  # 4-bit is more aggressive but may affect quality
+        'low_cpu_mem_usage': True,
+        'device_map': 'auto'  # Let transformers handle device placement
     }
-    
-
     
     # Qwen2.5-VL-32B Model Configuration (New)
     QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
@@ -49,7 +59,11 @@ class Config:
         'top_k': 40,
         'chat_temperature': 0.3,
         'min_pixels': 256 * 28 * 28,  # 256 tokens
-        'max_pixels': 1280 * 28 * 28   # 1280 tokens
+        'max_pixels': 1280 * 28 * 28,   # 1280 tokens
+        'use_8bit': True,
+        'use_4bit': False,
+        'low_cpu_mem_usage': True,
+        'device_map': 'auto'
     }
     
     # DeepStream Configuration

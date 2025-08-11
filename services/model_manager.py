@@ -50,12 +50,44 @@ class ModelManager:
                 
                 print(f"🚀 Initializing {model_info['name']}...")
                 
-                # Initialize the service
-                await model_info['service'].initialize()
-                model_info['initialized'] = True
+                # Try initialization with retry logic
+                max_retries = Config.GPU_CONFIG['max_retry_attempts']
+                for attempt in range(max_retries):
+                    try:
+                        # Initialize the service
+                        await model_info['service'].initialize()
+                        model_info['initialized'] = True
+                        
+                        print(f"✅ {model_info['name']} initialized successfully")
+                        return True
+                        
+                    except Exception as e:
+                        print(f"❌ Attempt {attempt + 1}/{max_retries} failed: {e}")
+                        
+                        if "CUDA out of memory" in str(e) or "memory" in str(e).lower():
+                            print("🔄 Memory issue detected, attempting cleanup...")
+                            try:
+                                # Force cleanup of GPU memory
+                                if hasattr(model_info['service'], 'gpu_service'):
+                                    await model_info['service'].gpu_service._force_memory_cleanup()
+                                
+                                # Wait before retry
+                                import asyncio
+                                await asyncio.sleep(3)
+                                
+                            except Exception as cleanup_error:
+                                print(f"⚠️ Cleanup failed: {cleanup_error}")
+                        
+                        if attempt == max_retries - 1:
+                            print(f"❌ All {max_retries} attempts failed")
+                            # Mark as not initialized on failure
+                            model_info['initialized'] = False
+                            return False
+                        
+                        print(f"🔄 Retrying in 2 seconds...")
+                        await asyncio.sleep(2)
                 
-                print(f"✅ {model_info['name']} initialized successfully")
-                return True
+                return False
                 
             except Exception as e:
                 print(f"❌ Failed to initialize {self.current_model}: {e}")

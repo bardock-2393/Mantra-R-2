@@ -36,17 +36,27 @@ class MiniCPMV26Model:
             self.device = torch.device('cuda:0')
             print(f"📱 Using device: {self.device}")
             
-            # Load model with correct parameters
+            # Load model with memory optimization
             print(f"🔍 Model path: {self.model_path}")
-            self.model = AutoModel.from_pretrained(
-                self.model_path, 
-                trust_remote_code=True,
-                attn_implementation='sdpa',  # Use SDPA for better performance
-                torch_dtype=torch.bfloat16
-            )
             
-            # Move to GPU and set to eval mode
-            self.model = self.model.eval().cuda()
+            # Try different loading strategies based on available memory
+            loading_strategies = [
+                self._load_model_full_precision,
+                self._load_model_8bit,
+                self._load_model_4bit,
+                self._load_model_cpu_fallback
+            ]
+            
+            for strategy in loading_strategies:
+                try:
+                    print(f"🔄 Trying loading strategy: {strategy.__name__}")
+                    strategy()
+                    break
+                except Exception as e:
+                    print(f"⚠️ Strategy {strategy.__name__} failed: {e}")
+                    if strategy == loading_strategies[-1]:  # Last strategy
+                        raise RuntimeError(f"All loading strategies failed: {e}")
+                    continue
             
             # Load tokenizer
             print(f"📝 Loading processor from {self.model_path}...")
@@ -75,6 +85,93 @@ class MiniCPMV26Model:
         except Exception as e:
             print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
+    
+    def _load_model_full_precision(self):
+        """Load model with full precision (highest quality, highest memory usage)"""
+        print("📥 Loading model with full precision...")
+        self.model = AutoModel.from_pretrained(
+            self.model_path, 
+            trust_remote_code=True,
+            attn_implementation='sdpa',
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=Config.MINICPM_CONFIG['low_cpu_mem_usage'],
+            device_map=Config.MINICPM_CONFIG['device_map']
+        )
+        
+        # Move to GPU and set to eval mode
+        if self.device.type == 'cuda':
+            self.model = self.model.eval().cuda()
+        else:
+            self.model = self.model.eval()
+    
+    def _load_model_8bit(self):
+        """Load model with 8-bit quantization (reduced memory usage)"""
+        print("📥 Loading model with 8-bit quantization...")
+        try:
+            from transformers import BitsAndBytesConfig
+            
+            quantization_config = BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_threshold=6.0,
+                llm_int8_has_fp16_weight=False
+            )
+            
+            self.model = AutoModel.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+                quantization_config=quantization_config,
+                low_cpu_mem_usage=Config.MINICPM_CONFIG['low_cpu_mem_usage'],
+                device_map=Config.MINICPM_CONFIG['device_map']
+            )
+            
+            if self.device.type == 'cuda':
+                self.model = self.model.eval().cuda()
+            else:
+                self.model = self.model.eval()
+                
+        except ImportError:
+            raise RuntimeError("BitsAndBytes not available for 8-bit quantization")
+    
+    def _load_model_4bit(self):
+        """Load model with 4-bit quantization (lowest memory usage)"""
+        print("📥 Loading model with 4-bit quantization...")
+        try:
+            from transformers import BitsAndBytesConfig
+            
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+            
+            self.model = AutoModel.from_pretrained(
+                self.model_path,
+                trust_remote_code=True,
+                quantization_config=quantization_config,
+                low_cpu_mem_usage=Config.MINICPM_CONFIG['low_cpu_mem_usage'],
+                device_map=Config.MINICPM_CONFIG['device_map']
+            )
+            
+            if self.device.type == 'cuda':
+                self.model = self.model.eval().cuda()
+            else:
+                self.model = self.model.eval()
+                
+        except ImportError:
+            raise RuntimeError("BitsAndBytes not available for 4-bit quantization")
+    
+    def _load_model_cpu_fallback(self):
+        """Load model on CPU as last resort"""
+        print("📥 Loading model on CPU (fallback)...")
+        self.device = torch.device('cpu')
+        self.model = AutoModel.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            torch_dtype=torch.float32,
+            low_cpu_mem_usage=Config.MINICPM_CONFIG['low_cpu_mem_usage']
+        )
+        self.model = self.model.eval()
     
     def _warmup_model(self):
         """Warm up the model for optimal performance"""

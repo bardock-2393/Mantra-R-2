@@ -7,6 +7,7 @@ import os
 import time
 import torch
 import pynvml
+import asyncio
 from typing import Dict, List, Optional, Tuple
 from config import Config
 
@@ -44,8 +45,24 @@ class GPUService:
             # Get GPU information
             self._update_gpu_info()
             
+            # Check if we have enough memory
+            if not self._check_memory_availability():
+                print("⚠️ Warning: GPU memory may be insufficient, attempting cleanup...")
+                await self._force_memory_cleanup()
+                
+                # Check again after cleanup
+                if not self._check_memory_availability():
+                    if Config.GPU_CONFIG['fallback_to_cpu']:
+                        print("⚠️ GPU memory still insufficient, falling back to CPU")
+                        self.device = torch.device('cpu')
+                        print(f"📱 Using device: {self.device}")
+                        return
+                    else:
+                        raise RuntimeError("Insufficient GPU memory and CPU fallback disabled")
+            
             # Set PyTorch memory management
-            torch.cuda.set_per_process_memory_fraction(0.9)  # Use 90% of GPU memory
+            memory_fraction = Config.GPU_CONFIG['memory_fraction']
+            torch.cuda.set_per_process_memory_fraction(memory_fraction)
             torch.backends.cudnn.benchmark = True  # Optimize for fixed input sizes
             torch.backends.cudnn.deterministic = False  # Allow non-deterministic for speed
             
@@ -242,23 +259,77 @@ class GPUService:
         except Exception as e:
             return f"GPU status error: {str(e)}"
     
-    def cleanup(self):
-        """Clean up GPU service resources"""
+    def _check_memory_availability(self) -> bool:
+        """Check if there's enough GPU memory available"""
         try:
-            if self.is_initialized:
-                # Clear PyTorch cache
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+            if not self.is_initialized:
+                return False
                 
-                # Shutdown NVML
+            self._update_gpu_info()
+            free_memory_gb = self.gpu_info.get('free_memory_gb', 0)
+            total_memory_gb = self.gpu_info.get('total_memory_gb', 0)
+            
+            # Need at least 2GB free for model loading
+            min_required_gb = 2.0
+            memory_ratio = free_memory_gb / total_memory_gb if total_memory_gb > 0 else 0
+            
+            print(f"📊 Free memory: {free_memory_gb:.2f}GB / {total_memory_gb:.2f}GB ({memory_ratio:.1%})")
+            
+            return free_memory_gb >= min_required_gb
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Memory availability check failed: {e}")
+            return False
+    
+    async def _force_memory_cleanup(self):
+        """Force cleanup of GPU memory"""
+        try:
+            print("🧹 Forcing GPU memory cleanup...")
+            
+            # Clear PyTorch cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
+            # Force garbage collection
+            import gc
+            gc.collect()
+            
+            # Wait a bit for cleanup to take effect
+            await asyncio.sleep(2)
+            
+            # Update memory info
+            self._update_gpu_info()
+            
+            print("✅ Memory cleanup completed")
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Memory cleanup failed: {e}")
+    
+    async def cleanup(self):
+        """Cleanup GPU resources"""
+        try:
+            print("🧹 Cleaning up GPU service...")
+            
+            # Clear PyTorch cache
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
+            # Force garbage collection
+            import gc
+            gc.collect()
+            
+            # Reset NVML if initialized
+            if self.is_initialized:
                 try:
                     pynvml.nvmlShutdown()
-                except:
-                    pass
-                
-                self.is_initialized = False
-                print("🧹 GPU service cleaned up")
-                
+                    self.is_initialized = False
+                except Exception as e:
+                    print(f"⚠️ Warning: NVML shutdown failed: {e}")
+            
+            print("✅ GPU service cleanup completed")
+            
         except Exception as e:
             print(f"⚠️ Warning: GPU service cleanup failed: {e}")
     
