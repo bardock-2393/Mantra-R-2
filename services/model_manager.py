@@ -1,39 +1,42 @@
 """
-Model Manager Service
-Handles switching between different AI models for video analysis
+Model Manager Service - OPTIMIZED FOR 7B MODEL ONLY
+Handles Qwen2.5-VL-7B-Instruct model for MAXIMUM performance video analysis
 """
 
 import asyncio
 from typing import Dict, Optional
 from config import Config
-from services.ai_service_fixed import minicpm_service
+# COMMENTED OUT OTHER MODELS FOR 7B OPTIMIZATION
+# from services.ai_service_fixed import minicpm_service
 from services.qwen25vl_service import qwen25vl_service
-from services.qwen25vl_32b_service import qwen25vl_32b_service
+# from services.qwen25vl_32b_service import qwen25vl_32b_service
 
 class ModelManager:
-    """Manages different AI models and provides unified interface"""
+    """Manages Qwen2.5-VL-7B-Instruct model for MAXIMUM performance"""
     
     def __init__(self):
-        self.current_model = 'minicpm'  # Default model
+        self.current_model = 'qwen25vl'  # DEFAULT TO OPTIMIZED 7B MODEL
         self.available_models = {
-            'minicpm': {
-                'name': 'MiniCPM-V-2_6',
-                'description': 'Fast, efficient vision-language model',
-                'service': minicpm_service,
-                'initialized': False
-            },
+            # COMMENTED OUT FOR 7B OPTIMIZATION
+            # 'minicpm': {
+            #     'name': 'MiniCPM-V-2_6',
+            #     'description': 'Fast, efficient vision-language model',
+            #     'service': minicpm_service,
+            #     'initialized': False
+            # },
             'qwen25vl': {
-                'name': 'Qwen2.5-VL-7B-Instruct',
-                'description': 'Advanced multimodal model with enhanced video understanding',
+                'name': 'Qwen2.5-VL-7B-Instruct (OPTIMIZED)',
+                'description': 'OPTIMIZED 7B model with MAXIMUM performance, accuracy, and speed',
                 'service': qwen25vl_service,
                 'initialized': False
             },
-            'qwen25vl_32b': {
-                'name': 'Qwen2.5-VL-32B-Instruct',
-                'description': 'High-performance 32B parameter model with superior video analysis capabilities',
-                'service': qwen25vl_32b_service,
-                'initialized': False
-            }
+            # COMMENTED OUT FOR 7B OPTIMIZATION
+            # 'qwen25vl_32b': {
+            #     'name': 'Qwen2.5-VL-32B-Instruct',
+            #     'description': 'High-performance 32B parameter model with superior video analysis capabilities',
+            #     'service': qwen25vl_32b_service,
+            #     'initialized': False
+            # }
         }
         self._initialization_lock = asyncio.Lock()  # Prevent concurrent initialization
     

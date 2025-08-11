@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    """Application configuration for Round 2 - GPU-powered local AI"""
+    """Application configuration for Round 2 - OPTIMIZED FOR 7B MODEL ONLY"""
     
     # Flask Configuration
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
@@ -15,52 +15,60 @@ class Config:
     # File Upload Configuration
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'webm', 'mkv', 'm4v'}
     
-    # GPU Configuration
+    # GPU Configuration - OPTIMIZED FOR 7B MODEL
     GPU_CONFIG = {
         'enabled': True,
         'device': 'cuda:0',  # Primary GPU
         'memory_limit': 80 * 1024 * 1024 * 1024,  # 80GB
         'batch_size': 32,
-        'precision': 'float16',  # Use FP16 for speed
+        'precision': 'float16',  # Use FP16 for MAXIMUM speed
         'num_workers': 4
     }
     
+    # COMMENTED OUT FOR 7B OPTIMIZATION
     # MiniCPM-V Model Configuration
-    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
-    MINICPM_CONFIG = {
-        'model_name': 'openbmb/MiniCPM-V-2_6',
-        'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 32768,
-        'temperature': 0.2,
-        'top_p': 0.9,
-        'top_k': 40
-    }
+    # MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
+    # MINICPM_CONFIG = {
+    #     'model_name': 'openbmb/MiniCPM-V-2_6',
+    #     'hf_token': os.getenv('HF_TOKEN', ''),
+    #     'max_length': 32768,
+    #     'temperature': 0.2,
+    #     'top_p': 0.9,
+    #     'top_k': 40
+    # }
     
-    # Qwen2.5-VL Model Configuration
+    # Qwen2.5-VL-7B Model Configuration - OPTIMIZED FOR MAXIMUM PERFORMANCE
     QWEN25VL_MODEL_PATH = os.getenv('QWEN25VL_MODEL_PATH', 'Qwen/Qwen2.5-VL-7B-Instruct')
     QWEN25VL_CONFIG = {
-        'model_name': 'Qwen/Qwen2.5-VL-7B-Instruct',
+        'model_name': 'Qwen/Qwen2.5-VL-7B-Instruct (OPTIMIZED)',
         'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 32768,
-        'temperature': 0.2,
-        'top_p': 0.9,
-        'top_k': 40,
-        'chat_temperature': 0.3
+        'max_length': 8192,  # Optimized for 7B model speed
+        'temperature': 0.1,  # Lower temperature for accuracy
+        'top_p': 0.95,      # Optimized top-p for quality
+        'top_k': 50,        # Enhanced top-k for diversity
+        'chat_temperature': 0.1,  # Consistent temperature for chat
+        # PERFORMANCE OPTIMIZATIONS
+        'min_pixels': 256 * 28 * 28,   # 256 tokens for efficiency
+        'max_pixels': 1024 * 28 * 28,  # 1024 tokens optimized for 7B
+        'precision': 'float16',         # Force FP16 for speed
+        'use_flash_attention': True,    # Enable Flash Attention 2
+        'use_xformers': True,           # Enable xformers optimization
     }
     
+    # COMMENTED OUT FOR 7B OPTIMIZATION
     # Qwen2.5-VL-32B Model Configuration (New)
-    QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
-    QWEN25VL_32B_CONFIG = {
-        'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
-        'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 32768,
-        'temperature': 0.2,
-        'top_p': 0.9,
-        'top_k': 40,
-        'chat_temperature': 0.3,
-        'min_pixels': 256 * 28 * 28,  # 256 tokens
-        'max_pixels': 1280 * 28 * 28   # 1280 tokens
-    }
+    # QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
+    # QWEN25VL_32B_CONFIG = {
+    #     'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
+    #     'hf_token': os.getenv('HF_TOKEN', ''),
+    #     'max_length': 32768,
+    #     'temperature': 0.2,
+    #     'top_p': 0.9,
+    #     'top_k': 40,
+    #     'chat_temperature': 0.3,
+    #     'min_pixels': 256 * 28 * 28,  # 256 tokens
+    #     'max_pixels': 1280 * 28 * 28   # 1280 tokens
+    # }
     
     # DeepStream Configuration
     DEEPSTREAM_CONFIG = {
