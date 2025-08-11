@@ -166,11 +166,11 @@ class Qwen25VL32BService:
             # Load model with optimizations for 32B model
             print(f"🤖 Loading Qwen2.5-VL-32B-Instruct model from {Config.QWEN25VL_32B_MODEL_PATH}...")
             try:
-                # Use flash attention 2 for better acceleration and memory saving
+                # Use SDPA for better compatibility and performance
                 self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     Config.QWEN25VL_32B_MODEL_PATH,
                     torch_dtype=torch.bfloat16,  # Use bfloat16 for 32B model
-                    attn_implementation="flash_attention_2",  # Enable flash attention
+                    attn_implementation="sdpa",  # Use SDPA instead of flash attention
                     device_map="auto",
                     trust_remote_code=True
                 )
