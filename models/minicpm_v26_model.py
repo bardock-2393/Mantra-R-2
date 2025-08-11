@@ -19,6 +19,7 @@ class MiniCPMV26Model:
     def __init__(self):
         self.model = None
         self.tokenizer = None
+        self.processor = None
         self.device = None
         self.is_initialized = False
         self.model_path = Config.MINICPM_MODEL_PATH
@@ -32,16 +33,36 @@ class MiniCPMV26Model:
             
             print("🧪 Testing model text generation...")
             
-            # Simple test prompt
-            test_prompt = "Hello, how are you today?"
-            result = self.generate_text(test_prompt, max_new_tokens=10)
+            # Test with processor if available
+            if self.processor:
+                print("🧪 Testing with processor...")
+                try:
+                    test_prompt = "Hello, how are you today?"
+                    result = self.generate_text(test_prompt, max_new_tokens=10)
+                    if result and isinstance(result, str) and len(result) > 0:
+                        print(f"✅ Processor test successful: Generated '{result[:50]}...'")
+                        return True
+                    else:
+                        print(f"❌ Processor test failed: Invalid result: {result}")
+                except Exception as e:
+                    print(f"❌ Processor test failed: {e}")
             
-            if result and isinstance(result, str) and len(result) > 0:
-                print(f"✅ Model test successful: Generated '{result[:50]}...'")
-                return True
-            else:
-                print(f"❌ Model test failed: Invalid result: {result}")
-                return False
+            # Test with tokenizer if available
+            if self.tokenizer:
+                print("🧪 Testing with tokenizer...")
+                try:
+                    test_prompt = "Hello, how are you today?"
+                    result = self.generate_text(test_prompt, max_new_tokens=10)
+                    if result and isinstance(result, str) and len(result) > 0:
+                        print(f"✅ Tokenizer test successful: Generated '{result[:50]}...'")
+                        return True
+                    else:
+                        print(f"❌ Tokenizer test failed: Invalid result: {result}")
+                except Exception as e:
+                    print(f"❌ Tokenizer test failed: {e}")
+            
+            print("❌ All tests failed")
+            return False
                 
         except Exception as e:
             print(f"❌ Model test failed with error: {e}")
@@ -118,34 +139,50 @@ class MiniCPMV26Model:
             # Load processor (MiniCPM-V-2_6 uses a processor, not just a tokenizer)
             print(f"📝 Loading processor from {self.model_path}...")
             try:
-                # Try to load as processor first
-                self.tokenizer = AutoProcessor.from_pretrained(
+                # Load processor for vision-language tasks
+                self.processor = AutoProcessor.from_pretrained(
                     self.model_path,
                     trust_remote_code=True
                 )
                 print("✅ Processor loaded successfully")
-            except Exception as e:
-                print(f"⚠️ Warning: Failed to load processor, trying tokenizer: {e}")
-                # Fallback to tokenizer
+                
+                # Also load tokenizer for text-only tasks
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.model_path,
                     trust_remote_code=True
                 )
                 print("✅ Tokenizer loaded successfully")
+                
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to load processor: {e}")
+                # Fallback to tokenizer only
+                try:
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        self.model_path,
+                        trust_remote_code=True
+                    )
+                    print("✅ Tokenizer loaded successfully (fallback)")
+                except Exception as e2:
+                    print(f"❌ Failed to load tokenizer: {e2}")
+                    raise RuntimeError("Failed to load both processor and tokenizer")
             
             # Verify components loaded
             if self.model is None:
                 raise RuntimeError("Failed to load model")
             
-            if self.tokenizer is None:
-                raise RuntimeError("Failed to load tokenizer/processor")
+            if self.processor is None and self.tokenizer is None:
+                raise RuntimeError("Failed to load both processor and tokenizer")
             
             # Check if the processor has the required methods
-            if not hasattr(self.tokenizer, 'encode') and not hasattr(self.tokenizer, '__call__'):
-                raise RuntimeError("Loaded processor/tokenizer does not have required methods")
+            if self.processor and not hasattr(self.processor, '__call__'):
+                print("⚠️ Warning: Processor does not have __call__ method")
             
-            print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
-            print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
+            # Check if the tokenizer has the required methods
+            if self.tokenizer and not hasattr(self.tokenizer, 'encode') and not hasattr(self.tokenizer, '__call__'):
+                print("⚠️ Warning: Tokenizer does not have required methods")
+            
+            print(f"✅ Processor loaded: {type(self.processor).__name__ if self.processor else 'None'}")
+            print(f"✅ Tokenizer loaded: {type(self.tokenizer).__name__ if self.tokenizer else 'None'}")
             print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
             # Check model compatibility
@@ -190,6 +227,7 @@ class MiniCPMV26Model:
             # Reset state on failure
             self.model = None
             self.tokenizer = None
+            self.processor = None
             self.device = None
             self.is_initialized = False
             raise
@@ -308,6 +346,11 @@ class MiniCPMV26Model:
                     print(f"🔍 Model type: {self.model.config.model_type}")
                 
                 try:
+                    eos_token_id = self._get_eos_token_id()
+                    if eos_token_id is None:
+                        print("⚠️ Warning: No EOS token ID available, using default")
+                        eos_token_id = 0
+                    
                     generated_ids = self.model.generate(
                         **inputs,
                         max_new_tokens=max_new_tokens,
@@ -315,7 +358,7 @@ class MiniCPMV26Model:
                         top_p=top_p,
                         top_k=top_k,
                         do_sample=True,
-                        pad_token_id=self.tokenizer.eos_token_id
+                        pad_token_id=eos_token_id
                     )
                 except Exception as e:
                     print(f"❌ Model generation failed: {e}")
@@ -323,11 +366,15 @@ class MiniCPMV26Model:
                     
                     # Try with simplified generation parameters
                     try:
+                        eos_token_id = self._get_eos_token_id()
+                        if eos_token_id is None:
+                            eos_token_id = 0
+                        
                         generated_ids = self.model.generate(
                             **inputs,
                             max_new_tokens=min(max_new_tokens, 100),  # Reduce tokens
                             do_sample=False,  # Use greedy decoding
-                            pad_token_id=self.tokenizer.eos_token_id
+                            pad_token_id=eos_token_id
                         )
                         print("✅ Generation successful with simplified parameters")
                     except Exception as e2:
@@ -341,11 +388,14 @@ class MiniCPMV26Model:
                 out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
             
-            output_text = self.tokenizer.batch_decode(
+            # Use the appropriate component for decoding
+            decoding_component = self._get_decoding_component()
+            output_text = decoding_component.batch_decode(
                 generated_ids_trimmed,
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False
             )
+            print(f"✅ Using {type(decoding_component).__name__} for decoding")
             
             print(f"✅ Decoding successful, output texts: {len(output_text)}")
             
@@ -475,6 +525,10 @@ class MiniCPMV26Model:
                 del self.model
                 self.model = None
             
+            if self.processor:
+                del self.processor
+                self.processor = None
+            
             if self.tokenizer:
                 del self.tokenizer
                 self.tokenizer = None
@@ -492,29 +546,61 @@ class MiniCPMV26Model:
         """Destructor to ensure cleanup"""
         self.cleanup()
 
+    def _get_decoding_component(self):
+        """Get the appropriate component for decoding (processor or tokenizer)"""
+        if self.processor and hasattr(self.processor, 'batch_decode'):
+            return self.processor
+        elif self.tokenizer and hasattr(self.tokenizer, 'batch_decode'):
+            return self.tokenizer
+        else:
+            raise RuntimeError("No suitable component found for decoding")
+    
+    def _get_eos_token_id(self):
+        """Get the EOS token ID from the appropriate component"""
+        if self.processor and hasattr(self.processor, 'tokenizer'):
+            return self.processor.tokenizer.eos_token_id
+        elif self.tokenizer:
+            return self.tokenizer.eos_token_id
+        else:
+            return None
+    
     def _process_inputs(self, prompt: str, image=None):
         """Process inputs for the model, handling both processor and tokenizer cases"""
         try:
-            if image is None:
-                # Create a dummy image for text-only generation
-                image = Image.new('RGB', (1, 1), color='black')
+            print(f"🔍 Processing inputs - Processor: {self.processor is not None}, Tokenizer: {self.tokenizer is not None}, Image: {image is not None}")
             
-            # Try to use the processor/tokenizer as a callable first
-            if hasattr(self.tokenizer, '__call__'):
-                inputs = self.tokenizer(
+            # Use processor if available and image is provided, otherwise use tokenizer
+            if self.processor and image is not None:
+                # Use processor for vision-language tasks
+                inputs = self.processor(
                     prompt, 
                     images=image,
                     return_tensors="pt"
                 )
-            else:
-                # Fallback to encode method for tokenizer-only
+                print("✅ Using processor for vision-language input")
+            elif self.processor and image is None:
+                # Use processor with dummy image for text-only generation
+                dummy_image = Image.new('RGB', (1, 1), color='black')
+                inputs = self.processor(
+                    prompt, 
+                    images=dummy_image,
+                    return_tensors="pt"
+                )
+                print("✅ Using processor with dummy image for text-only generation")
+            elif self.tokenizer:
+                # Fallback to tokenizer for text-only tasks
                 input_ids = self.tokenizer.encode(prompt, return_tensors="pt")
                 inputs = {'input_ids': input_ids}
                 
-                # Create dummy pixel values if needed
-                if not hasattr(inputs, 'pixel_values') or inputs.pixel_values is None:
-                    batch_size = inputs['input_ids'].shape[0]
-                    inputs['pixel_values'] = torch.zeros(batch_size, 3, 224, 224)
+                # Create dummy pixel values if needed for vision-language models
+                batch_size = inputs['input_ids'].shape[0]
+                inputs['pixel_values'] = torch.zeros(batch_size, 3, 224, 224)
+                print("✅ Using tokenizer with dummy pixel values")
+            else:
+                raise RuntimeError("Neither processor nor tokenizer available")
+            
+            print(f"🔍 Input keys: {list(inputs.keys())}")
+            print(f"🔍 Input shapes: {[(k, v.shape if hasattr(v, 'shape') else type(v)) for k, v in inputs.items()]}")
             
             # Ensure all inputs are on the correct device
             for key, value in inputs.items():
