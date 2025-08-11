@@ -13,6 +13,7 @@ from services.session_service import (
 )
 from utils.video_utils import capture_screenshot, extract_video_clip
 from utils.text_utils import extract_timestamps_from_text
+import time
 
 # Create Blueprint
 api_bp = Blueprint('api', __name__)
@@ -29,16 +30,44 @@ def get_session(session_id):
 @api_bp.route('/health')
 def health_check():
     """Health check endpoint"""
-    from config import AGENT_CAPABILITIES, AGENT_TOOLS
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
+        'service': 'AI Video Detective API',
         'version': '2.0.0',
-        'agent_capabilities': AGENT_CAPABILITIES,
-        'agent_tools': AGENT_TOOLS,
-        'gpu_processing': Config.GPU_CONFIG['enabled'],
-        'local_ai': True
+        'timestamp': time.time()
     })
+
+@api_bp.route('/model-health')
+def model_health_check():
+    """Health check endpoint for AI models"""
+    try:
+        from services.model_manager import model_manager
+        import asyncio
+        
+        # Get or create event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        # Run the async health check
+        health_status = loop.run_until_complete(model_manager.health_check())
+        
+        return jsonify({
+            'status': 'healthy',
+            'service': 'AI Model Health Check',
+            'timestamp': time.time(),
+            'models': health_status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'service': 'AI Model Health Check',
+            'error': str(e),
+            'timestamp': time.time()
+        }), 500
 
 @api_bp.route('/switch-model', methods=['POST'])
 def switch_model():
@@ -65,20 +94,30 @@ def switch_model():
             
             # Run the async function
             success = loop.run_until_complete(model_manager.switch_model(model_name))
+            
+            if success:
+                # Get updated model status
+                model_status = model_manager.get_current_model()
+                return jsonify({
+                    'success': True,
+                    'model': model_name,
+                    'model_name': model_name.replace('_', ' ').title(),
+                    'message': f'Successfully switched to {model_name}',
+                    'model_status': model_status
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Failed to switch to {model_name}. Check logs for details.'
+                })
+                
         except Exception as e:
             print(f"Error in model switching: {e}")
-            success = False
-        
-        if success:
             return jsonify({
-                'success': True,
-                'model': model_name,
-                'model_name': model_name.replace('_', ' ').title(),
-                'message': f'Successfully switched to {model_name}'
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Failed to switch model'})
-            
+                'success': False, 
+                'error': f'Model switching failed: {str(e)}'
+            }), 500
+        
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

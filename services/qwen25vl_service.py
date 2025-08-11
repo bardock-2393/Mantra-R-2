@@ -11,11 +11,16 @@ import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
-# Fix the import - use proper error handling
+
+# Import qwen-vl-utils with proper error handling
 try:
     from qwen_vl_utils import process_vision_info
+    QWEN_VL_UTILS_AVAILABLE = True
+    print("✅ qwen-vl-utils imported successfully")
 except ImportError:
-    # Fallback implementation if qwen_vl_utils is not available
+    QWEN_VL_UTILS_AVAILABLE = False
+    print("⚠️ qwen-vl-utils not available, using fallback implementation")
+    
     def process_vision_info(messages):
         """Fallback implementation for process_vision_info"""
         image_inputs = []
@@ -296,10 +301,35 @@ class Qwen25VLService:
                 }
             ]
             
-            # Process vision info
+            # Process vision info with proper error handling
             try:
-                image_inputs, video_inputs = process_vision_info(messages)
-                print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+                if QWEN_VL_UTILS_AVAILABLE:
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+                    
+                    # Validate video inputs
+                    if video_inputs and len(video_inputs) > 0:
+                        # Check if video inputs are valid
+                        valid_videos = []
+                        for video_input in video_inputs:
+                            if video_input is not None and os.path.exists(str(video_input)):
+                                valid_videos.append(video_input)
+                            else:
+                                print(f"⚠️ Invalid video input: {video_input}")
+                        
+                        if not valid_videos:
+                            print("⚠️ No valid video inputs found, using fallback")
+                            return await self._generate_text_only_analysis(prompt, video_path)
+                        
+                        video_inputs = valid_videos
+                    else:
+                        print("⚠️ No video inputs found, using fallback")
+                        return await self._generate_text_only_analysis(prompt, video_path)
+                        
+                else:
+                    print("⚠️ qwen-vl-utils not available, using fallback")
+                    return await self._generate_text_only_analysis(prompt, video_path)
+                    
             except Exception as e:
                 print(f"⚠️ Vision info processing failed: {e}")
                 # Fallback to text-only analysis
@@ -310,15 +340,19 @@ class Qwen25VLService:
                 messages, tokenize=False, add_generation_prompt=True
             )
             
-            # Prepare inputs
-            inputs = self.processor(
-                text=[text],
-                images=image_inputs,
-                videos=video_inputs,
-                padding=True,
-                return_tensors="pt"
-            )
-            inputs = inputs.to(self.device)
+            # Prepare inputs with proper error handling
+            try:
+                inputs = self.processor(
+                    text=[text],
+                    images=image_inputs if 'image_inputs' in locals() else None,
+                    videos=video_inputs if 'video_inputs' in locals() else None,
+                    padding=True,
+                    return_tensors="pt"
+                )
+                inputs = inputs.to(self.device)
+            except Exception as e:
+                print(f"⚠️ Input processing failed: {e}")
+                return await self._generate_text_only_analysis(prompt, video_path)
             
             # Generate response
             with torch.no_grad():
@@ -329,7 +363,7 @@ class Qwen25VLService:
                     top_p=Config.QWEN25VL_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=self.processor.tokenizer.eos_token_id
+                    pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
             # Decode response
@@ -404,7 +438,7 @@ Please provide a comprehensive analysis based on the video description and conte
                     top_p=Config.QWEN25VL_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=self.processor.tokenizer.eos_token_id
+                    pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
             # Decode response
@@ -467,7 +501,7 @@ Please provide a comprehensive analysis based on the video description and conte
                     top_p=Config.QWEN25VL_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_CONFIG['top_k'],
                     do_sample=True,
-                    pad_token_id=self.processor.tokenizer.eos_token_id
+                    pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
             # Decode response
@@ -510,7 +544,8 @@ Please provide a comprehensive analysis based on the video description and conte
             'device': str(self.device),
             'gpu_available': torch.cuda.is_available(),
             'memory_allocated': torch.cuda.memory_allocated() if torch.cuda.is_available() else 0,
-            'memory_reserved': torch.cuda.memory_reserved() if torch.cuda.is_available() else 0
+            'memory_reserved': torch.cuda.memory_reserved() if torch.cuda.is_available() else 0,
+            'qwen_vl_utils_available': QWEN_VL_UTILS_AVAILABLE
         }
     
     def cleanup(self):

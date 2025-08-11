@@ -28,29 +28,40 @@ class ModelManager:
                 'initialized': False
             }
         }
+        self._initialization_lock = asyncio.Lock()  # Prevent concurrent initialization
     
     async def initialize_model(self, model_name: str = None) -> bool:
         """Initialize the specified model or current model"""
-        try:
-            if model_name:
-                self.current_model = model_name
-            
-            if self.current_model not in self.available_models:
-                raise ValueError(f"Unknown model: {self.current_model}")
-            
-            model_info = self.available_models[self.current_model]
-            
-            if not model_info['initialized']:
+        async with self._initialization_lock:
+            try:
+                if model_name:
+                    self.current_model = model_name
+                
+                if self.current_model not in self.available_models:
+                    raise ValueError(f"Unknown model: {self.current_model}")
+                
+                model_info = self.available_models[self.current_model]
+                
+                # Check if already initialized
+                if model_info['initialized']:
+                    print(f"ℹ️ {model_info['name']} is already initialized")
+                    return True
+                
                 print(f"🚀 Initializing {model_info['name']}...")
+                
+                # Initialize the service
                 await model_info['service'].initialize()
                 model_info['initialized'] = True
+                
                 print(f"✅ {model_info['name']} initialized successfully")
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ Failed to initialize {self.current_model}: {e}")
-            return False
+                return True
+                
+            except Exception as e:
+                print(f"❌ Failed to initialize {self.current_model}: {e}")
+                # Mark as not initialized on failure
+                if self.current_model in self.available_models:
+                    self.available_models[self.current_model]['initialized'] = False
+                return False
     
     async def switch_model(self, model_name: str) -> bool:
         """Switch to a different model"""
@@ -66,8 +77,12 @@ class ModelManager:
             
             # Cleanup current model if initialized
             if self.available_models[self.current_model]['initialized']:
-                self.available_models[self.current_model]['service'].cleanup()
-                self.available_models[self.current_model]['initialized'] = False
+                try:
+                    self.available_models[self.current_model]['service'].cleanup()
+                    self.available_models[self.current_model]['initialized'] = False
+                    print(f"🧹 Cleaned up {self.available_models[self.current_model]['name']}")
+                except Exception as e:
+                    print(f"⚠️ Warning: Cleanup failed for {self.current_model}: {e}")
             
             # Switch to new model
             self.current_model = model_name
@@ -76,16 +91,24 @@ class ModelManager:
             success = await self.initialize_model()
             if success:
                 print(f"✅ Successfully switched to {model_name}")
+                return True
             else:
                 print(f"❌ Failed to switch to {model_name}")
                 # Revert to previous model
+                previous_model = self.current_model
                 self.current_model = 'minicpm'
+                print(f"🔄 Reverting to {self.current_model}")
                 await self.initialize_model()
-            
-            return success
+                return False
             
         except Exception as e:
             print(f"❌ Model switch failed: {e}")
+            # Try to revert to minicpm on failure
+            try:
+                self.current_model = 'minicpm'
+                await self.initialize_model()
+            except Exception as revert_error:
+                print(f"❌ Failed to revert to minicpm: {revert_error}")
             return False
     
     def get_current_model(self) -> Dict:
@@ -117,9 +140,13 @@ class ModelManager:
         """Analyze video using the current model"""
         try:
             if not self.available_models[self.current_model]['initialized']:
+                print(f"🔄 Initializing {self.current_model} for video analysis...")
                 await self.initialize_model()
             
             model_info = self.available_models[self.current_model]
+            if not model_info['initialized']:
+                raise RuntimeError(f"Failed to initialize {self.current_model}")
+            
             return await model_info['service'].analyze_video(video_path, analysis_type, user_focus)
             
         except Exception as e:
@@ -130,9 +157,13 @@ class ModelManager:
         """Generate chat response using the current model"""
         try:
             if not self.available_models[self.current_model]['initialized']:
+                print(f"🔄 Initializing {self.current_model} for chat response...")
                 await self.initialize_model()
             
             model_info = self.available_models[self.current_model]
+            if not model_info['initialized']:
+                raise RuntimeError(f"Failed to initialize {self.current_model}")
+            
             return await model_info['service'].generate_chat_response(
                 analysis_result, analysis_type, user_focus, message, chat_history
             )
@@ -152,15 +183,44 @@ class ModelManager:
     def cleanup(self):
         """Cleanup all models"""
         try:
-            for model_info in self.available_models.values():
+            for name, model_info in self.available_models.items():
                 if model_info['initialized']:
-                    model_info['service'].cleanup()
-                    model_info['initialized'] = False
+                    try:
+                        model_info['service'].cleanup()
+                        model_info['initialized'] = False
+                        print(f"🧹 Cleaned up {model_info['name']}")
+                    except Exception as e:
+                        print(f"⚠️ Warning: Cleanup failed for {name}: {e}")
             
             print("🧹 All models cleaned up")
             
         except Exception as e:
             print(f"⚠️ Warning: Cleanup failed: {e}")
+    
+    async def health_check(self) -> Dict:
+        """Perform health check on all models"""
+        health_status = {}
+        
+        for name, model_info in self.available_models.items():
+            try:
+                if model_info['initialized']:
+                    status = model_info['service'].get_status()
+                    health_status[name] = {
+                        'status': 'healthy',
+                        'details': status
+                    }
+                else:
+                    health_status[name] = {
+                        'status': 'not_initialized',
+                        'details': {}
+                    }
+            except Exception as e:
+                health_status[name] = {
+                    'status': 'error',
+                    'error': str(e)
+                }
+        
+        return health_status
 
 # Global model manager instance
 model_manager = ModelManager() 
