@@ -31,10 +31,10 @@ class MiniCPMV26Model:
         """Check if the processor has vision capabilities"""
         p = self.processor
         # For MiniCPM, check if it's a processor that can handle images
+        # But be more strict - don't just check if it's callable
         return p is not None and (
             hasattr(p, "image_processor") or 
-            hasattr(p, "image_processor_class") or
-            hasattr(p, "__call__")  # Most processors are callable
+            hasattr(p, "image_processor_class")
         )
         
     def test_generation(self) -> bool:
@@ -331,6 +331,9 @@ class MiniCPMV26Model:
                 print("🔍 Using model.chat() API (MiniCPM path)")
                 print(f"🔍 Processor type: {type(self.processor).__name__}")
                 print(f"🔍 Processor attributes: {[attr for attr in dir(self.processor) if not attr.startswith('_')][:10]}")
+                print(f"🔍 Has encode method: {hasattr(self.processor, 'encode')}")
+                print(f"🔍 Has image_processor: {hasattr(self.processor, 'image_processor')}")
+                print(f"🔍 _has_vision_processor() returns: {self._has_vision_processor()}")
                 
                 # Check model config to understand what it expects
                 if hasattr(self.model, 'config') and hasattr(self.model.config, 'query_num'):
@@ -339,6 +342,10 @@ class MiniCPMV26Model:
                 # Check if processor is actually a tokenizer
                 if hasattr(self.processor, 'encode') and not hasattr(self.processor, 'image_processor'):
                     print("⚠️ Warning: Processor appears to be a tokenizer, not a vision processor")
+                    print("🔄 Falling back to generate method...")
+                    # Continue to fallback
+                elif not self._has_vision_processor():
+                    print("⚠️ Warning: Processor is not a vision processor")
                     print("🔄 Falling back to generate method...")
                     # Continue to fallback
                 else:
@@ -390,7 +397,7 @@ class MiniCPMV26Model:
             print(f"✅ Input processing successful, input_ids: {inputs.get('input_ids').shape if 'input_ids' in inputs else 'n/a'}")
 
             # Validate inputs before generation
-            if not hasattr(inputs, 'input_ids') or inputs.input_ids is None:
+            if 'input_ids' not in inputs or inputs['input_ids'] is None:
                 raise ValueError("Input processing failed: no input_ids")
             
             print(f"🔍 Final input validation: {list(inputs.keys())}")
@@ -445,7 +452,7 @@ class MiniCPMV26Model:
             
             # Decode response
             generated_ids_trimmed = [
-                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs['input_ids'], generated_ids)
             ]
             
             # Use the appropriate component for decoding
@@ -632,16 +639,31 @@ class MiniCPMV26Model:
                 if isinstance(image, Image.Image):
                     image = image.convert("RGB")
                 inputs = self.processor(text=prompt, images=image, return_tensors="pt")
+                print(f"🔍 Using vision processor, inputs type: {type(inputs)}")
             else:
                 tok = self.processor.tokenizer if (self._has_vision_processor() and hasattr(self.processor, "tokenizer")) else self.tokenizer
                 if tok is None:
                     raise RuntimeError("No tokenizer available")
-                inputs = dict(tok(prompt, return_tensors="pt"))
+                print(f"🔍 Using tokenizer: {type(tok).__name__}")
+                
+                # Ensure we get the right format from tokenizer
+                tokenizer_output = tok(prompt, return_tensors="pt")
+                print(f"🔍 Raw tokenizer output: {tokenizer_output}")
+                
+                # Convert to dict if it's not already
+                if hasattr(tokenizer_output, 'input_ids'):
+                    inputs = {'input_ids': tokenizer_output.input_ids}
+                else:
+                    inputs = dict(tokenizer_output)
+                
+                print(f"🔍 Tokenizer inputs: {inputs}")
 
             # Ensure all inputs are on the correct device
             for key, value in dict(inputs).items():
                 if isinstance(value, torch.Tensor):
                     inputs[key] = value.to(self.device)
+            
+            print(f"🔍 Final processed inputs: {inputs}")
             return inputs
             
         except Exception as e:
