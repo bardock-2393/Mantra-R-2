@@ -54,6 +54,15 @@ class MiniCPMV26Service:
         start_time = time.time()
         
         try:
+            # Check if model is ready
+            if not minicpm_v26_model.is_ready_for_inference():
+                print("⚠️ Model not ready, attempting reinitialization...")
+                if minicpm_v26_model.safe_reinitialize():
+                    print("✅ Model reinitialization successful")
+                else:
+                    print("❌ Model reinitialization failed")
+                    return "Error: Model is not functioning properly. Please restart the application."
+            
             # Extract video metadata including duration
             video_metadata = self._extract_video_metadata(video_path)
             video_duration = video_metadata.get('duration', 0)
@@ -67,14 +76,43 @@ class MiniCPMV26Service:
             # Combine prompt with video summary
             full_prompt = f"{analysis_prompt}\n\nVideo Summary:\n{video_summary}\n\nAnalysis:"
             
-            # Generate analysis using the model
-            analysis_result = minicpm_v26_model.generate_text(full_prompt, max_new_tokens=2048)
+            # Generate analysis using the model with retry logic
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    print(f"🔄 Attempt {attempt + 1}/{max_retries} to generate analysis...")
+                    analysis_result = minicpm_v26_model.generate_text(full_prompt, max_new_tokens=2048)
+                    
+                    # Check if generation was successful
+                    if analysis_result and not analysis_result.startswith("Error:"):
+                        print(f"✅ Analysis generation successful on attempt {attempt + 1}")
+                        
+                        # Record performance metrics
+                        latency = (time.time() - start_time) * 1000
+                        self.performance_monitor.record_analysis_latency(latency)
+                        
+                        return analysis_result
+                    else:
+                        print(f"⚠️ Attempt {attempt + 1} failed: {analysis_result}")
+                        if attempt < max_retries - 1:
+                            print("🔄 Retrying...")
+                            # Wait before retry
+                            import asyncio
+                            await asyncio.sleep(2)
+                        else:
+                            print("❌ All retry attempts failed")
+                            return f"Failed to generate analysis after {max_retries} attempts: {analysis_result}"
+                            
+                except Exception as e:
+                    print(f"❌ Attempt {attempt + 1} crashed: {e}")
+                    if attempt < max_retries - 1:
+                        print("🔄 Retrying...")
+                        await asyncio.sleep(2)
+                    else:
+                        print("❌ All retry attempts crashed")
+                        return f"Error analyzing video: {str(e)}"
             
-            # Record performance metrics
-            latency = (time.time() - start_time) * 1000
-            self.performance_monitor.record_analysis_latency(latency)
-            
-            return analysis_result
+            return "Error: Analysis generation failed after multiple attempts"
             
         except Exception as e:
             print(f"❌ Video analysis failed: {e}")
@@ -174,23 +212,31 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, 
                               user_focus: str, message: str, 
                               chat_history: List[Dict]) -> str:
-        """Generate contextual AI response based on video analysis"""
+        """Generate chat response using MiniCPM-V-2_6"""
         if not self.is_initialized:
             await self.initialize()
         
-        start_time = time.time()
-        
         try:
-            # Use the model's chat response method
+            # Check if model is ready
+            if not minicpm_v26_model.is_ready_for_inference():
+                print("⚠️ Model not ready, attempting reinitialization...")
+                if minicpm_v26_model.safe_reinitialize():
+                    print("✅ Model reinitialization successful")
+                else:
+                    print("❌ Model reinitialization failed")
+                    return "Error: Model is not functioning properly. Please restart the application."
+            
+            # Generate chat response using the model
             response = minicpm_v26_model.generate_chat_response(
                 analysis_result, analysis_type, user_focus, message, chat_history
             )
             
-            # Record performance metrics
-            latency = (time.time() - start_time) * 1000
-            self.performance_monitor.record_chat_latency(latency)
-            
-            return response
+            # Check if generation was successful
+            if response and not response.startswith("Error:"):
+                return response
+            else:
+                print(f"❌ Chat response generation failed: {response}")
+                return f"Failed to generate chat response: {response}"
             
         except Exception as e:
             print(f"❌ Chat response generation failed: {e}")
