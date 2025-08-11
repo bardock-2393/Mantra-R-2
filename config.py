@@ -48,6 +48,20 @@ class Config:
         'chat_temperature': 0.3
     }
     
+    # Qwen2.5-VL-32B Model Configuration (New)
+    QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
+    QWEN25VL_32B_CONFIG = {
+        'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
+        'hf_token': os.getenv('HF_TOKEN', ''),
+        'max_length': 32768,
+        'temperature': 0.2,
+        'top_p': 0.9,
+        'top_k': 40,
+        'chat_temperature': 0.3,
+        'min_pixels': 256 * 28 * 28,  # 256 tokens
+        'max_pixels': 1280 * 28 * 28   # 1280 tokens
+    }
+    
     # DeepStream Configuration
     DEEPSTREAM_CONFIG = {
         'enabled': True,

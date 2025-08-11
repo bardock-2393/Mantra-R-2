@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from config import Config
 from services.ai_service_fixed import minicpm_service
 from services.qwen25vl_service import qwen25vl_service
+from services.qwen25vl_32b_service import qwen25vl_32b_service
 
 class ModelManager:
     """Manages different AI models and provides unified interface"""
@@ -25,6 +26,12 @@ class ModelManager:
                 'name': 'Qwen2.5-VL-7B-Instruct',
                 'description': 'Advanced multimodal model with enhanced video understanding',
                 'service': qwen25vl_service,
+                'initialized': False
+            },
+            'qwen25vl_32b': {
+                'name': 'Qwen2.5-VL-32B-Instruct',
+                'description': 'High-performance 32B parameter model with superior video analysis capabilities',
+                'service': qwen25vl_32b_service,
                 'initialized': False
             }
         }
