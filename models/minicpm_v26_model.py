@@ -38,11 +38,18 @@ class MiniCPMV26Model:
             
             # Load model with correct parameters
             print(f"🔍 Model path: {self.model_path}")
+            
+            # Get HF token for MiniCPM-V-2_6 access
+            hf_token = Config.MINICPM_CONFIG.get('hf_token', '')
+            if not hf_token:
+                print("⚠️ Warning: No HF_TOKEN provided. MiniCPM-V-2_6 may require authentication.")
+            
             self.model = AutoModel.from_pretrained(
                 self.model_path, 
                 trust_remote_code=True,
                 attn_implementation='sdpa',  # Use SDPA for better performance
-                torch_dtype=torch.bfloat16
+                torch_dtype=torch.bfloat16,
+                token=hf_token if hf_token else None
             )
             
             # Move to GPU and set to eval mode
@@ -52,7 +59,8 @@ class MiniCPMV26Model:
             print(f"📝 Loading processor from {self.model_path}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
-                trust_remote_code=True
+                trust_remote_code=True,
+                token=hf_token if hf_token else None
             )
             
             # Verify components loaded
@@ -81,25 +89,55 @@ class MiniCPMV26Model:
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
-            # Simple text warmup
-            print("📝 Using text-only warmup...")
-            try:
-                # Create a simple warmup prompt
-                warmup_text = "Hello, how are you?"
-                inputs = self.tokenizer(warmup_text, return_tensors="pt").to(self.device)
-                
-                with torch.no_grad():
-                    _ = self.model.generate(
-                        **inputs,
-                        max_new_tokens=10,
-                        do_sample=False
-                    )
-                print("✅ Text warmup completed")
-            except Exception as e:
-                print(f"❌ Text warmup failed: {e}")
+            # MiniCPM-V-2_6 is a vision-language model, use proper chat interface
+            print("📝 Using vision-language warmup with chat interface...")
+            
+            # Create a dummy image and text for warmup
+            dummy_image = Image.new('RGB', (224, 224), color='blue')
+            warmup_text = "Hello, this is a warmup message."
+            
+            # Format messages for the chat interface
+            msgs = [{'role': 'user', 'content': [dummy_image, warmup_text]}]
+            
+            with torch.no_grad():
+                for i in range(3):
+                    print(f"  Warmup iteration {i+1}/3...")
+                    try:
+                        response = self.model.chat(
+                            msgs=msgs,
+                            tokenizer=self.tokenizer,
+                            max_new_tokens=8,
+                            do_sample=False
+                        )
+                        
+                        # Handle response (could be string or generator)
+                        if response is not None:
+                            if isinstance(response, str):
+                                print(f"    ✅ Warmup {i+1} successful: {response[:50]}...")
+                            else:
+                                # Handle generator response
+                                text_parts = []
+                                for part in response:
+                                    if part is not None:
+                                        text_parts.append(str(part))
+                                if text_parts:
+                                    print(f"    ✅ Warmup {i+1} successful: {''.join(text_parts)[:50]}...")
+                                else:
+                                    print(f"    ✅ Warmup {i+1} completed")
+                        else:
+                            print(f"    ⚠️ Warmup {i+1} returned None")
+                            
+                    except Exception as e:
+                        print(f"    ❌ Warmup {i+1} failed: {e}")
+                        # Continue with next iteration
+                        continue
+                        
+            print("✅ Model warmup completed successfully")
                 
         except Exception as e:
-            print(f"⚠️ Warning: Model warmup failed: {e}")
+            print(f"❌ Model warmup failed: {e}")
+            # Don't raise here, just log the error
+            print(f"⚠️ Continuing without warmup...")
     
     def _print_model_info(self):
         """Print model information and memory usage"""
@@ -128,33 +166,43 @@ class MiniCPMV26Model:
             if not self.is_initialized:
                 raise RuntimeError("Model not initialized")
             
-            # Tokenize input
-            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+            # MiniCPM-V-2_6 uses a chat interface, not generate
+            # Create a dummy image as required by the vision-language model
+            dummy_image = Image.new('RGB', (224, 224), color='white')
             
-            # Generate response
+            # Format messages for the chat interface
+            msgs = [{'role': 'user', 'content': [dummy_image, prompt]}]
+            
+            # Use the chat method as per official documentation
             with torch.no_grad():
-                generated_ids = self.model.generate(
-                    **inputs,
+                response = self.model.chat(
+                    msgs=msgs,
+                    tokenizer=self.tokenizer,
                     max_new_tokens=max_new_tokens,
                     temperature=temperature,
                     top_p=top_p,
                     top_k=top_k,
-                    do_sample=True,
-                    pad_token_id=self.tokenizer.eos_token_id
+                    do_sample=True
                 )
             
-            # Decode response
-            generated_ids_trimmed = [
-                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-            ]
+            # Handle the response - it could be a string or generator
+            if response is None:
+                raise RuntimeError("Model chat returned None")
             
-            output_text = self.tokenizer.batch_decode(
-                generated_ids_trimmed,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )
+            # If response is a string, return it directly
+            if isinstance(response, str):
+                return response
             
-            return output_text[0] if output_text else "Text generation failed"
+            # If response is a generator (streaming), collect the text
+            if hasattr(response, '__iter__') and not isinstance(response, str):
+                generated_text = ""
+                for new_text in response:
+                    if new_text is not None:
+                        generated_text += str(new_text)
+                return generated_text if generated_text else "No text generated"
+            
+            # Fallback: convert to string
+            return str(response) if response else "Text generation failed"
             
         except Exception as e:
             print(f"❌ Text generation failed: {e}")

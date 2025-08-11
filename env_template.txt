@@ -1,0 +1,16 @@
+# Environment variables for MiniCPM-V-2_6
+# Copy this file to .env and fill in your values
+
+# Hugging Face token for MiniCPM-V-2_6 access
+# You need to fill out a questionnaire for registration at:
+# https://huggingface.co/openbmb/MiniCPM-V-2_6
+# Then get your token from: https://huggingface.co/settings/tokens
+HF_TOKEN=your_hf_token_here
+
+# Flask secret key
+SECRET_KEY=your_secret_key_here
+
+# Other optional configurations
+# MINICPM_MODEL_PATH=openbmb/MiniCPM-V-2_6
+# QWEN25VL_MODEL_PATH=Qwen/Qwen2.5-VL-7B-Instruct
+# QWEN25VL_32B_MODEL_PATH=Qwen/Qwen2.5-VL-32B-Instruct 

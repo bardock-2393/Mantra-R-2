@@ -47,9 +47,13 @@ class MiniCPMV26Service:
             # Load processor (handles both text and image inputs)
             print(f"Loading processor from {Config.MINICPM_MODEL_PATH}...")
             try:
+                # Get HF token for MiniCPM-V-2_6 access
+                hf_token = Config.MINICPM_CONFIG.get('hf_token', '')
+                
                 self.processor = AutoProcessor.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    token=hf_token if hf_token else None
                 )
                 
                 # Verify processor loaded successfully
@@ -67,7 +71,8 @@ class MiniCPMV26Service:
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    token=hf_token if hf_token else None
                 )
                 print(f"Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             except Exception as e:
@@ -77,11 +82,17 @@ class MiniCPMV26Service:
             # Load model with optimizations
             print(f"Loading model from {Config.MINICPM_MODEL_PATH}...")
             try:
+                # Get HF token for MiniCPM-V-2_6 access
+                hf_token = Config.MINICPM_CONFIG.get('hf_token', '')
+                if not hf_token:
+                    print("⚠️ Warning: No HF_TOKEN provided. MiniCPM-V-2_6 may require authentication.")
+                
                 self.model = AutoModel.from_pretrained(
                     Config.MINICPM_MODEL_PATH,
                     torch_dtype=torch.float16 if Config.GPU_CONFIG['precision'] == 'float16' else torch.float32,
                     device_map="auto",
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    token=hf_token if hf_token else None
                 )
                 
                 # Verify model loaded successfully
@@ -151,13 +162,28 @@ class MiniCPMV26Service:
                 for i in range(3):
                     print(f"Vision-language warmup iteration {i+1}/3...")
                     response = self.model.chat(
-                        image=None,
                         msgs=msgs,
                         tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
                         max_new_tokens=8,
                         do_sample=False
                     )
-                    print(f"  Vision-language warmup iteration {i+1} successful")
+                    
+                    # Handle response (could be string or generator)
+                    if response is not None:
+                        if isinstance(response, str):
+                            print(f"  Vision-language warmup iteration {i+1} successful: {response[:50]}...")
+                        else:
+                            # Handle generator response
+                            text_parts = []
+                            for part in response:
+                                if part is not None:
+                                    text_parts.append(str(part))
+                            if text_parts:
+                                print(f"  Vision-language warmup iteration {i+1} successful: {''.join(text_parts)[:50]}...")
+                            else:
+                                print(f"  Vision-language warmup iteration {i+1} completed")
+                    else:
+                        print(f"  ⚠️ Vision-language warmup iteration {i+1} returned None")
                     
         except Exception as e:
             print(f"Vision-language warmup failed: {e}")
@@ -172,20 +198,38 @@ class MiniCPMV26Service:
         try:
             dummy_text = "Hello, this is a warmup message."
             
+            # Create a dummy image as required by the vision-language model
+            dummy_image = Image.new('RGB', (224, 224), color='blue')
+            
             # Use the proper chat method for text-only input
-            msgs = [{'role': 'user', 'content': [dummy_text]}]
+            msgs = [{'role': 'user', 'content': [dummy_image, dummy_text]}]
             
             with torch.no_grad():
                 for i in range(3):
                     print(f"Text warmup iteration {i+1}/3...")
                     response = self.model.chat(
-                        image=None,
                         msgs=msgs,
                         tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
                         max_new_tokens=8,
                         do_sample=False
                     )
-                    print(f"  Text warmup iteration {i+1} successful")
+                    
+                    # Handle response (could be string or generator)
+                    if response is not None:
+                        if isinstance(response, str):
+                            print(f"  Text warmup iteration {i+1} successful: {response[:50]}...")
+                        else:
+                            # Handle generator response
+                            text_parts = []
+                            for part in response:
+                                if part is not None:
+                                    text_parts.append(str(part))
+                            if text_parts:
+                                print(f"  Text warmup iteration {i+1} successful: {''.join(text_parts)[:50]}...")
+                            else:
+                                print(f"  Text warmup iteration {i+1} completed")
+                    else:
+                        print(f"  ⚠️ Text warmup iteration {i+1} returned None")
                     
         except Exception as e:
             print(f"Text warmup failed: {e}")
@@ -252,67 +296,46 @@ Be thorough and professional in your analysis."""
     def _generate_analysis(self, prompt: str) -> str:
         """Generate analysis using MiniCPM-V-2_6"""
         try:
-            # For vision-language model, we need to provide both text and a dummy image
-            # Since this is text-only analysis, we'll use a placeholder image
-            dummy_image = torch.randn(1, 3, 224, 224).to(self.device)
+            # MiniCPM-V-2_6 uses a chat interface, not generate
+            # Create a dummy image as required by the vision-language model
+            dummy_image = Image.new('RGB', (224, 224), color='white')
             
-            # Use the processor for proper vision-language model input handling
-            if self.processor:
-                inputs = self.processor(
-                    text=prompt,
-                    images=dummy_image,
-                    return_tensors="pt",
-                    truncation=True,
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)  # Reasonable limit
-                )
-            elif self.tokenizer:
-                # Fallback to tokenizer-only if processor not available
-                inputs = self.tokenizer(
-                    prompt,
-                    return_tensors="pt",
-                    truncation=True,
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], 8192)
-                )
-            else:
-                raise RuntimeError("Neither processor nor tokenizer available")
+            # Format messages for the chat interface
+            msgs = [{'role': 'user', 'content': [dummy_image, prompt]}]
             
-            # Move to device
-            inputs = {k: (v.to(self.device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-            
-            # Generate response with reasonable parameters
+            # Use the chat method as per official documentation
             with torch.no_grad():
-                outputs = self.model.generate(
-                    **inputs,
+                response = self.model.chat(
+                    msgs=msgs,
+                    tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
                     max_new_tokens=1000,  # Reasonable output length
-                    max_length=min(Config.MINICPM_CONFIG['max_length'], inputs['input_ids'].shape[1] + 1000),  # Total length limit
                     temperature=Config.MINICPM_CONFIG['temperature'],
                     top_p=Config.MINICPM_CONFIG['top_p'],
                     top_k=Config.MINICPM_CONFIG['top_k'],
-                    do_sample=True,
-                    pad_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0),
-                    eos_token_id=getattr(self.processor.tokenizer if self.processor else self.tokenizer, 'eos_token_id', 0)
+                    do_sample=True
                 )
             
-            # Verify outputs are valid
-            if outputs is None or len(outputs) == 0:
-                raise RuntimeError("Model generation returned None or empty output")
+            # Handle the response - it could be a string or generator
+            if response is None:
+                raise RuntimeError("Model chat returned None")
             
-            # Decode response using the appropriate tokenizer
-            if self.processor and hasattr(self.processor, 'tokenizer'):
-                response = self.processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            elif self.tokenizer:
-                response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            else:
-                raise RuntimeError("No tokenizer available for decoding")
+            # If response is a string, return it directly
+            if isinstance(response, str):
+                return response
             
-            # Extract only the new generated content
-            if prompt in response:
-                response = response[len(prompt):].strip()
+            # If response is a generator (streaming), collect the text
+            if hasattr(response, '__iter__') and not isinstance(response, str):
+                generated_text = ""
+                for new_text in response:
+                    if new_text is not None:
+                        generated_text += str(new_text)
+                return generated_text if generated_text else "No text generated"
             
-            return response
+            # Fallback: convert to string
+            return str(response) if response else "Text generation failed"
             
         except Exception as e:
-            print(f"Analysis generation failed: {e}")
+            print(f"❌ Analysis generation failed: {e}")
             return f"Error generating analysis: {str(e)}"
     
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
