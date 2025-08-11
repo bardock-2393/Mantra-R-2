@@ -36,17 +36,7 @@ class Config:
         'top_k': 40
     }
     
-    # Qwen2.5-VL Model Configuration
-    QWEN25VL_MODEL_PATH = os.getenv('QWEN25VL_MODEL_PATH', 'Qwen/Qwen2.5-VL-7B-Instruct')
-    QWEN25VL_CONFIG = {
-        'model_name': 'Qwen/Qwen2.5-VL-7B-Instruct',
-        'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 32768,
-        'temperature': 0.2,
-        'top_p': 0.9,
-        'top_k': 40,
-        'chat_temperature': 0.3
-    }
+
     
     # Qwen2.5-VL-32B Model Configuration (New)
     QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')

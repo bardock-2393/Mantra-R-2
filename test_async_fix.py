@@ -109,49 +109,7 @@ def test_async_methods():
     except Exception as e:
         print(f"⚠️ Could not test MiniCPM service: {e}")
     
-    try:
-        # Test Qwen service
-        spec = importlib.util.spec_from_file_location("qwen25vl_service", "services/qwen25vl_service.py")
-        qwen_module = importlib.util.module_from_spec(spec)
-        
-        if hasattr(qwen_module, 'Qwen25VLService'):
-            QwenService = qwen_module.Qwen25VLService
-            
-            # Check analyze_video method
-            if hasattr(QwenService, 'analyze_video'):
-                method = getattr(QwenService, 'analyze_video')
-                if inspect.iscoroutinefunction(method):
-                    print("✅ QwenService.analyze_video is async")
-                else:
-                    print("❌ QwenService.analyze_video is NOT async")
-            else:
-                print("❌ QwenService.analyze_video method not found")
-            
-            # Check generate_chat_response method
-            if hasattr(QwenService, 'generate_chat_response'):
-                method = getattr(QwenService, 'generate_chat_response')
-                if inspect.iscoroutinefunction(method):
-                    print("✅ QwenService.generate_chat_response is async")
-                else:
-                    print("❌ QwenService.generate_chat_response is NOT async")
-            else:
-                print("❌ QwenService.generate_chat_response method not found")
-            
-            # Check initialize method
-            if hasattr(QwenService, 'initialize'):
-                method = getattr(QwenService, 'initialize')
-                if inspect.iscoroutinefunction(method):
-                    print("✅ QwenService.initialize is async")
-                else:
-                    print("❌ QwenService.initialize is NOT async")
-            else:
-                print("❌ QwenService.initialize method not found")
-                
-        else:
-            print("❌ QwenService class not found")
-            
-    except Exception as e:
-        print(f"⚠️ Could not test Qwen service: {e}")
+
 
 if __name__ == "__main__":
     test_async_methods() 

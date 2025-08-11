@@ -2,7 +2,7 @@
 
 ## 🚀 Overview
 
-Successfully integrated the **Qwen2.5-VL-32B-Instruct** model into the AI Video Detective project, allowing users to switch between three different AI models for video analysis.
+Successfully integrated the **Qwen2.5-VL-32B-Instruct** model into the AI Video Detective project, allowing users to switch between two different AI models for video analysis.
 
 ## ✨ What's New
 
@@ -15,13 +15,11 @@ Successfully integrated the **Qwen2.5-VL-32B-Instruct** model into the AI Video 
 - Added dropdown selector in the upload interface
 - Users can now choose between:
   - **MiniCPM-V-2_6**: Fast & Efficient
-  - **Qwen2.5-VL-7B-Instruct**: Advanced
   - **Qwen2.5-VL-32B-Instruct**: High-Performance
 
 ### 3. Visual Feedback
 - Color-coded model selection with different border colors:
   - MiniCPM: Green (#10b981)
-  - Qwen2.5-VL-7B: Blue (#3b82f6)
   - Qwen2.5-VL-32B: Purple (#8b5cf6)
 
 ## 🔧 Technical Implementation
@@ -158,7 +156,7 @@ python test_qwen25vl_32b_integration.py
 ### 3. Performance Tips
 - 32B model provides highest quality analysis
 - Use for complex video analysis tasks
-- 7B model for faster processing
+- 32B model for high-performance processing
 - MiniCPM for quick overviews
 
 ## 🔍 Troubleshooting
@@ -178,7 +176,7 @@ python test_qwen25vl_32b_integration.py
 | Model | Parameters | Quality | Speed | Memory Usage |
 |-------|------------|---------|-------|--------------|
 | MiniCPM-V-2_6 | 2.6B | Good | Fast | Low |
-| Qwen2.5-VL-7B | 7B | Better | Medium | Medium |
+
 | Qwen2.5-VL-32B | 32B | Best | Slower | High |
 
 ## 🎉 Summary
