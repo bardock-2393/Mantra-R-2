@@ -98,6 +98,24 @@ from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
 
+# ✅ Add caching to avoid regenerating similar responses
+import hashlib
+import json
+
+class ResponseCache:
+    def __init__(self):
+        self.cache = {}
+    
+    def get_cache_key(self, prompt, video_path):
+        content = f"{prompt}_{video_path}"
+        return hashlib.md5(content.encode()).hexdigest()
+    
+    def get(self, key):
+        return self.cache.get(key)
+    
+    def set(self, key, response):
+        self.cache[key] = response
+
 class Qwen25VL32BService:
     """Local GPU-powered Qwen2.5-VL-32B-Instruct service for video analysis"""
     
@@ -169,10 +187,15 @@ class Qwen25VL32BService:
                 # Use SDPA for better compatibility and performance
                 self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     Config.QWEN25VL_32B_MODEL_PATH,
-                    torch_dtype=torch.bfloat16,  # Use bfloat16 for 32B model
-                    attn_implementation="sdpa",  # Use SDPA instead of flash attention
-                    device_map="auto",
-                    trust_remote_code=True
+                    torch_dtype=torch.bfloat16,  # Memory efficient
+                    attn_implementation="sdpa",   # Better performance
+                    device_map="auto",            # Automatic distribution
+                    trust_remote_code=True,
+                    # Performance optimizations
+                    low_cpu_mem_usage=True,      # Reduce CPU memory
+                    max_memory={0: "40GB", "cpu": "100GB"},  # Memory strategy
+                    offload_folder="offload",    # Disk offloading
+                    offload_state_dict=True,     # State dict offloading
                 )
                 
                 # Verify model loaded successfully
