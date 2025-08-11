@@ -82,6 +82,9 @@ class ModelManager:
             
             print(f"🔄 Switching from {self.current_model} to {model_name}...")
             
+            # Store the previous model name
+            previous_model = self.current_model
+            
             # Cleanup current model if initialized
             if self.available_models[self.current_model]['initialized']:
                 try:
@@ -102,18 +105,30 @@ class ModelManager:
             else:
                 print(f"❌ Failed to switch to {model_name}")
                 # Revert to previous model
-                previous_model = self.current_model
-                self.current_model = 'minicpm'
-                print(f"🔄 Reverting to {self.current_model}")
-                await self.initialize_model()
+                print(f"🔄 Reverting to {previous_model}")
+                self.current_model = previous_model
+                try:
+                    await self.initialize_model()
+                    print(f"✅ Successfully reverted to {previous_model}")
+                except Exception as revert_error:
+                    print(f"❌ Failed to revert to {previous_model}: {revert_error}")
+                    # Last resort: try to initialize minicpm
+                    try:
+                        self.current_model = 'minicpm'
+                        await self.initialize_model()
+                        print(f"✅ Successfully initialized fallback model: minicpm")
+                    except Exception as fallback_error:
+                        print(f"❌ Critical: Failed to initialize any model: {fallback_error}")
                 return False
             
         except Exception as e:
             print(f"❌ Model switch failed: {e}")
             # Try to revert to minicpm on failure
             try:
+                print(f"🔄 Attempting to revert to minicpm due to error...")
                 self.current_model = 'minicpm'
                 await self.initialize_model()
+                print(f"✅ Successfully reverted to minicpm")
             except Exception as revert_error:
                 print(f"❌ Failed to revert to minicpm: {revert_error}")
             return False

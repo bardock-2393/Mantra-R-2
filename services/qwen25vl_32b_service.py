@@ -180,15 +180,18 @@ class Qwen25VL32BService:
                     raise RuntimeError("Model failed to load - returned None")
                 print(f"✅ Qwen2.5-VL-32B-Instruct model loaded successfully: {type(self.model).__name__}")
                 
+                # Note: Don't move model to device when using device_map="auto"
+                # The model is already properly distributed across available devices
+                print(f"✅ Model distributed across devices using device_map='auto'")
+                
             except Exception as e:
                 print(f"❌ Model loading failed: {e}")
                 print(f"   Model path: {Config.QWEN25VL_32B_MODEL_PATH}")
                 print(f"   Error type: {type(e).__name__}")
                 raise RuntimeError(f"Failed to load model: {e}")
             
-            # Move to GPU
-            print(f"🚀 Moving model to device: {self.device}")
-            self.model.to(self.device)
+            # Set model to evaluation mode (don't move to device)
+            self.model.eval()
             
             # Warm up the model
             await self._warmup_model()
@@ -225,7 +228,14 @@ class Qwen25VL32BService:
                 padding=True,
                 return_tensors="pt"
             )
-            inputs = inputs.to(self.device)
+            
+            # When using device_map="auto", the model handles device placement automatically
+            # Just ensure inputs are on the same device as the model's main device
+            if hasattr(self.model, 'device'):
+                inputs = inputs.to(self.model.device)
+            else:
+                # Fallback: use the first available CUDA device
+                inputs = inputs.to('cuda:0' if torch.cuda.is_available() else 'cpu')
             
             # Generate warmup response
             with torch.no_grad():
