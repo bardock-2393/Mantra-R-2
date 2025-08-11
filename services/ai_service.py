@@ -161,29 +161,31 @@ class MiniCPMV26Service:
             with torch.no_grad():
                 for i in range(3):
                     print(f"Vision-language warmup iteration {i+1}/3...")
-                    response = self.model.chat(
-                        msgs=msgs,
-                        tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
-                        max_new_tokens=8,
-                        do_sample=False
-                    )
-                    
-                    # Handle response (could be string or generator)
-                    if response is not None:
-                        if isinstance(response, str):
-                            print(f"  Vision-language warmup iteration {i+1} successful: {response[:50]}...")
-                        else:
-                            # Handle generator response
-                            text_parts = []
-                            for part in response:
-                                if part is not None:
-                                    text_parts.append(str(part))
-                            if text_parts:
-                                print(f"  Vision-language warmup iteration {i+1} successful: {''.join(text_parts)[:50]}...")
-                            else:
-                                print(f"  Vision-language warmup iteration {i+1} completed")
-                    else:
-                        print(f"  ⚠️ Vision-language warmup iteration {i+1} returned None")
+                    try:
+                        # ✅ Primary path: processor
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            processor=self.processor,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
+                        )
+                        print(f"  Vision-language warmup iteration {i+1} successful: {str(resp)[:50]}...")
+                    except TypeError:
+                        # Fallback for older signature
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            tokenizer=self.tokenizer,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
+                        )
+                        print(f"  Vision-language warmup iteration {i+1} successful (fallback): {str(resp)[:50]}...")
+                    except Exception as e:
+                        print(f"  ❌ Vision-language warmup iteration {i+1} failed: {e}")
+                        continue
                     
         except Exception as e:
             print(f"Vision-language warmup failed: {e}")
@@ -207,29 +209,31 @@ class MiniCPMV26Service:
             with torch.no_grad():
                 for i in range(3):
                     print(f"Text warmup iteration {i+1}/3...")
-                    response = self.model.chat(
-                        msgs=msgs,
-                        tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
-                        max_new_tokens=8,
-                        do_sample=False
-                    )
-                    
-                    # Handle response (could be string or generator)
-                    if response is not None:
-                        if isinstance(response, str):
-                            print(f"  Text warmup iteration {i+1} successful: {response[:50]}...")
-                        else:
-                            # Handle generator response
-                            text_parts = []
-                            for part in response:
-                                if part is not None:
-                                    text_parts.append(str(part))
-                            if text_parts:
-                                print(f"  Text warmup iteration {i+1} successful: {''.join(text_parts)[:50]}...")
-                            else:
-                                print(f"  Text warmup iteration {i+1} completed")
-                    else:
-                        print(f"  ⚠️ Text warmup iteration {i+1} returned None")
+                    try:
+                        # ✅ Primary path: processor
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            processor=self.processor,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
+                        )
+                        print(f"  Text warmup iteration {i+1} successful: {str(resp)[:50]}...")
+                    except TypeError:
+                        # Fallback for older signature
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            tokenizer=self.tokenizer,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
+                        )
+                        print(f"  Text warmup iteration {i+1} successful (fallback): {str(resp)[:50]}...")
+                    except Exception as e:
+                        print(f"  ❌ Text warmup iteration {i+1} failed: {e}")
+                        continue
                     
         except Exception as e:
             print(f"Text warmup failed: {e}")
@@ -305,34 +309,51 @@ Be thorough and professional in your analysis."""
             
             # Use the chat method as per official documentation
             with torch.no_grad():
-                response = self.model.chat(
-                    msgs=msgs,
-                    tokenizer=self.processor.tokenizer if self.processor else self.tokenizer,
-                    max_new_tokens=1000,  # Reasonable output length
-                    temperature=Config.MINICPM_CONFIG['temperature'],
-                    top_p=Config.MINICPM_CONFIG['top_p'],
-                    top_k=Config.MINICPM_CONFIG['top_k'],
-                    do_sample=True
-                )
+                try:
+                    # ✅ Primary path: processor
+                    resp = self.model.chat(
+                        image=dummy_image, 
+                        msgs=msgs, 
+                        processor=self.processor,
+                        sampling=True, 
+                        stream=False,
+                        max_new_tokens=1000,  # Reasonable output length
+                        temperature=Config.MINICPM_CONFIG['temperature'],
+                        top_p=Config.MINICPM_CONFIG['top_p'],
+                        top_k=Config.MINICPM_CONFIG['top_k']
+                    )
+                except TypeError:
+                    # ✅ Fallback path: tokenizer
+                    resp = self.model.chat(
+                        image=dummy_image, 
+                        msgs=msgs, 
+                        tokenizer=self.tokenizer,
+                        sampling=True, 
+                        stream=False,
+                        max_new_tokens=1000,  # Reasonable output length
+                        temperature=Config.MINICPM_CONFIG['temperature'],
+                        top_p=Config.MINICPM_CONFIG['top_p'],
+                        top_k=Config.MINICPM_CONFIG['top_k']
+                    )
             
             # Handle the response - it could be a string or generator
-            if response is None:
+            if resp is None:
                 raise RuntimeError("Model chat returned None")
             
             # If response is a string, return it directly
-            if isinstance(response, str):
-                return response
+            if isinstance(resp, str):
+                return resp
             
             # If response is a generator (streaming), collect the text
-            if hasattr(response, '__iter__') and not isinstance(response, str):
+            if hasattr(resp, '__iter__') and not isinstance(resp, str):
                 generated_text = ""
-                for new_text in response:
+                for new_text in resp:
                     if new_text is not None:
                         generated_text += str(new_text)
                 return generated_text if generated_text else "No text generated"
             
             # Fallback: convert to string
-            return str(response) if response else "Text generation failed"
+            return str(resp) if resp else "Text generation failed"
             
         except Exception as e:
             print(f"❌ Analysis generation failed: {e}")

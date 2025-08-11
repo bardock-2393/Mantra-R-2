@@ -10,7 +10,7 @@ import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple, Union
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoProcessor, AutoTokenizer
 from config import Config
 
 class MiniCPMV26Model:
@@ -18,6 +18,7 @@ class MiniCPMV26Model:
     
     def __init__(self):
         self.model = None
+        self.processor = None
         self.tokenizer = None
         self.device = None
         self.is_initialized = False
@@ -50,24 +51,28 @@ class MiniCPMV26Model:
                 attn_implementation='sdpa',  # Use SDPA for better performance
                 torch_dtype=torch.bfloat16,
                 token=hf_token if hf_token else None
+            ).eval().cuda()
+            
+            # ✅ Load processor first (has .image_processor and .tokenizer)
+            print(f"📝 Loading processor from {self.model_path}...")
+            self.processor = AutoProcessor.from_pretrained(
+                self.model_path, 
+                trust_remote_code=True, 
+                token=hf_token if hf_token else None
             )
             
-            # Move to GPU and set to eval mode
-            self.model = self.model.eval().cuda()
-            
-            # Load tokenizer
-            print(f"📝 Loading processor from {self.model_path}...")
-            self.tokenizer = AutoTokenizer.from_pretrained(
+            # Keep a tokenizer handle for fallbacks
+            self.tokenizer = getattr(self.processor, "tokenizer", None) or AutoTokenizer.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
                 token=hf_token if hf_token else None
             )
             
             # Verify components loaded
-            if self.model is None or self.tokenizer is None:
-                raise RuntimeError("Failed to load model or tokenizer")
+            if self.model is None or self.processor is None:
+                raise RuntimeError("Failed to load model or processor")
             
-            print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
+            print(f"✅ Processor loaded successfully: {type(self.processor).__name__}")
             print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
@@ -103,30 +108,27 @@ class MiniCPMV26Model:
                 for i in range(3):
                     print(f"  Warmup iteration {i+1}/3...")
                     try:
-                        response = self.model.chat(
-                            msgs=msgs,
-                            tokenizer=self.tokenizer,
-                            max_new_tokens=8,
-                            do_sample=False
+                        # ✅ Pass image and processor first
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            processor=self.processor,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
                         )
-                        
-                        # Handle response (could be string or generator)
-                        if response is not None:
-                            if isinstance(response, str):
-                                print(f"    ✅ Warmup {i+1} successful: {response[:50]}...")
-                            else:
-                                # Handle generator response
-                                text_parts = []
-                                for part in response:
-                                    if part is not None:
-                                        text_parts.append(str(part))
-                                if text_parts:
-                                    print(f"    ✅ Warmup {i+1} successful: {''.join(text_parts)[:50]}...")
-                                else:
-                                    print(f"    ✅ Warmup {i+1} completed")
-                        else:
-                            print(f"    ⚠️ Warmup {i+1} returned None")
-                            
+                        print(f"    ✅ Warmup {i+1} successful: {str(resp)[:50]}...")
+                    except TypeError:
+                        # Fallback for older signature
+                        resp = self.model.chat(
+                            image=dummy_image, 
+                            msgs=msgs, 
+                            tokenizer=self.tokenizer,
+                            sampling=False, 
+                            stream=False, 
+                            max_new_tokens=8
+                        )
+                        print(f"    ✅ Warmup {i+1} successful (fallback): {str(resp)[:50]}...")
                     except Exception as e:
                         print(f"    ❌ Warmup {i+1} failed: {e}")
                         # Continue with next iteration
@@ -175,34 +177,51 @@ class MiniCPMV26Model:
             
             # Use the chat method as per official documentation
             with torch.no_grad():
-                response = self.model.chat(
-                    msgs=msgs,
-                    tokenizer=self.tokenizer,
-                    max_new_tokens=max_new_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    do_sample=True
-                )
+                try:
+                    # ✅ Primary path: processor
+                    resp = self.model.chat(
+                        image=dummy_image, 
+                        msgs=msgs, 
+                        processor=self.processor,
+                        sampling=True, 
+                        stream=False,
+                        max_new_tokens=max_new_tokens, 
+                        temperature=temperature, 
+                        top_p=top_p, 
+                        top_k=top_k
+                    )
+                except TypeError:
+                    # ✅ Fallback path: tokenizer
+                    resp = self.model.chat(
+                        image=dummy_image, 
+                        msgs=msgs, 
+                        tokenizer=self.tokenizer,
+                        sampling=True, 
+                        stream=False,
+                        max_new_tokens=max_new_tokens, 
+                        temperature=temperature, 
+                        top_p=top_p, 
+                        top_k=top_k
+                    )
             
             # Handle the response - it could be a string or generator
-            if response is None:
+            if resp is None:
                 raise RuntimeError("Model chat returned None")
             
             # If response is a string, return it directly
-            if isinstance(response, str):
-                return response
+            if isinstance(resp, str):
+                return resp
             
             # If response is a generator (streaming), collect the text
-            if hasattr(response, '__iter__') and not isinstance(response, str):
+            if hasattr(resp, '__iter__') and not isinstance(resp, str):
                 generated_text = ""
-                for new_text in response:
+                for new_text in resp:
                     if new_text is not None:
                         generated_text += str(new_text)
                 return generated_text if generated_text else "No text generated"
             
             # Fallback: convert to string
-            return str(response) if response else "Text generation failed"
+            return str(resp) if resp else "Text generation failed"
             
         except Exception as e:
             print(f"❌ Text generation failed: {e}")
@@ -314,6 +333,10 @@ class MiniCPMV26Model:
             if self.tokenizer:
                 del self.tokenizer
                 self.tokenizer = None
+            
+            if self.processor:
+                del self.processor
+                self.processor = None
             
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
