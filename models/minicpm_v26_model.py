@@ -10,7 +10,7 @@ import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple, Union
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, AutoProcessor
 from config import Config
 
 class MiniCPMV26Model:
@@ -115,38 +115,67 @@ class MiniCPMV26Model:
             self.model = self.model.eval().cuda()
             print("✅ Model moved to GPU successfully")
             
-            # Load tokenizer
-            print(f"📝 Loading tokenizer from {self.model_path}...")
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path,
-                trust_remote_code=True
-            )
-            print("✅ Tokenizer loaded successfully")
+            # Load processor (MiniCPM-V-2_6 uses a processor, not just a tokenizer)
+            print(f"📝 Loading processor from {self.model_path}...")
+            try:
+                # Try to load as processor first
+                self.tokenizer = AutoProcessor.from_pretrained(
+                    self.model_path,
+                    trust_remote_code=True
+                )
+                print("✅ Processor loaded successfully")
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to load processor, trying tokenizer: {e}")
+                # Fallback to tokenizer
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_path,
+                    trust_remote_code=True
+                )
+                print("✅ Tokenizer loaded successfully")
             
             # Verify components loaded
             if self.model is None:
                 raise RuntimeError("Failed to load model")
             
             if self.tokenizer is None:
-                raise RuntimeError("Failed to load tokenizer")
+                raise RuntimeError("Failed to load tokenizer/processor")
+            
+            # Check if the processor has the required methods
+            if not hasattr(self.tokenizer, 'encode') and not hasattr(self.tokenizer, '__call__'):
+                raise RuntimeError("Loaded processor/tokenizer does not have required methods")
             
             print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
+            # Check model compatibility
+            if not self._check_model_compatibility():
+                print("⚠️ Warning: Model compatibility check failed, but continuing")
+            
             # Test tokenizer functionality
             try:
                 test_text = "Hello, world!"
-                test_tokens = self.tokenizer(test_text, return_tensors="pt")
-                print(f"✅ Tokenizer test successful: {test_tokens.input_ids.shape}")
+                # Test using the helper method
+                test_tokens = self._process_inputs(test_text)
+                print(f"✅ Tokenizer test successful: {test_tokens.input_ids.shape if hasattr(test_tokens, 'input_ids') else 'processed'}")
             except Exception as e:
                 print(f"⚠️ Warning: Tokenizer test failed: {e}")
+                print("⚠️ Warning: Model may not work properly")
             
             # Warm up the model (don't fail if warmup fails)
             try:
                 self._warmup_model()
             except Exception as e:
                 print(f"⚠️ Warning: Model warmup failed, but continuing: {e}")
+            
+            # Test the model to ensure it's working
+            try:
+                if self.test_generation():
+                    print("✅ Model test successful")
+                else:
+                    print("⚠️ Warning: Model test failed, but continuing with initialization")
+            except Exception as e:
+                print(f"⚠️ Warning: Model test failed, but continuing: {e}")
             
             self.is_initialized = True
             print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
@@ -179,15 +208,8 @@ class MiniCPMV26Model:
                     print("⚠️ Warning: Invalid warmup text")
                     return
                 
-                # Create a dummy image for warmup
-                dummy_image = Image.new('RGB', (1, 1), color='black')
-                
-                # Tokenize with both text and image
-                inputs = self.tokenizer(
-                    warmup_text, 
-                    images=dummy_image,
-                    return_tensors="pt"
-                ).to(self.device)
+                # Process inputs using the helper method
+                inputs = self._process_inputs(warmup_text)
                 
                 with torch.no_grad():
                     _ = self.model.generate(
@@ -225,6 +247,19 @@ class MiniCPMV26Model:
         except Exception as e:
             print(f"⚠️ Warning: Could not print model info: {e}")
     
+    def _fallback_text_generation(self, prompt: str) -> str:
+        """Fallback text generation when the main model fails"""
+        try:
+            # Simple template-based response
+            if "analyze" in prompt.lower() or "analysis" in prompt.lower():
+                return "I apologize, but I'm experiencing technical difficulties with the AI model. This appears to be a video analysis request. Please try again later or contact support if the issue persists."
+            elif "chat" in prompt.lower() or "conversation" in prompt.lower():
+                return "I'm sorry, but I'm currently unable to process your request due to technical issues. Please try again in a moment."
+            else:
+                return "I apologize, but I'm experiencing technical difficulties. Please try again later."
+        except Exception as e:
+            return f"Technical error occurred: {str(e)}"
+    
     def generate_text(self, prompt: str, max_new_tokens: int = 512, 
                      temperature: float = 0.2, top_p: float = 0.9, 
                      top_k: int = 40) -> str:
@@ -240,47 +275,64 @@ class MiniCPMV26Model:
             
             print(f"🔍 Generating text with prompt length: {len(prompt)} characters")
             
-            # For MiniCPM-V-2_6, we need to provide both text and image inputs
-            # Since this is text-only generation, we'll create a dummy image or use a placeholder
-            try:
-                # Create a dummy 1x1 pixel image (black) for text-only generation
-                dummy_image = Image.new('RGB', (1, 1), color='black')
-                
-                # Tokenize input with both text and image
-                inputs = self.tokenizer(
-                    prompt, 
-                    images=dummy_image,
-                    return_tensors="pt"
-                ).to(self.device)
-                
-                print(f"✅ Tokenization successful, input shape: {inputs.input_ids.shape}")
-                print(f"✅ Image inputs shape: {inputs.pixel_values.shape if hasattr(inputs, 'pixel_values') else 'No pixel values'}")
-                
-            except Exception as e:
-                print(f"⚠️ Warning: Failed to create dummy image, trying text-only: {e}")
-                # Fallback to text-only tokenization
-                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-                
-                # Ensure pixel_values is not None
-                if not hasattr(inputs, 'pixel_values') or inputs.pixel_values is None:
-                    # Create a dummy tensor for pixel_values
-                    batch_size = inputs.input_ids.shape[0]
-                    inputs.pixel_values = torch.zeros(batch_size, 3, 224, 224).to(self.device)
-                
-                print(f"✅ Fallback tokenization successful, input shape: {inputs.input_ids.shape}")
-                print(f"✅ Fallback pixel values shape: {inputs.pixel_values.shape}")
+            # Process inputs using the helper method
+            inputs = self._process_inputs(prompt)
+            print(f"✅ Input processing successful, input shape: {inputs.input_ids.shape}")
+            print(f"✅ Image inputs shape: {inputs.pixel_values.shape if hasattr(inputs, 'pixel_values') else 'No pixel values'}")
+            
+            # Validate inputs before generation
+            if not hasattr(inputs, 'input_ids') or inputs.input_ids is None:
+                raise ValueError("Input processing failed: no input_ids")
+            
+            if not hasattr(inputs, 'pixel_values') or inputs.pixel_values is None:
+                print("⚠️ Warning: No pixel_values in inputs, creating dummy values")
+                batch_size = inputs.input_ids.shape[0]
+                inputs.pixel_values = torch.zeros(batch_size, 3, 224, 224).to(self.device)
+            
+            # Ensure all required inputs are present
+            required_keys = ['input_ids', 'pixel_values']
+            for key in required_keys:
+                if key not in inputs or inputs[key] is None:
+                    raise ValueError(f"Missing required input: {key}")
+            
+            print(f"🔍 Final input validation: {list(inputs.keys())}")
             
             # Generate response
             with torch.no_grad():
-                generated_ids = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_new_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    do_sample=True,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
+                # Ensure the model has the generate method
+                if not hasattr(self.model, 'generate'):
+                    raise RuntimeError("Model does not have generate method")
+                
+                # Check if the model expects specific input formats
+                if hasattr(self.model, 'config') and hasattr(self.model.config, 'model_type'):
+                    print(f"🔍 Model type: {self.model.config.model_type}")
+                
+                try:
+                    generated_ids = self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_new_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        do_sample=True,
+                        pad_token_id=self.tokenizer.eos_token_id
+                    )
+                except Exception as e:
+                    print(f"❌ Model generation failed: {e}")
+                    print("🔄 Trying with simplified parameters...")
+                    
+                    # Try with simplified generation parameters
+                    try:
+                        generated_ids = self.model.generate(
+                            **inputs,
+                            max_new_tokens=min(max_new_tokens, 100),  # Reduce tokens
+                            do_sample=False,  # Use greedy decoding
+                            pad_token_id=self.tokenizer.eos_token_id
+                        )
+                        print("✅ Generation successful with simplified parameters")
+                    except Exception as e2:
+                        print(f"❌ Simplified generation also failed: {e2}")
+                        raise RuntimeError(f"Model generation failed: {e2}")
             
             print(f"✅ Generation successful, output shape: {generated_ids.shape}")
             
@@ -309,7 +361,16 @@ class MiniCPMV26Model:
             print(f"❌ Text generation failed: {e}")
             import traceback
             traceback.print_exc()
-            return f"Error generating text: {str(e)}"
+            
+            # Try fallback generation
+            try:
+                print("🔄 Attempting fallback text generation...")
+                fallback_result = self._fallback_text_generation(prompt)
+                print("✅ Fallback generation successful")
+                return fallback_result
+            except Exception as fallback_error:
+                print(f"❌ Fallback generation also failed: {fallback_error}")
+                return f"Error generating text: {str(e)}"
     
     def analyze_video_content(self, video_summary: str, analysis_type: str, 
                              user_focus: str) -> str:
@@ -430,6 +491,76 @@ class MiniCPMV26Model:
     def __del__(self):
         """Destructor to ensure cleanup"""
         self.cleanup()
+
+    def _process_inputs(self, prompt: str, image=None):
+        """Process inputs for the model, handling both processor and tokenizer cases"""
+        try:
+            if image is None:
+                # Create a dummy image for text-only generation
+                image = Image.new('RGB', (1, 1), color='black')
+            
+            # Try to use the processor/tokenizer as a callable first
+            if hasattr(self.tokenizer, '__call__'):
+                inputs = self.tokenizer(
+                    prompt, 
+                    images=image,
+                    return_tensors="pt"
+                )
+            else:
+                # Fallback to encode method for tokenizer-only
+                input_ids = self.tokenizer.encode(prompt, return_tensors="pt")
+                inputs = {'input_ids': input_ids}
+                
+                # Create dummy pixel values if needed
+                if not hasattr(inputs, 'pixel_values') or inputs.pixel_values is None:
+                    batch_size = inputs['input_ids'].shape[0]
+                    inputs['pixel_values'] = torch.zeros(batch_size, 3, 224, 224)
+            
+            # Ensure all inputs are on the correct device
+            for key, value in inputs.items():
+                if isinstance(value, torch.Tensor):
+                    inputs[key] = value.to(self.device)
+            
+            return inputs
+            
+        except Exception as e:
+            print(f"❌ Error processing inputs: {e}")
+            raise
+
+    def _check_model_compatibility(self):
+        """Check if the loaded model is compatible with our usage"""
+        try:
+            if not hasattr(self.model, 'config'):
+                print("⚠️ Warning: Model has no config, compatibility unknown")
+                return True
+            
+            config = self.model.config
+            
+            # Check if it's a vision-language model
+            if hasattr(config, 'model_type'):
+                print(f"🔍 Model type: {config.model_type}")
+                
+                # Check if it supports text generation
+                if hasattr(self.model, 'generate'):
+                    print("✅ Model supports text generation")
+                else:
+                    print("❌ Model does not support text generation")
+                    return False
+                
+                # Check if it's a vision-language model
+                if hasattr(config, 'vision_config') or hasattr(config, 'image_size'):
+                    print("✅ Model supports vision-language tasks")
+                else:
+                    print("⚠️ Warning: Model may not support vision-language tasks")
+                
+                return True
+            else:
+                print("⚠️ Warning: Model config has no model_type")
+                return True
+                
+        except Exception as e:
+            print(f"⚠️ Warning: Could not check model compatibility: {e}")
+            return True
 
 # Global model instance
 minicpm_v26_model = MiniCPMV26Model() 
