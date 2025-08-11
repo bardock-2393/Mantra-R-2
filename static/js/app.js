@@ -1040,7 +1040,6 @@ class VideoDetective {
             const selectedModel = modelSelect.value;
             const modelDescriptions = {
                 'minicpm': 'Fast and efficient vision-language model for quick analysis',
-                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities',
                 'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
             };
             
@@ -1048,13 +1047,13 @@ class VideoDetective {
             modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
             
             // Add visual feedback for selected model
-            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl_32b');
             modelSelect.classList.add(`model-selected-${selectedModel}`);
             
             // Update the model selection container styling
             const modelSelection = document.querySelector('.model-selection');
             if (modelSelection) {
-                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl_32b');
                 modelSelection.classList.add(`model-selected-${selectedModel}`);
             }
         }

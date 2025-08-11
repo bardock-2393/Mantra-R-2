@@ -230,10 +230,7 @@ body {
     background: #f0fdf4;
 }
 
-.model-selection.model-selected-qwen25vl {
-    border-color: #3b82f6;
-    background: #eff6ff;
-}
+
 
 .model-selection.model-selected-qwen25vl_32b {
     border-color: #8b5cf6;
@@ -289,9 +286,7 @@ body {
     border-color: #10b981;
 }
 
-.model-select.model-selected-qwen25vl {
-    border-color: #3b82f6;
-}
+
 
 .model-select.model-selected-qwen25vl_32b {
     border-color: #8b5cf6;
