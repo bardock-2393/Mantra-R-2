@@ -24,7 +24,7 @@ class MiniCPMV26Service:
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
         
-    def initialize(self):
+    async def initialize(self):
         """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
             print(f"🚀 Initializing GPU service...")
@@ -34,7 +34,7 @@ class MiniCPMV26Service:
                 raise RuntimeError("CUDA not available. GPU is required for Round 2.")
             
             # Initialize GPU service
-            self.gpu_service.initialize()
+            await self.gpu_service.initialize()
             
             # Initialize the MiniCPM model
             minicpm_v26_model.initialize()
@@ -46,7 +46,7 @@ class MiniCPMV26Service:
             print(f"❌ Failed to initialize MiniCPM-V-2_6 service: {e}")
             raise
     
-    def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
+    async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video content using MiniCPM-V-2_6"""
         if not self.is_initialized:
             self.initialize()
@@ -171,7 +171,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
 """
         return base_prompt
     
-    def generate_chat_response(self, analysis_result: str, analysis_type: str, 
+    async def generate_chat_response(self, analysis_result: str, analysis_type: str, 
                               user_focus: str, message: str, 
                               chat_history: List[Dict]) -> str:
         """Generate contextual AI response based on video analysis"""
