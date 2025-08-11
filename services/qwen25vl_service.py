@@ -537,7 +537,6 @@ You are an advanced AI video analysis agent with comprehensive understanding cap
 ### Current Context:
 - Analysis Type: {analysis_type.replace('_', ' ').title()}
 - Original Analysis Focus: {user_focus}
-- User Question: "{message}"
 - Conversation History: Available for context awareness
 
 ### Video Analysis Context:
