@@ -1012,7 +1012,8 @@ class VideoDetective {
             const selectedModel = modelSelect.value;
             const modelDescriptions = {
                 'minicpm': 'Fast and efficient vision-language model for quick analysis',
-                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities'
+                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities',
+                'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
             };
             
             modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
