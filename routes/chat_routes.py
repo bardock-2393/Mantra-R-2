@@ -9,7 +9,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from config import Config
 from services.session_service import get_session_data, store_session_data
-from services.ai_service_fixed import minicpm_service
+from services.ai_service import ai_service
 from services.vector_search_service import vector_search_service
 
 # Create Blueprint
@@ -76,18 +76,16 @@ def chat():
                 
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
-                from services.model_manager import model_manager
-                import asyncio
                 try:
-                    # Get or create event loop
+                    # Use ai_service for chat response (async)
+                    import asyncio
                     try:
                         loop = asyncio.get_event_loop()
                     except RuntimeError:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                     
-                    # Run the async function
-                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, enhanced_message, chat_list
                     ))
                 except Exception as e:
@@ -97,18 +95,16 @@ def chat():
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
-                from services.model_manager import model_manager
-                import asyncio
                 try:
-                    # Get or create event loop
+                    # Use ai_service for fallback response (async)
+                    import asyncio
                     try:
                         loop = asyncio.get_event_loop()
                     except RuntimeError:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                     
-                    # Run the async function
-                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, message, chat_list
                     ))
                 except Exception as e:
