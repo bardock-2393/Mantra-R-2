@@ -26,7 +26,7 @@ class MiniCPMV26Model:
     def initialize(self):
         """Initialize the MiniCPM-V-2_6 model on GPU"""
         try:
-            print(f"🚀 Initializing model on cuda:0...")
+            print(f"🚀 Initializing MiniCPM-V-2_6 on cuda:0...")
             
             # Check CUDA availability
             if not torch.cuda.is_available():
@@ -36,86 +36,44 @@ class MiniCPMV26Model:
             self.device = torch.device('cuda:0')
             print(f"📱 Using device: {self.device}")
             
-            # Try to load the primary model first
-            try:
-                print(f"🔍 Attempting to load primary model: {self.model_path}")
-                
-                # Check if we have a Hugging Face token
-                hf_token = Config.MINICPM_CONFIG.get('hf_token', '')
-                if not hf_token:
-                    print("⚠️ No HF_TOKEN found. Trying to load without authentication...")
-                
-                # Load model with authentication if available
-                self.model = AutoModel.from_pretrained(
-                    self.model_path, 
-                    trust_remote_code=True,
-                    attn_implementation='sdpa',  # Use SDPA for better performance
-                    torch_dtype=torch.bfloat16,
-                    token=hf_token if hf_token else None
-                )
-                
-                print(f"✅ Primary model loaded successfully: {self.model_path}")
-                
-            except Exception as primary_error:
-                print(f"⚠️ Failed to load primary model: {primary_error}")
-                
-                # Fallback to open model
-                fallback_model = Config.MINICPM_CONFIG.get('fallback_model', 'microsoft/DialoGPT-medium')
-                print(f"🔄 Falling back to open model: {fallback_model}")
-                
-                try:
-                    self.model = AutoModel.from_pretrained(
-                        fallback_model,
-                        trust_remote_code=True,
-                        torch_dtype=torch.bfloat16
-                    )
-                    print(f"✅ Fallback model loaded successfully: {fallback_model}")
-                    # Update model path to reflect the actual loaded model
-                    self.model_path = fallback_model
-                    
-                except Exception as fallback_error:
-                    print(f"❌ Failed to load fallback model: {fallback_error}")
-                    raise RuntimeError(f"Both primary and fallback models failed to load: {primary_error}, {fallback_error}")
+            # Load model with correct parameters
+            print(f"🔍 Model path: {self.model_path}")
+            self.model = AutoModel.from_pretrained(
+                self.model_path, 
+                trust_remote_code=True,
+                attn_implementation='sdpa',  # Use SDPA for better performance
+                torch_dtype=torch.bfloat16
+            )
             
             # Move to GPU and set to eval mode
             self.model = self.model.eval().cuda()
             
-            # Load tokenizer for the actual loaded model
-            try:
-                print(f"📝 Loading tokenizer from {self.model_path}...")
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_path,
-                    trust_remote_code=True,
-                    token=hf_token if hf_token else None
-                )
-                
-                # Add padding token if not present
-                if self.tokenizer.pad_token is None:
-                    self.tokenizer.pad_token = self.tokenizer.eos_token
-                
-                print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
-                
-            except Exception as tokenizer_error:
-                print(f"❌ Failed to load tokenizer: {tokenizer_error}")
-                raise RuntimeError(f"Tokenizer loading failed: {tokenizer_error}")
+            # Load tokenizer
+            print(f"📝 Loading processor from {self.model_path}...")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_path,
+                trust_remote_code=True
+            )
             
             # Verify components loaded
             if self.model is None or self.tokenizer is None:
                 raise RuntimeError("Failed to load model or tokenizer")
             
+            print(f"✅ Processor loaded successfully: {type(self.tokenizer).__name__}")
+            print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             print(f"✅ Model loaded successfully: {type(self.model).__name__}")
             
             # Warm up the model
             self._warmup_model()
             
             self.is_initialized = True
-            print(f"✅ Model initialized successfully on {self.device}")
+            print(f"✅ MiniCPM-V-2_6 initialized successfully on {self.device}")
             
             # Print model info
             self._print_model_info()
             
         except Exception as e:
-            print(f"❌ Failed to initialize model: {e}")
+            print(f"❌ Failed to initialize MiniCPM-V-2_6: {e}")
             raise
     
     def _warmup_model(self):
