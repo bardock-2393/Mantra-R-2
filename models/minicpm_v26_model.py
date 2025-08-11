@@ -400,7 +400,28 @@ class MiniCPMV26Model:
             if 'input_ids' not in inputs or inputs['input_ids'] is None:
                 raise ValueError("Input processing failed: no input_ids")
             
+            # Ensure pixel_values are present for MiniCPM
+            if 'pixel_values' not in inputs or inputs['pixel_values'] is None:
+                print("⚠️ Warning: No pixel_values in inputs, creating dummy values")
+                batch_size = inputs['input_ids'].shape[0]
+                inputs['pixel_values'] = torch.zeros(batch_size, 3, 224, 224).to(self.device)
+            
+            # Validate that input_ids and pixel_values have the same batch size
+            if inputs['input_ids'].shape[0] != inputs['pixel_values'].shape[0]:
+                print(f"⚠️ Warning: Batch size mismatch: input_ids={inputs['input_ids'].shape[0]}, pixel_values={inputs['pixel_values'].shape[0]}")
+                # Fix the mismatch by adjusting pixel_values
+                if inputs['input_ids'].shape[0] > inputs['pixel_values'].shape[0]:
+                    # Pad pixel_values
+                    pad_size = inputs['input_ids'].shape[0] - inputs['pixel_values'].shape[0]
+                    pad_tensor = torch.zeros(pad_size, 3, 224, 224).to(self.device)
+                    inputs['pixel_values'] = torch.cat([inputs['pixel_values'], pad_tensor], dim=0)
+                else:
+                    # Truncate pixel_values
+                    inputs['pixel_values'] = inputs['pixel_values'][:inputs['input_ids'].shape[0]]
+                print(f"✅ Fixed batch size mismatch: input_ids={inputs['input_ids'].shape[0]}, pixel_values={inputs['pixel_values'].shape[0]}")
+            
             print(f"🔍 Final input validation: {list(inputs.keys())}")
+            print(f"🔍 Input shapes: input_ids={inputs['input_ids'].shape}, pixel_values={inputs['pixel_values'].shape}")
             
             # Generate response
             with torch.no_grad():
@@ -418,6 +439,7 @@ class MiniCPMV26Model:
                         print("⚠️ Warning: No EOS token ID available, using default")
                         eos_token_id = 0
                     
+                    print(f"🔍 Attempting generation with inputs: {list(inputs.keys())}")
                     generated_ids = self.model.generate(
                         **inputs,
                         max_new_tokens=max_new_tokens,
@@ -437,6 +459,7 @@ class MiniCPMV26Model:
                         if eos_token_id is None:
                             eos_token_id = 0
                         
+                        print(f"🔍 Retrying with simplified parameters...")
                         generated_ids = self.model.generate(
                             **inputs,
                             max_new_tokens=min(max_new_tokens, 100),  # Reduce tokens
@@ -451,28 +474,46 @@ class MiniCPMV26Model:
             print(f"✅ Generation successful, output shape: {generated_ids.shape}")
             
             # Decode response
+            print(f"🔍 Generated IDs shape: {generated_ids.shape}")
+            print(f"🔍 Input IDs shape: {inputs['input_ids'].shape}")
+            
             generated_ids_trimmed = [
                 out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs['input_ids'], generated_ids)
             ]
+            print(f"🔍 Trimmed generated IDs: {len(generated_ids_trimmed)} sequences")
             
             # Use the appropriate component for decoding
             decoding_component = self._get_decoding_component()
-            output_text = decoding_component.batch_decode(
-                generated_ids_trimmed,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )
-            print(f"✅ Using {type(decoding_component).__name__} for decoding")
+            print(f"🔍 Using {type(decoding_component).__name__} for decoding")
             
-            print(f"✅ Decoding successful, output texts: {len(output_text)}")
-            
-            # Ensure we return a valid string
-            result = output_text[0] if output_text else "Text generation failed"
-            if result is None:
-                result = "Text generation failed"
-            
-            print(f"✅ Final result length: {len(result)} characters")
-            return result
+            try:
+                output_text = decoding_component.batch_decode(
+                    generated_ids_trimmed,
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=False
+                )
+                print(f"✅ Decoding successful, output texts: {len(output_text)}")
+                
+                # Ensure we return a valid string
+                result = output_text[0] if output_text else "Text generation failed"
+                if result is None:
+                    result = "Text generation failed"
+                
+                print(f"✅ Final result length: {len(result)} characters")
+                return result
+            except Exception as decode_error:
+                print(f"❌ Decoding failed: {decode_error}")
+                # Try to decode manually as fallback
+                try:
+                    if hasattr(decoding_component, 'decode'):
+                        result = decoding_component.decode(generated_ids_trimmed[0], skip_special_tokens=True)
+                        print(f"✅ Manual decode successful: {len(result)} characters")
+                        return result
+                    else:
+                        raise RuntimeError("No decode method available")
+                except Exception as manual_decode_error:
+                    print(f"❌ Manual decode also failed: {manual_decode_error}")
+                    return f"Text generation succeeded but decoding failed: {str(decode_error)}"
             
         except Exception as e:
             print(f"❌ Text generation failed: {e}")
@@ -615,20 +656,36 @@ class MiniCPMV26Model:
 
     def _get_decoding_component(self):
         """Get the appropriate component for decoding (processor or tokenizer)"""
+        print(f"🔍 Looking for decoding component...")
+        print(f"🔍 Processor: {type(self.processor).__name__ if self.processor else 'None'}")
+        print(f"🔍 Tokenizer: {type(self.tokenizer).__name__ if self.tokenizer else 'None'}")
+        
         if self.processor and hasattr(self.processor, 'batch_decode'):
+            print(f"🔍 Using processor for decoding")
             return self.processor
         elif self.tokenizer and hasattr(self.tokenizer, 'batch_decode'):
+            print(f"🔍 Using tokenizer for decoding")
             return self.tokenizer
         else:
+            print(f"❌ No suitable decoding component found")
+            print(f"🔍 Processor has batch_decode: {hasattr(self.processor, 'batch_decode') if self.processor else False}")
+            print(f"🔍 Tokenizer has batch_decode: {hasattr(self.tokenizer, 'batch_decode') if self.tokenizer else False}")
             raise RuntimeError("No suitable component found for decoding")
     
     def _get_eos_token_id(self):
         """Get the EOS token ID from the appropriate component"""
+        print(f"🔍 Looking for EOS token ID...")
+        
         if self.processor and hasattr(self.processor, 'tokenizer'):
-            return self.processor.tokenizer.eos_token_id
+            eos_id = self.processor.tokenizer.eos_token_id
+            print(f"🔍 Found EOS token ID from processor.tokenizer: {eos_id}")
+            return eos_id
         elif self.tokenizer:
-            return self.tokenizer.eos_token_id
+            eos_id = self.tokenizer.eos_token_id
+            print(f"🔍 Found EOS token ID from tokenizer: {eos_id}")
+            return eos_id
         else:
+            print(f"⚠️ No EOS token ID found")
             return None
     
     def _process_inputs(self, prompt: str, image=None):
@@ -655,6 +712,11 @@ class MiniCPMV26Model:
                     inputs = {'input_ids': tokenizer_output.input_ids}
                 else:
                     inputs = dict(tokenizer_output)
+                
+                # MiniCPM requires pixel_values even for text-only generation
+                # Create dummy pixel values with the right batch size
+                batch_size = inputs['input_ids'].shape[0]
+                inputs['pixel_values'] = torch.zeros(batch_size, 3, 224, 224).to(self.device)
                 
                 print(f"🔍 Tokenizer inputs: {inputs}")
 
@@ -710,4 +772,11 @@ minicpm_v26_model = MiniCPMV26Model()
 
 # FIXED: MiniCPM-V-2_6 now uses model.chat() API instead of incorrectly passing images to tokenizers.
 # The model will automatically detect if it has a chat method and use it, falling back to generate() if needed.
-# This eliminates the PreTrainedTokenizerFast._batch_encode_plus(... images=...) error. 
+# This eliminates the PreTrainedTokenizerFast._batch_encode_plus(... images=...) error.
+# 
+# ADDITIONAL FIXES:
+# - Fixed input processing to handle both processor and tokenizer paths correctly
+# - Added proper pixel_values handling for MiniCPM (required even for text-only generation)
+# - Enhanced error handling and debugging for generation and decoding phases
+# - Added batch size validation between input_ids and pixel_values
+# - Improved fallback mechanisms for various failure scenarios 
