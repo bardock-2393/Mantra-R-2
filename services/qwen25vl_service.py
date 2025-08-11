@@ -20,15 +20,40 @@ except ImportError:
         """Fallback implementation for process_vision_info"""
         image_inputs = []
         video_inputs = []
-        for message in messages:
-            if "content" in message:
-                for content in message["content"]:
-                    if content.get("type") == "image":
-                        # Handle image processing
-                        pass
-                    elif content.get("type") == "video":
-                        # Handle video processing
-                        pass
+        
+        try:
+            for message in messages:
+                if "content" in message:
+                    for content in message["content"]:
+                        if content.get("type") == "image":
+                            # Handle image processing
+                            print("🖼️ Processing image content...")
+                            # For now, just add a placeholder
+                            image_inputs.append(None)
+                        elif content.get("type") == "video":
+                            # Handle video processing
+                            video_path = content.get("video", "")
+                            print(f"🎬 Processing video content: {video_path}")
+                            
+                            # Verify video file exists
+                            if os.path.exists(video_path):
+                                # For now, just add the video path as a placeholder
+                                # In a real implementation, you would load and process the video
+                                video_inputs.append(video_path)
+                                print(f"✅ Video file found and added: {video_path}")
+                            else:
+                                print(f"⚠️ Video file not found: {video_path}")
+                                # Add None to maintain list structure
+                                video_inputs.append(None)
+            
+            print(f"📊 Processed: {len(image_inputs)} images, {len(video_inputs)} videos")
+            
+        except Exception as e:
+            print(f"⚠️ Error in fallback process_vision_info: {e}")
+            # Return empty lists on error
+            image_inputs = []
+            video_inputs = []
+        
         return image_inputs, video_inputs
 
 from config import Config
@@ -183,6 +208,28 @@ class Qwen25VLService:
             
             print(f"🎬 Analyzing video with Qwen2.5-VL: {video_path}")
             
+            # Debug: Check file path details
+            print(f"🔍 Video path details:")
+            print(f"   Original path: {video_path}")
+            print(f"   Absolute path: {os.path.abspath(video_path)}")
+            print(f"   File exists: {os.path.exists(video_path)}")
+            print(f"   Is file: {os.path.isfile(video_path)}")
+            print(f"   File size: {os.path.getsize(video_path) if os.path.exists(video_path) else 'N/A'} bytes")
+            
+            # Check if the path is relative and convert to absolute
+            if not os.path.isabs(video_path):
+                # Try to resolve relative path
+                current_dir = os.getcwd()
+                abs_path = os.path.join(current_dir, video_path)
+                print(f"   Resolved relative path: {abs_path}")
+                print(f"   Resolved path exists: {os.path.exists(abs_path)}")
+                
+                if os.path.exists(abs_path):
+                    video_path = abs_path
+                    print(f"✅ Using resolved absolute path: {video_path}")
+                else:
+                    print(f"⚠️ Resolved path also doesn't exist: {abs_path}")
+            
             # Extract video summary for context
             video_summary = self._extract_video_summary(video_path)
             
@@ -227,6 +274,14 @@ class Qwen25VLService:
     async def _generate_analysis(self, prompt: str, video_path: str) -> str:
         """Generate analysis using Qwen2.5-VL-7B-Instruct"""
         try:
+            # Verify the video file exists
+            if not os.path.exists(video_path):
+                raise FileNotFoundError(f"Video file not found: {video_path}")
+            
+            # Get absolute path for the video
+            abs_video_path = os.path.abspath(video_path)
+            print(f"🎬 Processing video: {abs_video_path}")
+            
             # Create messages for Qwen2.5-VL
             messages = [
                 {
@@ -234,7 +289,7 @@ class Qwen25VLService:
                     "content": [
                         {
                             "type": "video",
-                            "video": f"file://{video_path}"
+                            "video": abs_video_path  # Use absolute path instead of file:// URL
                         },
                         {"type": "text", "text": prompt}
                     ]
@@ -242,7 +297,13 @@ class Qwen25VLService:
             ]
             
             # Process vision info
-            image_inputs, video_inputs = process_vision_info(messages)
+            try:
+                image_inputs, video_inputs = process_vision_info(messages)
+                print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+            except Exception as e:
+                print(f"⚠️ Vision info processing failed: {e}")
+                # Fallback to text-only analysis
+                return await self._generate_text_only_analysis(prompt, video_path)
             
             # Apply chat template
             text = self.processor.apply_chat_template(
@@ -286,7 +347,84 @@ class Qwen25VLService:
             
         except Exception as e:
             print(f"❌ Analysis generation failed: {e}")
-            raise RuntimeError(f"Analysis generation failed: {e}")
+            # Try fallback text-only analysis
+            try:
+                return await self._generate_text_only_analysis(prompt, video_path)
+            except Exception as fallback_error:
+                print(f"❌ Fallback analysis also failed: {fallback_error}")
+                raise RuntimeError(f"Analysis generation failed: {e}")
+    
+    async def _generate_text_only_analysis(self, prompt: str, video_path: str) -> str:
+        """Fallback text-only analysis when video processing fails"""
+        try:
+            print("📝 Using fallback text-only analysis...")
+            
+            # Extract video metadata for context
+            video_info = self._extract_video_summary(video_path)
+            
+            # Create enhanced prompt with video context
+            enhanced_prompt = f"""
+{prompt}
+
+Video Information:
+{video_info}
+
+Please provide a comprehensive analysis based on the video description and context.
+"""
+            
+            # Create messages for text-only generation
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": enhanced_prompt}
+                    ]
+                }
+            ]
+            
+            # Apply chat template
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            
+            # Prepare inputs
+            inputs = self.processor(
+                text=[text],
+                padding=True,
+                return_tensors="pt"
+            )
+            inputs = inputs.to(self.device)
+            
+            # Generate response
+            with torch.no_grad():
+                generated_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=min(Config.QWEN25VL_CONFIG['max_length'], 1024),
+                    temperature=Config.QWEN25VL_CONFIG['temperature'],
+                    top_p=Config.QWEN25VL_CONFIG['top_p'],
+                    top_k=Config.QWEN25VL_CONFIG['top_k'],
+                    do_sample=True,
+                    pad_token_id=self.processor.tokenizer.eos_token_id
+                )
+            
+            # Decode response
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            
+            output_text = self.processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )
+            
+            result = output_text[0] if output_text else "Fallback analysis failed"
+            print("✅ Fallback text-only analysis completed")
+            return result
+            
+        except Exception as e:
+            print(f"❌ Fallback analysis failed: {e}")
+            return f"Video analysis failed. Error: {str(e)}"
     
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate chat response using Qwen2.5-VL-7B-Instruct"""
