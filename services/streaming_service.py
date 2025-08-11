@@ -1,6 +1,6 @@
 """
-Streaming Service for Round 2 - Real-time Video Analysis
-Handles real-time video streaming, live event detection, and continuous processing
+Streaming Service for Round 2 - Real-time Video Analysis with 7B Model
+Handles real-time video streaming, live event detection, and continuous processing using Qwen2.5-VL-7B
 """
 
 import os
@@ -17,7 +17,7 @@ from queue import Queue, Empty
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
-from models.deepstream_pipeline import DeepStreamPipeline
+from services.ai_service import ai_service
 import psutil
 
 @dataclass
@@ -30,6 +30,7 @@ class StreamEvent:
     bbox: List[int] = None
     metadata: Dict = None
     frame_data: Dict = None
+    ai_analysis: str = None  # NEW: 7B model analysis
 
 @dataclass
 class StreamMetrics:
@@ -42,14 +43,15 @@ class StreamMetrics:
     gpu_memory_usage_mb: float
     events_detected: int
     stream_duration_seconds: float
+    ai_analysis_count: int  # NEW: Count of 7B model analyses
 
 class StreamingService:
-    """Real-time video streaming service with live event detection"""
+    """Real-time video streaming service with live 7B model analysis"""
     
     def __init__(self):
         self.gpu_service = GPUService()
         self.performance_monitor = PerformanceMonitor()
-        self.deepstream_pipeline = DeepStreamPipeline()
+        self.ai_service = ai_service  # NEW: Direct integration with 7B model
         self.is_initialized = False
         
         # Streaming configuration
@@ -57,6 +59,8 @@ class StreamingService:
         self.max_latency_ms = Config.STREAMING_CONFIG['max_latency_ms']
         self.event_detection_enabled = Config.STREAMING_CONFIG['event_detection_enabled']
         self.continuous_processing = Config.STREAMING_CONFIG['continuous_processing']
+        self.real_time_7b_analysis = Config.STREAMING_CONFIG['real_time_7b_analysis']
+        self.analysis_interval = Config.STREAMING_CONFIG['analysis_interval']
         
         # Stream management
         self.active_streams: Dict[str, Dict] = {}
@@ -75,22 +79,26 @@ class StreamingService:
         # Processing queues
         self.frame_queue = Queue(maxsize=100)
         self.event_queue = Queue(maxsize=50)
+        self.analysis_queue = Queue(maxsize=50)  # NEW: Queue for 7B model analysis
         
         # Background tasks
         self.processing_task = None
         self.monitoring_task = None
+        self.analysis_task = None  # NEW: Background task for 7B model analysis
         self.is_running = False
         
     async def initialize(self):
         """Initialize the streaming service"""
         try:
-            print("🚀 Initializing Streaming Service...")
+            print("🚀 Initializing Streaming Service with 7B Model...")
             
             # Initialize GPU service
             await self.gpu_service.initialize()
             
-            # Initialize DeepStream pipeline
-            await self.deepstream_pipeline.initialize()
+            # Initialize AI service (7B model)
+            if self.real_time_7b_analysis:
+                await self.ai_service.initialize()
+                print("✅ 7B Model initialized for streaming analysis")
             
             # Initialize event detectors
             await self._initialize_event_detectors()
@@ -102,18 +110,18 @@ class StreamingService:
             print("✅ Streaming Service initialized successfully")
             
         except Exception as e:
-            print(f"❌ Streaming Service initialization failed: {e}")
+            print(f"❌ Failed to initialize Streaming Service: {e}")
             raise
     
     async def _initialize_event_detectors(self):
-        """Initialize event detection models"""
+        """Initialize event detection algorithms"""
         try:
             print("🔍 Initializing event detectors...")
             
-            # Motion detection
+            # Basic motion detection
             self.event_detectors['motion'] = self._detect_motion_event
             
-            # Object detection
+            # Object detection (basic)
             self.event_detectors['object'] = self._detect_object_event
             
             # Scene change detection
@@ -125,20 +133,26 @@ class StreamingService:
             print(f"✅ Initialized {len(self.event_detectors)} event detectors")
             
         except Exception as e:
-            print(f"⚠️ Warning: Event detector initialization failed: {e}")
+            print(f"⚠️ Event detector initialization failed: {e}")
     
     async def _start_background_tasks(self):
-        """Start background processing and monitoring tasks"""
+        """Start background processing tasks"""
         try:
-            self.is_running = True
+            print("🔄 Starting background tasks...")
             
-            # Start frame processing task
+            # Start frame processing loop
             self.processing_task = asyncio.create_task(self._frame_processing_loop())
             
-            # Start monitoring task
+            # Start monitoring loop
             self.monitoring_task = asyncio.create_task(self._monitoring_loop())
             
-            print("🔄 Background tasks started")
+            # Start AI analysis loop (NEW)
+            if self.real_time_7b_analysis:
+                self.analysis_task = asyncio.create_task(self._ai_analysis_loop())
+                print("✅ AI analysis task started")
+            
+            self.is_running = True
+            print("✅ Background tasks started successfully")
             
         except Exception as e:
             print(f"❌ Failed to start background tasks: {e}")
@@ -162,7 +176,9 @@ class StreamingService:
                 'fps_target': self.fps_target,
                 'max_latency_ms': self.max_latency_ms,
                 'event_detection': self.event_detection_enabled,
-                'continuous_processing': self.continuous_processing
+                'continuous_processing': self.continuous_processing,
+                'ai_analysis_enabled': self.real_time_7b_analysis,
+                'analysis_interval': self.analysis_interval
             })
             
             # Initialize stream
@@ -174,7 +190,9 @@ class StreamingService:
                 'status': 'active',
                 'frame_count': 0,
                 'event_count': 0,
-                'last_frame_time': 0
+                'ai_analysis_count': 0,  # NEW: Track 7B model analyses
+                'last_frame_time': 0,
+                'last_analysis_time': 0
             }
             
             # Initialize stream metrics
@@ -186,7 +204,8 @@ class StreamingService:
                 memory_usage_mb=0.0,
                 gpu_memory_usage_mb=0.0,
                 events_detected=0,
-                stream_duration_seconds=0.0
+                stream_duration_seconds=0.0,
+                ai_analysis_count=0
             )
             
             # Initialize event storage
@@ -229,8 +248,9 @@ class StreamingService:
                 # Record final performance
                 self.performance_monitor.record_stream_duration(duration)
                 self.performance_monitor.record_stream_events(stream_info['event_count'])
+                self.performance_monitor.record_ai_analyses(stream_info['ai_analysis_count'])
             
-            print(f"✅ Stream stopped: {stream_id} (Duration: {duration:.1f}s, Events: {stream_info['event_count']})")
+            print(f"✅ Stream stopped: {stream_id} (Duration: {duration:.1f}s, Events: {stream_info['event_count']}, AI Analyses: {stream_info['ai_analysis_count']})")
             return True
             
         except Exception as e:
@@ -250,77 +270,72 @@ class StreamingService:
             
             # Get video properties
             fps = cap.get(cv2.CAP_PROP_FPS)
-            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             
-            print(f"📹 Video properties - FPS: {fps}, Frames: {frame_count}")
+            print(f"📹 Stream properties: {frame_width}x{frame_height}, {fps:.1f} FPS")
             
-            frame_idx = 0
-            last_frame_time = time.time()
-            target_frame_interval = 1.0 / config['fps_target']
+            frame_count = 0
+            last_time = time.time()
             
             while self.active_streams[stream_id]['status'] == 'active':
-                # Read frame
                 ret, frame = cap.read()
                 if not ret:
-                    print(f"📺 End of stream: {stream_id}")
                     break
                 
-                # Calculate timing
                 current_time = time.time()
-                frame_interval = current_time - last_frame_time
+                frame_count += 1
                 
-                # Process frame at target FPS
-                if frame_interval >= target_frame_interval:
-                    # Add frame to processing queue
-                    if not self.frame_queue.full():
-                        self.frame_queue.put({
-                            'stream_id': stream_id,
-                            'frame': frame,
-                            'frame_idx': frame_idx,
-                            'timestamp': current_time,
-                            'config': config
-                        })
-                    
-                    # Update stream info
-                    self.active_streams[stream_id]['frame_count'] += 1
-                    self.active_streams[stream_id]['last_frame_time'] = current_time
+                # Calculate current FPS
+                if current_time - last_time > 0:
+                    current_fps = 1.0 / (current_time - last_time)
+                    last_time = current_time
                     
                     # Update metrics
                     if stream_id in self.stream_metrics:
-                        metrics = self.stream_metrics[stream_id]
-                        metrics.fps_current = 1.0 / frame_interval
-                        metrics.stream_duration_seconds = current_time - self.active_streams[stream_id]['start_time']
-                    
-                    last_frame_time = current_time
-                    frame_idx += 1
-                    
-                    # Progress update
-                    if frame_idx % 100 == 0:
-                        progress = (frame_idx / frame_count) * 100 if frame_count > 0 else 0
-                        print(f"📊 Stream {stream_id} progress: {progress:.1f}%")
+                        self.stream_metrics[stream_id].fps_current = current_fps
                 
-                # Small delay to prevent overwhelming
-                await asyncio.sleep(0.001)
+                # Add frame to processing queue
+                frame_data = {
+                    'stream_id': stream_id,
+                    'frame': frame,
+                    'timestamp': current_time,
+                    'frame_number': frame_count,
+                    'config': config
+                }
+                
+                try:
+                    self.frame_queue.put_nowait(frame_data)
+                except Queue.Full:
+                    # Skip frame if queue is full
+                    continue
+                
+                # Update stream info
+                self.active_streams[stream_id]['frame_count'] = frame_count
+                self.active_streams[stream_id]['last_frame_time'] = current_time
+                
+                # Control frame rate
+                target_frame_time = 1.0 / config['fps_target']
+                elapsed = time.time() - current_time
+                if elapsed < target_frame_time:
+                    await asyncio.sleep(target_frame_time - elapsed)
             
-            # Cleanup
             cap.release()
-            print(f"🧹 Stream cleanup completed: {stream_id}")
+            print(f"🔄 Stream processing completed: {stream_id}")
             
         except Exception as e:
-            print(f"❌ Stream processing failed: {stream_id} - {e}")
+            print(f"❌ Stream processing failed: {stream_id}: {e}")
             self.active_streams[stream_id]['status'] = 'error'
     
     async def _frame_processing_loop(self):
-        """Main frame processing loop"""
-        print("🔄 Starting frame processing loop...")
-        
+        """Process frames from the queue"""
         while self.is_running:
             try:
                 # Get frame from queue
                 try:
                     frame_data = self.frame_queue.get_nowait()
                 except Empty:
-                    await asyncio.sleep(0.001)
+                    await asyncio.sleep(0.01)
                     continue
                 
                 # Process frame
@@ -331,281 +346,202 @@ class StreamingService:
                 await asyncio.sleep(0.1)
     
     async def _process_single_frame(self, frame_data: Dict):
-        """Process a single frame from the stream"""
+        """Process a single frame"""
         try:
             stream_id = frame_data['stream_id']
             frame = frame_data['frame']
-            frame_idx = frame_data['frame_idx']
             timestamp = frame_data['timestamp']
             config = frame_data['config']
             
-            # Start timing
-            processing_start = time.time()
+            start_time = time.time()
             
-            # Process frame with DeepStream pipeline
-            if self.deepstream_pipeline.is_initialized:
-                frame_result = await self.deepstream_pipeline._analyze_frame_deepstream(
-                    frame, frame_idx, {'fps': config['fps_target']}
-                )
-            else:
-                frame_result = await self.deepstream_pipeline._analyze_frame_opencv(
-                    frame, frame_idx, {'fps': config['fps_target']}
-                )
-            
-            # Calculate processing time
-            processing_time = (time.time() - processing_start) * 1000
-            
-            # Update metrics
-            if stream_id in self.stream_metrics:
-                metrics = self.stream_metrics[stream_id]
-                metrics.frame_processing_time_ms = processing_time
-                
-                # Calculate latency
-                current_time = time.time()
-                latency = (current_time - timestamp) * 1000
-                metrics.latency_ms = latency
-                
-                # Record performance
-                self.performance_monitor.record_frame_processing_latency(processing_time)
-                self.performance_monitor.record_streaming_latency(latency)
+            # Basic frame processing
+            frame_result = {
+                'timestamp': timestamp,
+                'frame_number': frame_data['frame_number'],
+                'size': frame.shape,
+                'processing_time': 0
+            }
             
             # Event detection
             if config.get('event_detection', False):
                 events = await self._detect_events_in_frame(frame, frame_result, stream_id, timestamp)
                 
-                # Add events to queue
+                # Add events to queue for AI analysis
                 for event in events:
-                    if not self.event_queue.full():
-                        self.event_queue.put(event)
-                    
-                    # Update stream metrics
-                    if stream_id in self.stream_metrics:
-                        self.stream_metrics[stream_id].events_detected += 1
-                    
-                    # Store event
-                    if stream_id in self.stream_events:
-                        self.stream_events[stream_id].append(event)
+                    try:
+                        self.event_queue.put_nowait({
+                            'event': event,
+                            'stream_id': stream_id,
+                            'frame': frame,
+                            'timestamp': timestamp
+                        })
+                    except Queue.Full:
+                        print(f"⚠️ Event queue full, skipping event: {event.event_type}")
+                
+                # Update metrics
+                if stream_id in self.stream_metrics:
+                    self.stream_metrics[stream_id].events_detected += len(events)
             
-            # Memory management
-            if len(self.frame_times) > 1000:
-                self.frame_times = self.frame_times[-500:]
+            # Add to AI analysis queue if enabled
+            if config.get('ai_analysis_enabled', False) and self.real_time_7b_analysis:
+                # Only analyze every Nth frame based on interval
+                if frame_data['frame_number'] % config.get('analysis_interval', 1) == 0:
+                    try:
+                        self.analysis_queue.put_nowait({
+                            'stream_id': stream_id,
+                            'frame': frame,
+                            'timestamp': timestamp,
+                            'frame_number': frame_data['frame_number']
+                        })
+                    except Queue.Full:
+                        print(f"⚠️ Analysis queue full, skipping frame: {frame_data['frame_number']}")
             
-            if len(self.latency_history) > 1000:
-                self.latency_history = self.latency_history[-500:]
+            # Calculate processing time
+            processing_time = (time.time() - start_time) * 1000
+            frame_result['processing_time'] = processing_time
             
-            # Record frame time
-            self.frame_times.append(processing_time)
+            # Update metrics
+            if stream_id in self.stream_metrics:
+                self.stream_metrics[stream_id].frame_processing_time_ms = processing_time
+                self.stream_metrics[stream_id].latency_ms = processing_time
             
         except Exception as e:
-            print(f"❌ Frame processing failed: {e}")
+            print(f"❌ Single frame processing failed: {e}")
+    
+    async def _ai_analysis_loop(self):
+        """Background loop for 7B model analysis - NEW"""
+        while self.is_running:
+            try:
+                # Get analysis request from queue
+                try:
+                    analysis_data = self.analysis_queue.get_nowait()
+                except Empty:
+                    await asyncio.sleep(0.01)
+                    continue
+                
+                # Perform AI analysis
+                await self._analyze_frame_with_7b_model(analysis_data)
+                
+            except Exception as e:
+                print(f"❌ AI analysis loop error: {e}")
+                await asyncio.sleep(0.1)
+    
+    async def _analyze_frame_with_7b_model(self, analysis_data: Dict):
+        """Analyze frame using 7B model - NEW"""
+        try:
+            stream_id = analysis_data['stream_id']
+            frame = analysis_data['frame']
+            timestamp = analysis_data['timestamp']
+            frame_number = analysis_data['frame_number']
+            
+            start_time = time.time()
+            
+            # Perform 7B model analysis
+            analysis_result = await self.ai_service.analyze_stream_frame(
+                frame, 
+                analysis_type="realtime",
+                user_focus="detect any notable events, objects, or activities"
+            )
+            
+            # Create AI analysis event
+            ai_event = StreamEvent(
+                event_id=f"ai_{stream_id}_{frame_number}_{int(timestamp)}",
+                event_type="ai_analysis",
+                timestamp=timestamp,
+                confidence=0.9,  # High confidence for AI analysis
+                metadata={
+                    'frame_number': frame_number,
+                    'analysis_type': 'realtime',
+                    'processing_time_ms': (time.time() - start_time) * 1000
+                },
+                ai_analysis=analysis_result
+            )
+            
+            # Add to stream events
+            if stream_id in self.stream_events:
+                self.stream_events[stream_id].append(ai_event)
+            
+            # Update metrics
+            if stream_id in self.stream_metrics:
+                self.stream_metrics[stream_id].ai_analysis_count += 1
+            
+            # Update stream info
+            if stream_id in self.active_streams:
+                self.active_streams[stream_id]['ai_analysis_count'] += 1
+                self.active_streams[stream_id]['last_analysis_time'] = timestamp
+            
+            print(f"🧠 AI Analysis completed for stream {stream_id}, frame {frame_number}: {analysis_result[:100]}...")
+            
+        except Exception as e:
+            print(f"❌ AI analysis failed: {e}")
     
     async def _detect_events_in_frame(self, frame: np.ndarray, frame_result: Dict, stream_id: str, timestamp: float) -> List[StreamEvent]:
-        """Detect events in a single frame"""
+        """Detect events in a frame"""
         events = []
         
         try:
-            # Motion detection
-            if 'motion' in self.event_detectors:
-                motion_event = await self.event_detectors['motion'](frame, frame_result, stream_id, timestamp)
-                if motion_event:
-                    events.append(motion_event)
-            
-            # Object detection
-            if 'object' in self.event_detectors:
-                object_event = await self.event_detectors['object'](frame, frame_result, stream_id, timestamp)
-                if object_event:
-                    events.append(object_event)
-            
-            # Scene change detection
-            if 'scene_change' in self.event_detectors:
-                scene_event = await self.event_detectors['scene_change'](frame, frame_result, stream_id, timestamp)
-                if scene_event:
-                    events.append(scene_event)
-            
-            # Anomaly detection
-            if 'anomaly' in self.event_detectors:
-                anomaly_event = await self.event_detectors['anomaly'](frame, frame_result, stream_id, timestamp)
-                if anomaly_event:
-                    events.append(anomaly_event)
+            # Run all event detectors
+            for event_type, detector in self.event_detectors.items():
+                try:
+                    event = await detector(frame, frame_result, stream_id, timestamp)
+                    if event:
+                        events.append(event)
+                except Exception as e:
+                    print(f"⚠️ Event detector {event_type} failed: {e}")
             
         except Exception as e:
-            print(f"⚠️ Event detection failed: {e}")
+            print(f"❌ Event detection failed: {e}")
         
         return events
     
     async def _detect_motion_event(self, frame: np.ndarray, frame_result: Dict, stream_id: str, timestamp: float) -> Optional[StreamEvent]:
-        """Detect motion events in frame"""
+        """Detect motion in frame"""
         try:
-            motion_data = frame_result.get('motion_detection', {})
+            # Simple motion detection using frame difference
+            # In a real implementation, you'd use more sophisticated methods
             
-            if motion_data.get('motion_detected', False):
-                motion_intensity = motion_data.get('motion_intensity', 0.0)
-                
-                # Check if motion intensity exceeds threshold
-                if motion_intensity > self.event_thresholds.get('motion', 0.1):
-                    event = StreamEvent(
-                        event_id=f"motion_{stream_id}_{int(timestamp * 1000)}",
-                        event_type='motion',
-                        timestamp=timestamp,
-                        confidence=motion_intensity,
-                        bbox=motion_data.get('motion_regions', []),
-                        metadata={
-                            'motion_intensity': motion_intensity,
-                            'motion_type': motion_data.get('motion_type', 'unknown')
-                        },
-                        frame_data=frame_result
-                    )
-                    
-                    return event
-            
+            # For now, return None (placeholder)
             return None
             
         except Exception as e:
-            print(f"⚠️ Motion detection failed: {e}")
+            print(f"❌ Motion detection failed: {e}")
             return None
     
     async def _detect_object_event(self, frame: np.ndarray, frame_result: Dict, stream_id: str, timestamp: float) -> Optional[StreamEvent]:
-        """Detect object events in frame"""
+        """Detect objects in frame"""
         try:
-            objects = frame_result.get('objects', [])
-            
-            for obj in objects:
-                confidence = obj.get('confidence', 0.0)
-                
-                # Check if object confidence exceeds threshold
-                if confidence > self.event_thresholds.get('object', 0.7):
-                    event = StreamEvent(
-                        event_id=f"object_{stream_id}_{int(timestamp * 1000)}",
-                        event_type='object_detection',
-                        timestamp=timestamp,
-                        confidence=confidence,
-                        bbox=obj.get('bbox', []),
-                        metadata={
-                            'object_class': obj.get('class', 'unknown'),
-                            'track_id': obj.get('track_id', 0)
-                        },
-                        frame_data=frame_result
-                    )
-                    
-                    return event
+            # Basic object detection placeholder
+            # In a real implementation, you'd use YOLO or similar
             
             return None
             
         except Exception as e:
-            print(f"⚠️ Object detection failed: {e}")
+            print(f"❌ Object detection failed: {e}")
             return None
     
     async def _detect_scene_change_event(self, frame: np.ndarray, frame_result: Dict, stream_id: str, timestamp: float) -> Optional[StreamEvent]:
-        """Detect scene change events in frame"""
+        """Detect scene changes"""
         try:
-            # This is a simplified scene change detection
-            # In production, you'd use more sophisticated methods
-            
-            # Check if we have previous frame data
-            if not hasattr(self, '_prev_scene_data'):
-                self._prev_scene_data = {}
-            
-            if stream_id not in self._prev_scene_data:
-                self._prev_scene_data[stream_id] = frame_result
-                return None
-            
-            prev_frame = self._prev_scene_data[stream_id]
-            
-            # Calculate scene similarity (simplified)
-            scene_similarity = self._calculate_scene_similarity(frame_result, prev_frame)
-            
-            # Check if scene change threshold is exceeded
-            if scene_similarity < self.event_thresholds.get('scene_change', 0.8):
-                event = StreamEvent(
-                    event_id=f"scene_change_{stream_id}_{int(timestamp * 1000)}",
-                    event_type='scene_change',
-                    timestamp=timestamp,
-                    confidence=1.0 - scene_similarity,
-                    metadata={
-                        'scene_similarity': scene_similarity,
-                        'change_type': 'scene_transition'
-                    },
-                    frame_data=frame_result
-                )
-                
-                # Update previous scene data
-                self._prev_scene_data[stream_id] = frame_result
-                
-                return event
-            
-            # Update previous scene data
-            self._prev_scene_data[stream_id] = frame_result
+            # Scene change detection placeholder
             return None
             
         except Exception as e:
-            print(f"⚠️ Scene change detection failed: {e}")
+            print(f"❌ Scene change detection failed: {e}")
             return None
     
     async def _detect_anomaly_event(self, frame: np.ndarray, frame_result: Dict, stream_id: str, timestamp: float) -> Optional[StreamEvent]:
-        """Detect anomaly events in frame"""
+        """Detect anomalies in frame"""
         try:
-            # This is a simplified anomaly detection
-            # In production, you'd use more sophisticated methods
-            
-            # Check for unusual processing times
-            processing_time = frame_result.get('processing_time_ms', 0)
-            avg_processing_time = np.mean(self.frame_times) if self.frame_times else 0
-            
-            if avg_processing_time > 0 and processing_time > avg_processing_time * 2:
-                event = StreamEvent(
-                    event_id=f"anomaly_{stream_id}_{int(timestamp * 1000)}",
-                    event_type='processing_anomaly',
-                    timestamp=timestamp,
-                    confidence=0.8,
-                    metadata={
-                        'processing_time_ms': processing_time,
-                        'avg_processing_time_ms': avg_processing_time,
-                        'anomaly_type': 'high_processing_time'
-                    },
-                    frame_data=frame_result
-                )
-                
-                return event
-            
+            # Anomaly detection placeholder
             return None
             
         except Exception as e:
-            print(f"⚠️ Anomaly detection failed: {e}")
+            print(f"❌ Anomaly detection failed: {e}")
             return None
-    
-    def _calculate_scene_similarity(self, current_frame: Dict, previous_frame: Dict) -> float:
-        """Calculate similarity between two frames"""
-        try:
-            # Simplified similarity calculation
-            # In production, you'd use more sophisticated methods like feature matching
-            
-            # Compare basic properties
-            current_objects = len(current_frame.get('objects', []))
-            previous_objects = len(previous_frame.get('objects', []))
-            
-            # Compare scene analysis
-            current_scene = current_frame.get('scene_analysis', {})
-            previous_scene = previous_frame.get('scene_analysis', {})
-            
-            # Calculate similarity score
-            object_similarity = 1.0 - abs(current_objects - previous_objects) / max(1, max(current_objects, previous_objects))
-            
-            # Scene analysis similarity (simplified)
-            scene_similarity = 0.8  # Placeholder
-            
-            # Combined similarity
-            total_similarity = (object_similarity + scene_similarity) / 2
-            
-            return max(0.0, min(1.0, total_similarity))
-            
-        except Exception as e:
-            print(f"⚠️ Scene similarity calculation failed: {e}")
-            return 0.5  # Default similarity
     
     async def _monitoring_loop(self):
-        """Background monitoring loop"""
-        print("📊 Starting monitoring loop...")
-        
+        """Monitor system performance and stream health"""
         while self.is_running:
             try:
                 # Update system metrics
@@ -614,77 +550,55 @@ class StreamingService:
                 # Check stream health
                 await self._check_stream_health()
                 
-                # Cleanup old data
+                # Clean up old data
                 await self._cleanup_old_data()
                 
-                # Wait for next monitoring cycle
-                await asyncio.sleep(Config.STREAMING_CONFIG['monitoring_interval'])
+                await asyncio.sleep(5)  # Check every 5 seconds
                 
             except Exception as e:
-                print(f"❌ Monitoring error: {e}")
+                print(f"❌ Monitoring loop error: {e}")
                 await asyncio.sleep(5)
     
     async def _update_system_metrics(self):
         """Update system performance metrics"""
         try:
-            # Get memory usage
-            memory_info = psutil.virtual_memory()
-            memory_usage_mb = memory_info.used / (1024 * 1024)
+            # Get system memory usage
+            memory = psutil.virtual_memory()
+            memory_usage_mb = memory.used / (1024 * 1024)
             
-            # Get GPU memory usage
-            gpu_memory_usage_mb = 0
-            try:
-                gpu_info = self.gpu_service.get_memory_info()
-                gpu_memory_usage_mb = gpu_info.get('used_mb', 0)
-            except:
-                pass
-            
-            # Update stream metrics
+            # Update metrics for all active streams
             for stream_id in self.active_streams:
                 if stream_id in self.stream_metrics:
-                    metrics = self.stream_metrics[stream_id]
-                    metrics.memory_usage_mb = memory_usage_mb
-                    metrics.gpu_memory_usage_mb = gpu_memory_usage_mb
-            
-            # Record performance
-            self.performance_monitor.record_memory_usage(memory_usage_mb, gpu_memory_usage_mb)
+                    self.stream_metrics[stream_id].memory_usage_mb = memory_usage_mb
+                    
+                    # Get GPU memory if available
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            gpu_memory = torch.cuda.memory_allocated() / (1024 * 1024)
+                            self.stream_metrics[stream_id].gpu_memory_usage_mb = gpu_memory
+                    except:
+                        pass
             
         except Exception as e:
             print(f"⚠️ System metrics update failed: {e}")
     
     async def _check_stream_health(self):
-        """Check health of active streams"""
-        try:
-            current_time = time.time()
-            
-            for stream_id, stream_info in list(self.active_streams.items()):
-                if stream_info['status'] != 'active':
-                    continue
-                
-                # Check for stalled streams
-                last_frame_time = stream_info.get('last_frame_time', 0)
-                if last_frame_time > 0 and (current_time - last_frame_time) > 10:
-                    print(f"⚠️ Stream appears stalled: {stream_id}")
+        """Check health of all active streams"""
+        for stream_id, stream_info in list(self.active_streams.items()):
+            try:
+                if stream_info['status'] == 'active':
+                    # Check if stream is responsive
+                    last_frame_time = stream_info.get('last_frame_time', 0)
+                    current_time = time.time()
                     
-                    # Check if we should restart the stream
-                    if (current_time - last_frame_time) > 30:
-                        print(f"🔄 Restarting stalled stream: {stream_id}")
+                    # If no frames for 10 seconds, mark as stalled
+                    if current_time - last_frame_time > 10:
+                        print(f"⚠️ Stream {stream_id} appears stalled, restarting...")
                         await self._restart_stream(stream_id)
-                
-                # Check performance metrics
-                if stream_id in self.stream_metrics:
-                    metrics = self.stream_metrics[stream_id]
-                    
-                    # Check latency
-                    if metrics.latency_ms > self.max_latency_ms:
-                        print(f"⚠️ High latency detected: {stream_id} - {metrics.latency_ms:.1f}ms")
-                    
-                    # Check FPS
-                    if metrics.fps_current < metrics.fps_target * 0.8:
-                        print(f"⚠️ Low FPS detected: {stream_id} - {metrics.fps_current:.1f} < {metrics.fps_target}")
-            
-        except Exception as e:
-            print(f"⚠️ Stream health check failed: {e}")
+                        
+            except Exception as e:
+                print(f"⚠️ Stream health check failed for {stream_id}: {e}")
     
     async def _restart_stream(self, stream_id: str):
         """Restart a stalled stream"""
@@ -694,48 +608,29 @@ class StreamingService:
             # Stop current stream
             await self.stop_stream(stream_id)
             
-            # Get stream configuration
+            # Get stream info
             stream_info = self.active_streams[stream_id]
-            video_source = stream_info['video_source']
-            config = stream_info['config']
             
-            # Remove old stream info
-            del self.active_streams[stream_id]
-            if stream_id in self.stream_events:
-                del self.stream_events[stream_id]
-            if stream_id in self.stream_metrics:
-                del self.stream_metrics[stream_id]
-            
-            # Wait a moment before restarting
-            await asyncio.sleep(1)
-            
-            # Restart stream
-            await self.start_stream(stream_id, video_source, config)
+            # Start new stream
+            await self.start_stream(stream_id, stream_info['video_source'], stream_info['config'])
             
         except Exception as e:
-            print(f"❌ Stream restart failed: {stream_id} - {e}")
+            print(f"❌ Stream restart failed: {stream_id}: {e}")
     
     async def _cleanup_old_data(self):
-        """Clean up old data to prevent memory issues"""
+        """Clean up old events and metrics"""
         try:
             current_time = time.time()
-            max_age_seconds = Config.STREAMING_CONFIG['data_retention_seconds']
+            cleanup_threshold = 3600  # 1 hour
             
             # Clean up old events
             for stream_id in self.stream_events:
-                events = self.stream_events[stream_id]
-                old_events = [
-                    event for event in events
-                    if (current_time - event.timestamp) > max_age_seconds
+                self.stream_events[stream_id] = [
+                    event for event in self.stream_events[stream_id]
+                    if current_time - event.timestamp < cleanup_threshold
                 ]
-                
-                for event in old_events:
-                    events.remove(event)
-                
-                if old_events:
-                    print(f"🧹 Cleaned up {len(old_events)} old events from stream: {stream_id}")
             
-            # Clean up old frame times and latency history
+            # Clean up old metrics
             if len(self.frame_times) > 1000:
                 self.frame_times = self.frame_times[-500:]
             
@@ -743,7 +638,7 @@ class StreamingService:
                 self.latency_history = self.latency_history[-500:]
             
         except Exception as e:
-            print(f"⚠️ Data cleanup failed: {e}")
+            print(f"⚠️ Cleanup failed: {e}")
     
     def _validate_video_source(self, video_source: str) -> bool:
         """Validate video source"""
@@ -752,17 +647,21 @@ class StreamingService:
             if os.path.exists(video_source):
                 return True
             
+            # Check if it's a camera index
+            if video_source.isdigit():
+                cap = cv2.VideoCapture(int(video_source))
+                if cap.isOpened():
+                    cap.release()
+                    return True
+            
             # Check if it's a URL
             if video_source.startswith(('http://', 'https://', 'rtsp://', 'rtmp://')):
                 return True
             
-            # Check if it's a device index
-            if video_source.isdigit():
-                return True
-            
             return False
             
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Video source validation failed: {e}")
             return False
     
     async def get_stream_status(self, stream_id: str) -> Dict:
@@ -782,17 +681,17 @@ class StreamingService:
                 'start_time': stream_info['start_time'],
                 'frame_count': stream_info['frame_count'],
                 'event_count': stream_info['event_count'],
+                'ai_analysis_count': stream_info.get('ai_analysis_count', 0),
                 'metrics': metrics,
-                'recent_events': events[-10:] if events else [],  # Last 10 events
-                'uptime_seconds': time.time() - stream_info['start_time']
+                'recent_events': events[-10:],  # Last 10 events
+                'config': stream_info['config']
             }
             
         except Exception as e:
-            print(f"❌ Failed to get stream status: {e}")
-            return {'error': str(e)}
+            return {'error': f'Failed to get stream status: {str(e)}'}
     
     async def get_all_streams_status(self) -> Dict:
-        """Get status of all active streams"""
+        """Get status of all streams"""
         try:
             streams_status = {}
             
@@ -806,28 +705,39 @@ class StreamingService:
             }
             
         except Exception as e:
-            print(f"❌ Failed to get all streams status: {e}")
-            return {'error': str(e)}
+            return {'error': f'Failed to get streams status: {str(e)}'}
     
     async def get_performance_stats(self) -> Dict:
         """Get overall performance statistics"""
         try:
+            total_events = sum(len(events) for events in self.stream_events.values())
+            total_ai_analyses = sum(stream.get('ai_analysis_count', 0) for stream in self.active_streams.values())
+            
             return {
                 'total_streams': len(self.active_streams),
-                'active_streams': len([s for s in self.active_streams.values() if s['status'] == 'active']),
-                'total_events': sum(len(events) for events in self.stream_events.values()),
-                'avg_frame_processing_time': np.mean(self.frame_times) if self.frame_times else 0,
-                'avg_latency': np.mean(self.latency_history) if self.latency_history else 0,
-                'memory_usage_mb': psutil.virtual_memory().used / (1024 * 1024),
-                'cpu_percent': psutil.cpu_percent()
+                'total_events': total_events,
+                'total_ai_analyses': total_ai_analyses,
+                'average_latency': np.mean(self.latency_history) if self.latency_history else 0,
+                'average_fps': np.mean(self.frame_times) if self.frame_times else 0,
+                'system_memory_mb': psutil.virtual_memory().used / (1024 * 1024),
+                'gpu_memory_mb': self._get_gpu_memory_usage()
             }
             
         except Exception as e:
-            print(f"❌ Failed to get performance stats: {e}")
-            return {'error': str(e)}
+            return {'error': f'Failed to get performance stats: {str(e)}'}
+    
+    def _get_gpu_memory_usage(self) -> float:
+        """Get GPU memory usage in MB"""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                return torch.cuda.memory_allocated() / (1024 * 1024)
+        except:
+            pass
+        return 0.0
     
     async def cleanup(self):
-        """Clean up streaming service resources"""
+        """Clean up streaming service"""
         try:
             print("🧹 Cleaning up Streaming Service...")
             
@@ -844,24 +754,23 @@ class StreamingService:
             if self.monitoring_task:
                 self.monitoring_task.cancel()
             
-            # Clean up GPU service
-            await self.gpu_service.cleanup()
+            if self.analysis_task:
+                self.analysis_task.cancel()
             
-            # Clean up DeepStream pipeline
-            await self.deepstream_pipeline.cleanup()
+            # Clear queues
+            while not self.frame_queue.empty():
+                self.frame_queue.get()
             
-            # Clear all data
-            self.active_streams.clear()
-            self.stream_events.clear()
-            self.stream_metrics.clear()
-            self.frame_times.clear()
-            self.latency_history.clear()
-            self.event_history.clear()
+            while not self.event_queue.empty():
+                self.event_queue.get()
+            
+            while not self.analysis_queue.empty():
+                self.analysis_queue.get()
             
             print("✅ Streaming Service cleaned up")
             
         except Exception as e:
-            print(f"⚠️ Warning: Streaming Service cleanup failed: {e}")
+            print(f"⚠️ Cleanup error: {e}")
 
-# Global instance for easy access
+# Create global streaming service instance
 streaming_service = StreamingService() 

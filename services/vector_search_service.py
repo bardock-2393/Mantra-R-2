@@ -14,10 +14,19 @@ from config import Config
 
 try:
     from sentence_transformers import SentenceTransformer
+    import faiss
     SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-    print("⚠️ Warning: sentence-transformers not available. Install with: pip install sentence-transformers")
+    FAISS_AVAILABLE = True
+except ImportError as e:
+    if 'sentence_transformers' in str(e):
+        SENTENCE_TRANSFORMERS_AVAILABLE = False
+        print("⚠️ Warning: sentence-transformers not available. Install with: pip install sentence-transformers")
+    if 'faiss' in str(e):
+        FAISS_AVAILABLE = False
+        print("⚠️ Warning: faiss-gpu not available. Install with: pip install faiss-gpu")
+    else:
+        SENTENCE_TRANSFORMERS_AVAILABLE = False
+        FAISS_AVAILABLE = False
 
 class VectorSearchService:
     """Local vector search service for video content Q&A"""
@@ -25,9 +34,11 @@ class VectorSearchService:
     def __init__(self):
         self.embeddings_dir = 'vector_embeddings'
         self.model = None
-        self.embedding_dim = 384  # Default dimension for all-MiniLM-L6-v2
+        self.embedding_dim = Config.VECTOR_CONFIG.get('embedding_dim', 768)  # Use config dimension
+        self.faiss_index = None
         self._ensure_embeddings_directory()
         self._initialize_model()
+        self._initialize_faiss_index()
     
     def _ensure_embeddings_directory(self):
         """Ensure the embeddings directory exists"""
@@ -47,6 +58,19 @@ class VectorSearchService:
             print(f"✅ Vector search model initialized: {model_name}")
         except Exception as e:
             print(f"❌ Failed to initialize vector search model: {e}")
+    
+    def _initialize_faiss_index(self):
+        """Initialize Faiss index for fast vector search"""
+        if not FAISS_AVAILABLE:
+            print("❌ Faiss not available. Vector search disabled.")
+            return
+        
+        try:
+            # Use FlatL2 index for maximum accuracy
+            self.faiss_index = faiss.IndexFlatL2(self.embedding_dim)
+            print(f"✅ Faiss index initialized: {self.embedding_dim} dimensions")
+        except Exception as e:
+            print(f"❌ Failed to initialize Faiss index: {e}")
     
     def _get_embedding_file_path(self, session_id: str) -> str:
         """Get the file path for session embeddings"""
@@ -89,6 +113,14 @@ class VectorSearchService:
                     'end_time': chunk.get('end_time'),
                     'source': chunk.get('source', 'analysis')
                 })
+            
+            # Convert embeddings to numpy array for Faiss
+            embeddings_array = np.array(embeddings)
+            
+            # Add to Faiss index if available
+            if self.faiss_index and FAISS_AVAILABLE:
+                self.faiss_index.add(embeddings_array)
+                print(f"✅ Added {len(embeddings)} embeddings to Faiss index")
             
             # Save embeddings and metadata
             embedding_file = self._get_embedding_file_path(session_id)
@@ -202,6 +234,63 @@ class VectorSearchService:
             return []
         
         try:
+            # Use Faiss for fast search if available
+            if self.faiss_index and FAISS_AVAILABLE:
+                return self._search_with_faiss(session_id, query, top_k)
+            else:
+                return self._search_with_similarity(session_id, query, top_k)
+                
+        except Exception as e:
+            print(f"❌ Search failed: {e}")
+            return []
+    
+    def _search_with_faiss(self, session_id: str, query: str, top_k: int) -> List[Dict]:
+        """Search using Faiss for maximum performance"""
+        try:
+            # Load metadata for the session
+            metadata_file = self._get_metadata_file_path(session_id)
+            if not os.path.exists(metadata_file):
+                print(f"❌ No metadata found for session: {session_id}")
+                return []
+            
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+            
+            # Generate query embedding
+            query_embedding = self.model.encode(query, convert_to_tensor=False)
+            query_vector = query_embedding.reshape(1, -1).astype('float32')
+            
+            # Search using Faiss
+            distances, indices = self.faiss_index.search(query_vector, min(top_k, len(metadata.get('chunk_metadata', []))))
+            
+            # Format results
+            results = []
+            chunk_metadata = metadata.get('chunk_metadata', [])
+            
+            for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
+                if idx < len(chunk_metadata):
+                    chunk_meta = chunk_metadata[idx]
+                    result = {
+                        'text': chunk_meta['text'],
+                        'type': chunk_meta['type'],
+                        'timestamp': chunk_meta.get('timestamp'),
+                        'start_time': chunk_meta.get('start_time'),
+                        'end_time': chunk_meta.get('end_time'),
+                        'source': chunk_meta['source'],
+                        'similarity_score': 1.0 / (1.0 + distance),  # Convert distance to similarity
+                        'distance': float(distance)
+                    }
+                    results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            print(f"❌ Faiss search failed: {e}")
+            return []
+    
+    def _search_with_similarity(self, session_id: str, query: str, top_k: int) -> List[Dict]:
+        """Fallback search using cosine similarity"""
+        try:
             # Load embeddings and metadata
             embedding_file = self._get_embedding_file_path(session_id)
             metadata_file = self._get_metadata_file_path(session_id)
@@ -221,26 +310,30 @@ class VectorSearchService:
             
             # Calculate similarities
             similarities = []
+            chunk_metadata = metadata.get('chunk_metadata', [])
+            
             for i, embedding in enumerate(embeddings):
-                similarity = self._cosine_similarity(query_embedding, embedding)
-                similarities.append((similarity, i))
+                if i < len(chunk_metadata):
+                    similarity = self._cosine_similarity(query_embedding, embedding)
+                    similarities.append((similarity, i))
             
             # Sort by similarity and get top results
             similarities.sort(reverse=True)
             top_results = []
             
             for similarity, idx in similarities[:top_k]:
-                chunk_meta = metadata['chunk_metadata'][idx]
-                result = {
-                    'text': chunk_meta['text'],
-                    'type': chunk_meta['type'],
-                    'timestamp': chunk_meta.get('timestamp'),
-                    'start_time': chunk_meta.get('start_time'),
-                    'end_time': chunk_meta.get('end_time'),
-                    'source': chunk_meta['source'],
-                    'similarity_score': float(similarity)
-                }
-                top_results.append(result)
+                if idx < len(chunk_metadata):
+                    chunk_meta = chunk_metadata[idx]
+                    result = {
+                        'text': chunk_meta['text'],
+                        'type': chunk_meta['type'],
+                        'timestamp': chunk_meta.get('timestamp'),
+                        'start_time': chunk_meta.get('start_time'),
+                        'end_time': chunk_meta.get('end_time'),
+                        'source': chunk_meta['source'],
+                        'similarity_score': float(similarity)
+                    }
+                    top_results.append(result)
             
             return top_results
             

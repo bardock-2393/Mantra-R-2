@@ -1,5 +1,5 @@
 # 🚀 AI Video Detective Round 2 - GPU-Powered Local AI
-# Requirements for high-performance, GPU-optimized video analysis
+# Requirements for high-performance, GPU-optimized video analysis with 7B model
 # Target: <1000ms latency, 90fps processing, 120-minute video support
 
 # =============================================================================
@@ -17,21 +17,19 @@ nvidia-cudnn-cu12>=8.9.0
 nvidia-tensorrt>=8.6.0
 
 # =============================================================================
-# AI MODEL FRAMEWORKS
+# AI MODEL FRAMEWORKS - 7B MODEL ONLY
 # =============================================================================
 
-# Transformers for MiniCPM-V 2.6 and Qwen2.5-VL
-transformers>=4.40.0  # Updated for Qwen2.5-VL-32B support
+# Transformers for Qwen2.5-VL-7B
+transformers>=4.40.0
 accelerate>=0.20.0
 bitsandbytes>=0.41.0
 sentencepiece>=0.1.99
 protobuf>=3.20.0
 
-# Note: For Qwen2.5-VL-32B, build transformers from source:
-# pip install git+https://github.com/huggingface/transformers accelerate
-
 # Vector search and embeddings
 sentence-transformers>=2.2.0
+faiss-gpu>=1.7.0
 
 # Qwen2.5-VL utilities
 qwen-vl-utils[decord]==0.0.8
@@ -188,22 +186,6 @@ kubernetes>=26.1.0
 # Process management
 supervisor>=4.2.5
 circus>=0.18.0
-
-# =============================================================================
-# OPTIONAL ENHANCEMENTS
-# =============================================================================
-
-# Multi-GPU support
-torch-elastic>=0.2.0
-horovod>=0.27.0
-
-# Advanced video analytics
-opencv-python-contrib>=4.8.0
-mediapipe
-
-# Cloud integration (optional)
-boto3>=1.28.0
-google-cloud-storage>=2.10.0
 
 # =============================================================================
 # SYSTEM REQUIREMENTS

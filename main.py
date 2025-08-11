@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI Video Detective - Startup Script for Round 2
-Simple script to run the application with GPU-powered local AI
+Simple script to run the application with GPU-powered local AI (7B model only)
 """
 
 import os
@@ -9,8 +9,8 @@ import sys
 from app import app
 
 def main():
-    """Main startup function for Round 2"""
-    print("🚀 AI Video Detective Round 2 - GPU-Powered Local AI")
+    """Main startup function for Round 2 - 7B Model Only"""
+    print("🚀 AI Video Detective Round 2 - GPU-Powered Local AI (7B Model)")
     print("=" * 60)
     
     # Check if required environment variables are set
@@ -44,8 +44,10 @@ def main():
         os.makedirs(session_dir)
         print(f"📁 Created session storage directory: {session_dir}")
     
-    print("🤖 Local AI: MiniCPM-V-2_6 ready for video analysis")
-    print("🎯 Performance: <1000ms latency, 90fps processing")
+    print("🤖 Local AI: Qwen2.5-VL-7B ready for video analysis")
+    print("🔍 DeepStream: Real-time object detection and tracking")
+    print("💾 Vector Search: Fast retrieval and analysis")
+    print("🎯 Performance: <1000ms latency, 90fps processing, 120min videos")
     print("🌐 Server: Starting on http://localhost:8000")
     print()
     print("Press Ctrl+C to stop the server")

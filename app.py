@@ -1,6 +1,6 @@
 """
 AI Video Detective - Main Application for Round 2
-Advanced AI video analysis application with GPU-powered local AI processing
+Advanced AI video analysis application with GPU-powered local AI processing (7B model only)
 """
 
 import os
@@ -16,7 +16,7 @@ from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
 
 def create_app():
-    """Create and configure the Flask application for Round 2"""
+    """Create and configure the Flask application for Round 2 - 7B Model Only"""
     app = Flask(__name__)
     
     # Configure Flask
@@ -32,9 +32,9 @@ def create_app():
     return app
 
 async def initialize_gpu_services():
-    """Initialize GPU services for Round 2"""
+    """Initialize GPU services for Round 2 - 7B Model Only"""
     try:
-        print("🚀 Initializing GPU services...")
+        print("🚀 Initializing GPU services for 7B model...")
         
         # Initialize GPU service
         gpu_service = GPUService()
@@ -44,7 +44,7 @@ async def initialize_gpu_services():
         performance_monitor = PerformanceMonitor()
         performance_monitor.start()
         
-        print("✅ GPU services initialized successfully")
+        print("✅ GPU services initialized successfully for 7B model")
         return gpu_service, performance_monitor
         
     except Exception as e:
@@ -68,7 +68,7 @@ def start_cleanup_thread():
 # Create the application instance
 app = create_app()
 async def main():
-    """Main async function to initialize and run the application"""
+    """Main async function to initialize and run the application - 7B Model Only"""
     # Create necessary directories
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(Config.SESSION_STORAGE_PATH, exist_ok=True)
@@ -83,11 +83,12 @@ async def main():
     # Start background cleanup thread
     cleanup_thread = start_cleanup_thread()
     
-    print("🚀 AI Video Detective Round 2 Starting...")
+    print("🚀 AI Video Detective Round 2 Starting (7B Model Only)...")
     print(f"📁 Upload folder: {Config.UPLOAD_FOLDER}")
     print(f"📁 Session storage: {Config.SESSION_STORAGE_PATH}")
     print(f"🤖 GPU Processing: {'Enabled' if Config.GPU_CONFIG['enabled'] else 'Disabled'}")
     print(f"🎯 Performance targets: <{Config.PERFORMANCE_TARGETS['latency_target']}ms latency, {Config.PERFORMANCE_TARGETS['fps_target']}fps")
+    print(f"🧠 AI Model: Qwen2.5-VL-7B (Local GPU)")
     
     if gpu_service:
         print(f"🖥️  GPU Device: {Config.GPU_CONFIG['device']}")

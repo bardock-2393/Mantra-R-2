@@ -6,37 +6,20 @@ Handles Qwen2.5-VL-7B-Instruct model for MAXIMUM performance video analysis
 import asyncio
 from typing import Dict, Optional
 from config import Config
-# COMMENTED OUT OTHER MODELS FOR 7B OPTIMIZATION
-# from services.ai_service_fixed import minicpm_service
-from services.qwen25vl_service import qwen25vl_service
-# from services.qwen25vl_32b_service import qwen25vl_32b_service
+from services.ai_service import ai_service
 
 class ModelManager:
     """Manages Qwen2.5-VL-7B-Instruct model for MAXIMUM performance"""
     
     def __init__(self):
-        self.current_model = 'qwen25vl'  # DEFAULT TO OPTIMIZED 7B MODEL
+        self.current_model = 'qwen25vl_7b'  # DEFAULT TO OPTIMIZED 7B MODEL
         self.available_models = {
-            # COMMENTED OUT FOR 7B OPTIMIZATION
-            # 'minicpm': {
-            #     'name': 'MiniCPM-V-2_6',
-            #     'description': 'Fast, efficient vision-language model',
-            #     'service': minicpm_service,
-            #     'initialized': False
-            # },
-            'qwen25vl': {
+            'qwen25vl_7b': {
                 'name': 'Qwen2.5-VL-7B-Instruct (OPTIMIZED)',
                 'description': 'OPTIMIZED 7B model with MAXIMUM performance, accuracy, and speed',
-                'service': qwen25vl_service,
+                'service': ai_service,
                 'initialized': False
-            },
-            # COMMENTED OUT FOR 7B OPTIMIZATION
-            # 'qwen25vl_32b': {
-            #     'name': 'Qwen2.5-VL-32B-Instruct',
-            #     'description': 'High-performance 32B parameter model with superior video analysis capabilities',
-            #     'service': qwen25vl_32b_service,
-            #     'initialized': False
-            # }
+            }
         }
         self._initialization_lock = asyncio.Lock()  # Prevent concurrent initialization
     
@@ -74,10 +57,10 @@ class ModelManager:
                 return False
     
     async def switch_model(self, model_name: str) -> bool:
-        """Switch to a different model"""
+        """Switch to a different model (only 7B model available)"""
         try:
             if model_name not in self.available_models:
-                raise ValueError(f"Unknown model: {model_name}")
+                raise ValueError(f"Unknown model: {model_name}. Only Qwen2.5-VL-7B is available.")
             
             if model_name == self.current_model:
                 print(f"ℹ️ Already using {model_name}")
@@ -100,54 +83,29 @@ class ModelManager:
             # Switch to new model
             self.current_model = model_name
             
-            # Initialize new model
+            # Initialize the new model
             success = await self.initialize_model()
+            
             if success:
                 print(f"✅ Successfully switched to {model_name}")
                 return True
             else:
-                print(f"❌ Failed to switch to {model_name}")
-                # Revert to previous model
-                print(f"🔄 Reverting to {previous_model}")
+                # Revert to previous model on failure
+                print(f"❌ Failed to initialize {model_name}, reverting to {previous_model}")
                 self.current_model = previous_model
-                try:
-                    await self.initialize_model()
-                    print(f"✅ Successfully reverted to {previous_model}")
-                except Exception as revert_error:
-                    print(f"❌ Failed to revert to {previous_model}: {revert_error}")
-                    # Last resort: try to initialize minicpm
-                    try:
-                        self.current_model = 'minicpm'
-                        await self.initialize_model()
-                        print(f"✅ Successfully initialized fallback model: minicpm")
-                    except Exception as fallback_error:
-                        print(f"❌ Critical: Failed to initialize any model: {fallback_error}")
                 return False
-            
+                
         except Exception as e:
             print(f"❌ Model switch failed: {e}")
-            # Try to revert to minicpm on failure
-            try:
-                print(f"🔄 Attempting to revert to minicpm due to error...")
-                self.current_model = 'minicpm'
-                await self.initialize_model()
-                print(f"✅ Successfully reverted to minicpm")
-            except Exception as revert_error:
-                print(f"❌ Failed to revert to minicpm: {revert_error}")
             return False
     
     def get_current_model(self) -> Dict:
-        """Get information about the current model"""
-        if self.current_model not in self.available_models:
-            return {}
-        
-        model_info = self.available_models[self.current_model]
-        return {
-            'name': model_info['name'],
-            'description': model_info['description'],
-            'initialized': model_info['initialized'],
-            'status': model_info['service'].get_status() if model_info['initialized'] else {}
-        }
+        """Get information about the currently active model"""
+        if self.current_model in self.available_models:
+            model_info = self.available_models[self.current_model].copy()
+            model_info['current'] = True
+            return model_info
+        return {}
     
     def get_available_models(self) -> Dict:
         """Get information about all available models"""
@@ -155,8 +113,8 @@ class ModelManager:
             name: {
                 'name': info['name'],
                 'description': info['description'],
-                'initialized': info['initialized'],
-                'current': name == self.current_model
+                'current': name == self.current_model,
+                'initialized': info['initialized']
             }
             for name, info in self.available_models.items()
         }
@@ -164,30 +122,28 @@ class ModelManager:
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using the current model"""
         try:
-            if not self.available_models[self.current_model]['initialized']:
-                print(f"🔄 Initializing {self.current_model} for video analysis...")
-                await self.initialize_model()
+            if self.current_model not in self.available_models:
+                raise RuntimeError("No model available for analysis")
             
             model_info = self.available_models[self.current_model]
             if not model_info['initialized']:
-                raise RuntimeError(f"Failed to initialize {self.current_model}")
+                await self.initialize_model()
             
             return await model_info['service'].analyze_video(video_path, analysis_type, user_focus)
             
         except Exception as e:
             print(f"❌ Video analysis failed: {e}")
-            raise RuntimeError(f"Video analysis failed: {e}")
+            return f"❌ Analysis failed: {str(e)}"
     
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: list) -> str:
         """Generate chat response using the current model"""
         try:
-            if not self.available_models[self.current_model]['initialized']:
-                print(f"🔄 Initializing {self.current_model} for chat response...")
-                await self.initialize_model()
+            if self.current_model not in self.available_models:
+                raise RuntimeError("No model available for chat")
             
             model_info = self.available_models[self.current_model]
             if not model_info['initialized']:
-                raise RuntimeError(f"Failed to initialize {self.current_model}")
+                await self.initialize_model()
             
             return await model_info['service'].generate_chat_response(
                 analysis_result, analysis_type, user_focus, message, chat_history
@@ -195,57 +151,73 @@ class ModelManager:
             
         except Exception as e:
             print(f"❌ Chat response generation failed: {e}")
-            raise RuntimeError(f"Chat response generation failed: {e}")
+            return f"❌ Failed to generate response: {str(e)}"
     
     def get_status(self) -> Dict:
-        """Get overall status of the model manager"""
+        """Get overall model manager status"""
         return {
             'current_model': self.current_model,
-            'available_models': self.get_available_models(),
-            'current_model_status': self.get_current_model()
+            'available_models': list(self.available_models.keys()),
+            'initialized_models': [
+                name for name, info in self.available_models.items() 
+                if info['initialized']
+            ]
         }
     
     def cleanup(self):
-        """Cleanup all models"""
+        """Clean up all models"""
         try:
-            for name, model_info in self.available_models.items():
+            for model_name, model_info in self.available_models.items():
                 if model_info['initialized']:
                     try:
                         model_info['service'].cleanup()
                         model_info['initialized'] = False
                         print(f"🧹 Cleaned up {model_info['name']}")
                     except Exception as e:
-                        print(f"⚠️ Warning: Cleanup failed for {name}: {e}")
+                        print(f"⚠️ Warning: Cleanup failed for {model_name}: {e}")
             
             print("🧹 All models cleaned up")
             
         except Exception as e:
-            print(f"⚠️ Warning: Cleanup failed: {e}")
+            print(f"⚠️ Cleanup error: {e}")
     
     async def health_check(self) -> Dict:
-        """Perform health check on all models"""
-        health_status = {}
+        """Check health of all models"""
+        health_status = {
+            'overall_status': 'healthy',
+            'models': {},
+            'timestamp': asyncio.get_event_loop().time()
+        }
         
-        for name, model_info in self.available_models.items():
-            try:
-                if model_info['initialized']:
-                    status = model_info['service'].get_status()
-                    health_status[name] = {
-                        'status': 'healthy',
-                        'details': status
-                    }
-                else:
-                    health_status[name] = {
-                        'status': 'not_initialized',
-                        'details': {}
-                    }
-            except Exception as e:
-                health_status[name] = {
-                    'status': 'error',
-                    'error': str(e)
+        try:
+            for model_name, model_info in self.available_models.items():
+                model_health = {
+                    'name': model_info['name'],
+                    'initialized': model_info['initialized'],
+                    'status': 'healthy' if model_info['initialized'] else 'not_initialized'
                 }
-        
-        return health_status
+                
+                # Get detailed status from service if available
+                if hasattr(model_info['service'], 'get_status'):
+                    try:
+                        service_status = model_info['service'].get_status()
+                        model_health.update(service_status)
+                    except Exception as e:
+                        model_health['status'] = 'error'
+                        model_health['error'] = str(e)
+                
+                health_status['models'][model_name] = model_health
+                
+                # Update overall status
+                if model_health['status'] != 'healthy':
+                    health_status['overall_status'] = 'degraded'
+            
+            return health_status
+            
+        except Exception as e:
+            health_status['overall_status'] = 'error'
+            health_status['error'] = str(e)
+            return health_status
 
-# Global model manager instance
+# Create global model manager instance
 model_manager = ModelManager() 

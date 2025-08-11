@@ -1,6 +1,6 @@
 """
-API Routes Module
-Handles various API endpoints for session management, health checks, and utility functions
+API Routes Module - 7B Model Only
+Handles various API endpoints for session management, health checks, utility functions, and streaming
 """
 
 import os
@@ -11,6 +11,7 @@ from services.session_service import (
     get_session_data, cleanup_session_data, cleanup_expired_sessions, 
     cleanup_old_uploads, get_all_session_keys
 )
+from services.hybrid_analysis_service import hybrid_analysis_service
 from utils.video_utils import capture_screenshot, extract_video_clip
 from utils.text_utils import extract_timestamps_from_text
 import time
@@ -32,14 +33,132 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'service': 'AI Video Detective API',
+        'service': 'AI Video Detective API (7B Model)',
         'version': '2.0.0',
         'timestamp': time.time()
     })
 
+@api_bp.route('/hybrid-analysis', methods=['POST'])
+def start_hybrid_analysis():
+    """Start hybrid analysis using DeepStream + 7B Model + Vector Search"""
+    try:
+        data = request.get_json()
+        video_path = data.get('video_path')
+        analysis_type = data.get('analysis_type', 'hybrid')
+        
+        if not video_path:
+            return jsonify({'error': 'Video path required'}), 400
+        
+        # Check if video file exists
+        if not os.path.exists(video_path):
+            return jsonify({'error': f'Video file not found: {video_path}'}), 404
+        
+        # Start hybrid analysis asynchronously
+        import asyncio
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the async hybrid analysis
+            analysis_results = loop.run_until_complete(
+                hybrid_analysis_service.analyze_video_hybrid(video_path, analysis_type)
+            )
+            
+            if 'error' in analysis_results:
+                return jsonify({'error': analysis_results['error']}), 500
+            
+            return jsonify({
+                'success': True,
+                'session_id': analysis_results.get('session_id'),
+                'status': 'completed',
+                'performance_metrics': analysis_results.get('performance_metrics', {}),
+                'message': 'Hybrid analysis completed successfully'
+            })
+            
+        except Exception as e:
+            return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Failed to start analysis: {str(e)}'}), 500
+
+@api_bp.route('/hybrid-search/<session_id>', methods=['POST'])
+def search_hybrid_results(session_id):
+    """Search analysis results using vector search"""
+    try:
+        data = request.get_json()
+        query = data.get('query')
+        top_k = data.get('top_k', 10)
+        
+        if not query:
+            return jsonify({'error': 'Search query required'}), 400
+        
+        # Perform vector search
+        import asyncio
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the async search
+            search_results = loop.run_until_complete(
+                hybrid_analysis_service.search_analysis_results(session_id, query, top_k)
+            )
+            
+            return jsonify({
+                'success': True,
+                'session_id': session_id,
+                'query': query,
+                'results': search_results,
+                'total_results': len(search_results)
+            })
+            
+        except Exception as e:
+            return jsonify({'error': f'Search failed: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Failed to perform search: {str(e)}'}), 500
+
+@api_bp.route('/hybrid-summary/<session_id>')
+def get_hybrid_summary(session_id):
+    """Get summary of hybrid analysis results"""
+    try:
+        # Get analysis summary
+        import asyncio
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the async summary retrieval
+            summary = loop.run_until_complete(
+                hybrid_analysis_service.get_analysis_summary(session_id)
+            )
+            
+            return jsonify({
+                'success': True,
+                'session_id': session_id,
+                'summary': summary
+            })
+            
+        except Exception as e:
+            return jsonify({'error': f'Summary retrieval failed: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Failed to get summary: {str(e)}'}), 500
+
 @api_bp.route('/model-health')
 def model_health_check():
-    """Health check endpoint for AI models"""
+    """Health check endpoint for AI models (7B Model Only)"""
     try:
         from services.model_manager import model_manager
         import asyncio
@@ -56,7 +175,7 @@ def model_health_check():
         
         return jsonify({
             'status': 'healthy',
-            'service': 'AI Model Health Check',
+            'service': 'AI Model Health Check (7B Model Only)',
             'timestamp': time.time(),
             'models': health_status
         })
@@ -64,14 +183,14 @@ def model_health_check():
     except Exception as e:
         return jsonify({
             'status': 'error',
-            'service': 'AI Model Health Check',
+            'service': 'AI Model Health Check (7B Model Only)',
             'error': str(e),
             'timestamp': time.time()
         }), 500
 
 @api_bp.route('/switch-model', methods=['POST'])
 def switch_model():
-    """Switch between different AI models"""
+    """Switch between different AI models (Only 7B Model Available)"""
     try:
         data = request.get_json()
         model_name = data.get('model')
@@ -100,182 +219,422 @@ def switch_model():
                 model_status = model_manager.get_current_model()
                 return jsonify({
                     'success': True,
-                    'model': model_name,
-                    'model_name': model_name.replace('_', ' ').title(),
                     'message': f'Successfully switched to {model_name}',
-                    'model_status': model_status
+                    'model': model_status
                 })
             else:
                 return jsonify({
-                    'success': False, 
-                    'error': f'Failed to switch to {model_name}. Check logs for details.'
+                    'success': False,
+                    'error': f'Failed to switch to {model_name}'
                 })
                 
         except Exception as e:
-            print(f"Error in model switching: {e}")
             return jsonify({
-                'success': False, 
-                'error': f'Model switching failed: {str(e)}'
-            }), 500
-        
+                'success': False,
+                'error': f'Model switch failed: {str(e)}'
+            })
+            
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': f'API error: {str(e)}'
+        }), 500
 
 @api_bp.route('/model-status')
 def get_model_status():
-    """Get current model status"""
+    """Get current model status (7B Model Only)"""
     try:
         from services.model_manager import model_manager
-        return jsonify(model_manager.get_status())
+        return jsonify(model_manager.get_current_model())
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to get model status: {str(e)}'}), 500
 
 @api_bp.route('/agent-info')
 def get_agent_info():
-    """Get information about the AI agent capabilities"""
-    from analysis_templates import ANALYSIS_TEMPLATES
+    """Get agent capabilities and tools information"""
     return jsonify({
-        'agent_name': 'AI Video Detective Agent',
-        'version': '2.0.0',
-        'description': 'Advanced AI video analysis agent with comprehensive understanding capabilities',
         'capabilities': AGENT_CAPABILITIES,
         'tools': AGENT_TOOLS,
-        'analysis_types': {
-            key: {
-                'name': value['name'],
-                'description': value['description'],
-                'icon': value['icon'],
-                'agent_capabilities': value.get('agent_capabilities', [])
-            }
-            for key, value in ANALYSIS_TEMPLATES.items()
-        },
-        'features': [
-            'Autonomous video analysis with multi-modal understanding',
-            'Context-aware conversations with memory',
-            'Proactive insights generation',
-            'Comprehensive reporting across multiple dimensions',
-            'Adaptive focus based on content and user needs',
-            'Professional-grade analysis protocols',
-            'Real-time conversation with video context',
-            'Advanced pattern recognition and behavioral analysis'
-        ]
+        'model': 'Qwen2.5-VL-7B (Local GPU)',
+        'version': '2.0.0'
     })
+
+# =============================================================================
+# STREAMING API ENDPOINTS - NEW FOR REAL-TIME ANALYSIS
+# =============================================================================
+
+@api_bp.route('/stream/start', methods=['POST'])
+def start_video_stream():
+    """Start real-time video streaming analysis with 7B model"""
+    try:
+        data = request.get_json()
+        stream_id = data.get('stream_id')
+        video_source = data.get('video_source')  # URL, file path, or camera index
+        stream_config = data.get('config', {})
+        
+        if not stream_id or not video_source:
+            return jsonify({
+                'success': False,
+                'error': 'Stream ID and video source are required'
+            }), 400
+        
+        # Import streaming service
+        from services.streaming_service import streaming_service
+        import asyncio
+        
+        # Start the stream
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        success = loop.run_until_complete(streaming_service.start_stream(stream_id, video_source, stream_config))
+        
+        return jsonify({
+            'success': success,
+            'stream_id': stream_id,
+            'message': 'Stream started successfully' if success else 'Failed to start stream',
+            'config': {
+                'fps_target': Config.STREAMING_CONFIG['fps_target'],
+                'max_latency_ms': Config.STREAMING_CONFIG['max_latency_ms'],
+                'ai_analysis_enabled': Config.STREAMING_CONFIG['real_time_7b_analysis'],
+                'analysis_interval': Config.STREAMING_CONFIG['analysis_interval']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to start stream: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/stop/<stream_id>', methods=['POST'])
+def stop_video_stream(stream_id):
+    """Stop a video stream"""
+    try:
+        from services.streaming_service import streaming_service
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        success = loop.run_until_complete(streaming_service.stop_stream(stream_id))
+        
+        return jsonify({
+            'success': success,
+            'stream_id': stream_id,
+            'message': 'Stream stopped successfully' if success else 'Failed to stop stream'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to stop stream: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/status/<stream_id>')
+def get_stream_status(stream_id):
+    """Get real-time stream status and metrics"""
+    try:
+        from services.streaming_service import streaming_service
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        status = loop.run_until_complete(streaming_service.get_stream_status(stream_id))
+        
+        return jsonify({
+            'success': True,
+            'stream_id': stream_id,
+            'status': status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get stream status: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/events/<stream_id>')
+def get_stream_events(stream_id):
+    """Get detected events from a stream including 7B model analysis"""
+    try:
+        from services.streaming_service import streaming_service
+        
+        # Get events for the stream
+        events = streaming_service.stream_events.get(stream_id, [])
+        
+        return jsonify({
+            'success': True,
+            'stream_id': stream_id,
+            'events': [
+                {
+                    'event_id': event.event_id,
+                    'event_type': event.event_type,
+                    'timestamp': event.timestamp,
+                    'confidence': event.confidence,
+                    'metadata': event.metadata,
+                    'ai_analysis': event.ai_analysis  # 7B model analysis results
+                }
+                for event in events
+            ],
+            'total_events': len(events),
+            'ai_analysis_events': len([e for e in events if e.event_type == 'ai_analysis'])
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get stream events: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/all')
+def get_all_streams():
+    """Get status of all active streams"""
+    try:
+        from services.streaming_service import streaming_service
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        status = loop.run_until_complete(streaming_service.get_all_streams_status())
+        
+        return jsonify({
+            'success': True,
+            'streams': status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get streams status: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/performance')
+def get_streaming_performance():
+    """Get overall streaming performance statistics"""
+    try:
+        from services.streaming_service import streaming_service
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        stats = loop.run_until_complete(streaming_service.get_performance_stats())
+        
+        return jsonify({
+            'success': True,
+            'performance': stats
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get performance stats: {str(e)}'
+        }), 500
+
+@api_bp.route('/stream/config')
+def get_streaming_config():
+    """Get current streaming configuration"""
+    try:
+        return jsonify({
+            'success': True,
+            'config': {
+                'enabled': Config.STREAMING_CONFIG['enabled'],
+                'fps_target': Config.STREAMING_CONFIG['fps_target'],
+                'max_latency_ms': Config.STREAMING_CONFIG['max_latency_ms'],
+                'event_detection_enabled': Config.STREAMING_CONFIG['event_detection_enabled'],
+                'continuous_processing': Config.STREAMING_CONFIG['continuous_processing'],
+                'real_time_7b_analysis': Config.STREAMING_CONFIG['real_time_7b_analysis'],
+                'frame_buffer_size': Config.STREAMING_CONFIG['frame_buffer_size'],
+                'analysis_interval': Config.STREAMING_CONFIG['analysis_interval'],
+                'event_thresholds': Config.STREAMING_CONFIG['event_thresholds']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get streaming config: {str(e)}'
+        }), 500
+
+# =============================================================================
+# EXISTING API ENDPOINTS
+# =============================================================================
 
 @api_bp.route('/capture-screenshots', methods=['POST'])
 def capture_screenshots():
-    """Capture screenshots at specific timestamps from the analyzed video"""
+    """Capture screenshots from video at specified timestamps"""
     try:
         data = request.get_json()
-        session_id = data.get('session_id')
+        video_path = data.get('video_path')
         timestamps = data.get('timestamps', [])
         
-        if not session_id:
-            return jsonify({'success': False, 'error': 'Session ID required'})
+        if not video_path or not timestamps:
+            return jsonify({
+                'success': False,
+                'error': 'Video path and timestamps are required'
+            })
         
-        # Get session data
-        session_data = get_session_data(session_id)
-        if not session_data or 'filepath' not in session_data:
-            return jsonify({'success': False, 'error': 'No video found for session'})
-        
-        video_path = session_data['filepath']
-        
+        # Validate video file exists
         if not os.path.exists(video_path):
-            return jsonify({'success': False, 'error': 'Video file not found'})
+            return jsonify({
+                'success': False,
+                'error': 'Video file not found'
+            })
         
-        # Capture screenshots for each timestamp
+        # Capture screenshots
         screenshots = []
         for timestamp in timestamps:
-            screenshot_data = capture_screenshot(video_path, timestamp, session_id, Config.UPLOAD_FOLDER)
-            if screenshot_data:
-                screenshots.append(screenshot_data)
+            try:
+                screenshot_path = capture_screenshot(video_path, timestamp)
+                if screenshot_path:
+                    screenshots.append({
+                        'timestamp': timestamp,
+                        'path': screenshot_path
+                    })
+            except Exception as e:
+                print(f"Failed to capture screenshot at {timestamp}: {e}")
         
         return jsonify({
             'success': True,
             'screenshots': screenshots,
-            'count': len(screenshots)
+            'total_captured': len(screenshots)
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': f'Failed to capture screenshots: {str(e)}'
+        }), 500
 
 @api_bp.route('/auto-capture-screenshots', methods=['POST'])
 def auto_capture_screenshots():
-    """Automatically capture screenshots based on timestamps found in analysis text"""
+    """Automatically capture screenshots at regular intervals"""
     try:
         data = request.get_json()
-        session_id = data.get('session_id')
-        analysis_text = data.get('analysis_text', '')
+        video_path = data.get('video_path')
+        interval_seconds = data.get('interval_seconds', 10)
+        max_screenshots = data.get('max_screenshots', 20)
         
-        if not session_id:
-            return jsonify({'success': False, 'error': 'Session ID required'})
+        if not video_path:
+            return jsonify({
+                'success': False,
+                'error': 'Video path is required'
+            })
         
-        # Extract timestamps from analysis text
-        timestamps = extract_timestamps_from_text(analysis_text)
-        
-        if not timestamps:
-            return jsonify({'success': False, 'error': 'No timestamps found in analysis'})
-        
-        # Get session data
-        session_data = get_session_data(session_id)
-        if not session_data or 'filepath' not in session_data:
-            return jsonify({'success': False, 'error': 'No video found for session'})
-        
-        video_path = session_data['filepath']
-        
+        # Validate video file exists
         if not os.path.exists(video_path):
-            return jsonify({'success': False, 'error': 'Video file not found'})
+            return jsonify({
+                'success': False,
+                'error': 'Video file not found'
+            })
         
-        # Capture screenshots for extracted timestamps
+        # Get video duration
+        import cv2
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return jsonify({
+                'success': False,
+                'error': 'Failed to open video file'
+            })
+        
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = total_frames / fps if fps > 0 else 0
+        cap.release()
+        
+        if duration <= 0:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid video duration'
+            })
+        
+        # Calculate timestamps
+        timestamps = []
+        current_time = 0
+        while current_time < duration and len(timestamps) < max_screenshots:
+            timestamps.append(current_time)
+            current_time += interval_seconds
+        
+        # Capture screenshots
         screenshots = []
         for timestamp in timestamps:
-            screenshot_data = capture_screenshot(video_path, timestamp, session_id, Config.UPLOAD_FOLDER)
-            if screenshot_data:
-                screenshots.append(screenshot_data)
+            try:
+                screenshot_path = capture_screenshot(video_path, timestamp)
+                if screenshot_path:
+                    screenshots.append({
+                        'timestamp': timestamp,
+                        'path': screenshot_path
+                    })
+            except Exception as e:
+                print(f"Failed to capture screenshot at {timestamp}: {e}")
         
         return jsonify({
             'success': True,
             'screenshots': screenshots,
-            'timestamps': timestamps,
-            'count': len(screenshots)
+            'total_captured': len(screenshots),
+            'video_duration': duration,
+            'interval_seconds': interval_seconds
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': f'Failed to auto-capture screenshots: {str(e)}'
+        }), 500
 
 @api_bp.route('/session/cleanup', methods=['POST'])
 def cleanup_current_session():
-    """Clean up the current session data and files"""
+    """Clean up current session data"""
     try:
         session_id = session.get('session_id')
         if not session_id:
-            return jsonify({'success': False, 'error': 'No active session'})
+            return jsonify({
+                'success': False,
+                'error': 'No active session'
+            })
         
         # Clean up session data
-        success = cleanup_session_data(session_id)
+        cleanup_session_data(session_id)
         
-        if success:
-            # Clear Flask session
-            session.clear()
-            return jsonify({
-                'success': True,
-                'message': 'Session cleaned up successfully',
-                'session_id': session_id
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Failed to cleanup session'})
-            
+        # Clear session
+        session.clear()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Session cleaned up successfully'
+        })
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': f'Failed to cleanup session: {str(e)}'
+        }), 500
 
 @api_bp.route('/session/status')
 def get_session_status():
-    """Get current session status and file information"""
+    """Get current session status"""
     try:
         session_id = session.get('session_id')
         if not session_id:
             return jsonify({
                 'active': False,
-                'session_id': None,
                 'message': 'No active session'
             })
         
@@ -285,77 +644,62 @@ def get_session_status():
         if not session_data:
             return jsonify({
                 'active': False,
-                'session_id': session_id,
-                'message': 'Session data not found'
+                'message': 'Session not found'
             })
-        
-        # Check if video file exists
-        video_exists = False
-        video_size = 0
-        if 'filepath' in session_data:
-            video_path = session_data['filepath']
-            if os.path.exists(video_path):
-                video_exists = True
-                video_size = os.path.getsize(video_path)
-        
-        # Count evidence files
-        evidence_count = 0
-        upload_folder = Config.UPLOAD_FOLDER
-        if os.path.exists(upload_folder):
-            for filename in os.listdir(upload_folder):
-                if filename.startswith(f"screenshot_{session_id}_") or filename.startswith(f"clip_{session_id}_"):
-                    evidence_count += 1
         
         return jsonify({
             'active': True,
             'session_id': session_id,
-            'video_uploaded': video_exists,
-            'video_size': video_size,
-            'evidence_count': evidence_count,
-            'analysis_complete': 'analysis_result' in session_data,
-            'upload_time': session_data.get('upload_time'),
-            'analysis_time': session_data.get('analysis_time')
+            'created_at': session_data.get('created_at'),
+            'last_activity': session_data.get('last_activity'),
+            'analysis_count': session_data.get('analysis_count', 0),
+            'chat_count': session_data.get('chat_count', 0)
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'active': False,
+            'error': f'Failed to get session status: {str(e)}'
+        }), 500
 
 @api_bp.route('/session/cleanup-all', methods=['POST'])
 def cleanup_all_sessions():
-    """Clean up all sessions (admin function)"""
+    """Clean up all expired sessions"""
     try:
-        # Get all session keys from local storage
-        session_keys = get_all_session_keys()
-        cleaned_sessions = 0
+        # Clean up expired sessions
+        expired_count = cleanup_expired_sessions()
         
-        for session_id in session_keys:
-            if cleanup_session_data(session_id):
-                cleaned_sessions += 1
-        
-        # Also clean up old uploads
-        cleanup_old_uploads()
+        # Clean up old uploads
+        upload_count = cleanup_old_uploads()
         
         return jsonify({
             'success': True,
-            'message': f'Cleaned up {cleaned_sessions} sessions and old uploads',
-            'cleaned_count': cleaned_sessions
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@api_bp.route('/cleanup-uploads', methods=['POST'])
-def cleanup_uploads():
-    """Clean up old upload files"""
-    try:
-        cleanup_old_uploads()
-        return jsonify({
-            'success': True,
-            'message': 'Uploads cleanup completed'
+            'message': 'Cleanup completed successfully',
+            'expired_sessions_removed': expired_count,
+            'old_uploads_removed': upload_count
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f'Uploads cleanup failed: {str(e)}'
+            'error': f'Failed to cleanup sessions: {str(e)}'
+        }), 500
+
+@api_bp.route('/cleanup-uploads', methods=['POST'])
+def cleanup_uploads():
+    """Clean up old upload files"""
+    try:
+        # Clean up old uploads
+        removed_count = cleanup_old_uploads()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Upload cleanup completed',
+            'files_removed': removed_count
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to cleanup uploads: {str(e)}'
         }), 500 
