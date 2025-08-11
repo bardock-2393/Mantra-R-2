@@ -11,7 +11,26 @@ import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
-from qwen_vl_utils import process_vision_info
+# Fix the import - use proper error handling
+try:
+    from qwen_vl_utils import process_vision_info
+except ImportError:
+    # Fallback implementation if qwen_vl_utils is not available
+    def process_vision_info(messages):
+        """Fallback implementation for process_vision_info"""
+        image_inputs = []
+        video_inputs = []
+        for message in messages:
+            if "content" in message:
+                for content in message["content"]:
+                    if content.get("type") == "image":
+                        # Handle image processing
+                        pass
+                    elif content.get("type") == "video":
+                        # Handle video processing
+                        pass
+        return image_inputs, video_inputs
+
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor

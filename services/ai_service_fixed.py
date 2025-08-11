@@ -49,7 +49,7 @@ class MiniCPMV26Service:
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video content using MiniCPM-V-2_6"""
         if not self.is_initialized:
-            self.initialize()
+            await self.initialize()
         
         start_time = time.time()
         
@@ -176,7 +176,7 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
                               chat_history: List[Dict]) -> str:
         """Generate contextual AI response based on video analysis"""
         if not self.is_initialized:
-            self.initialize()
+            await self.initialize()
         
         start_time = time.time()
         
@@ -212,6 +212,10 @@ Your analysis will be used for **high-quality user interactions**, so ensure eve
             
         except Exception as e:
             return {'error': str(e)}
+    
+    def get_status(self) -> Dict:
+        """Get service status (alias for compatibility)"""
+        return self.get_model_status()
     
     def cleanup(self):
         """Clean up GPU resources"""

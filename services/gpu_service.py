@@ -20,7 +20,7 @@ class GPUService:
         self.memory_reserved = 0
         self.is_initialized = False
         
-    def initialize(self):
+    async def initialize(self):
         """Initialize GPU service and check resources"""
         try:
             print("🚀 Initializing GPU service...")
