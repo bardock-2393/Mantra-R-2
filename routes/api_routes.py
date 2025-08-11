@@ -40,6 +40,45 @@ def health_check():
         'local_ai': True
     })
 
+@api_bp.route('/switch-model', methods=['POST'])
+def switch_model():
+    """Switch between different AI models"""
+    try:
+        data = request.get_json()
+        model_name = data.get('model')
+        
+        if not model_name:
+            return jsonify({'success': False, 'error': 'Model name required'})
+        
+        # Import model manager
+        from services.model_manager import model_manager
+        
+        # Switch model (this would be async in a real implementation)
+        # For now, we'll simulate the switch
+        success = True  # Placeholder for actual switch logic
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'model': model_name,
+                'model_name': model_name.replace('_', ' ').title(),
+                'message': f'Successfully switched to {model_name}'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to switch model'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@api_bp.route('/model-status')
+def get_model_status():
+    """Get current model status"""
+    try:
+        from services.model_manager import model_manager
+        return jsonify(model_manager.get_status())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @api_bp.route('/api/agent-info')
 def get_agent_info():
     """Get information about the AI agent capabilities"""

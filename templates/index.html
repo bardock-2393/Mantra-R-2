@@ -47,6 +47,21 @@
                                     <span>Real-time Insights</span>
                                 </div>
                             </div>
+                            
+                            <!-- Model Selection -->
+                            <div class="model-selection">
+                                <label for="modelSelect" class="model-label">
+                                    <i class="fas fa-brain"></i>
+                                    AI Model:
+                                </label>
+                                <select id="modelSelect" class="model-select" onchange="switchModel()">
+                                    <option value="minicpm">MiniCPM-V-2_6 (Fast & Efficient)</option>
+                                    <option value="qwen25vl">Qwen2.5-VL-7B-Instruct (Advanced)</option>
+                                </select>
+                                <div class="model-info" id="modelInfo">
+                                    <small>Select an AI model for video analysis</small>
+                                </div>
+                            </div>
                             <div class="file-requirements">
                                 <p>Supported formats: MP4, AVI, MOV, WebM, MKV</p>
                                 <p>Maximum size: 500MB</p>

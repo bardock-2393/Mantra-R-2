@@ -16,7 +16,7 @@ from services.vector_search_service import vector_search_service
 chat_bp = Blueprint('chat', __name__)
 
 @chat_bp.route('/chat', methods=['POST'])
-def chat():
+async def chat():
     """Handle chat messages with enhanced AI responses using vector search"""
     try:
         data = request.get_json()
@@ -76,14 +76,16 @@ def chat():
                 
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
-                ai_response = minicpm_service.generate_chat_response(
+                from services.model_manager import model_manager
+                ai_response = await model_manager.generate_chat_response(
                     analysis_result, analysis_type, user_focus, enhanced_message, chat_list
                 )
                 
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
-                ai_response = minicpm_service.generate_chat_response(
+                from services.model_manager import model_manager
+                ai_response = await model_manager.generate_chat_response(
                     analysis_result, analysis_type, user_focus, message, chat_list
                 )
         else:

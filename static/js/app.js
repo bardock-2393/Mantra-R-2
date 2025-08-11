@@ -15,6 +15,7 @@ class VideoDetective {
         this.checkSessionStatus();
         this.setupPageCleanup();
         this.showDemoVideoPreview();
+        this.initializeModelSelection();
         console.log('✅ AI Video Detective Pro initialized successfully!');
     }
 
@@ -939,6 +940,95 @@ class VideoDetective {
         this.cleanupOldUploads();
         
         console.log('🔄 Upload interface reset');
+    }
+    
+    initializeModelSelection() {
+        // Initialize model selection with current model
+        this.updateModelInfo();
+        
+        // Add event listener for model switching
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            modelSelect.addEventListener('change', (e) => {
+                this.switchModel(e.target.value);
+            });
+        }
+    }
+    
+    async switchModel(modelName) {
+        try {
+            console.log(`🔄 Switching to model: ${modelName}`);
+            
+            // Show loading state
+            this.showModelLoadingState(modelName);
+            
+            // Call API to switch model
+            const response = await fetch('/api/switch-model', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ model: modelName })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ Successfully switched to ${modelName}`);
+                this.updateModelInfo();
+                this.showSuccess(`Successfully switched to ${result.model_name}`);
+            } else {
+                console.error(`❌ Failed to switch to ${modelName}: ${result.error}`);
+                this.showError(`Failed to switch model: ${result.error}`);
+                // Revert selection
+                this.revertModelSelection();
+            }
+            
+        } catch (error) {
+            console.error('❌ Model switch error:', error);
+            this.showError('Failed to switch model. Please try again.');
+            this.revertModelSelection();
+        }
+    }
+    
+    showModelLoadingState(modelName) {
+        const modelInfo = document.getElementById('modelInfo');
+        if (modelInfo) {
+            modelInfo.innerHTML = `<small>🔄 Switching to ${modelName}...</small>`;
+        }
+        
+        // Disable select during switch
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            modelSelect.disabled = true;
+        }
+    }
+    
+    updateModelInfo() {
+        const modelSelect = document.getElementById('modelSelect');
+        const modelInfo = document.getElementById('modelInfo');
+        
+        if (modelSelect && modelInfo) {
+            const selectedModel = modelSelect.value;
+            const modelDescriptions = {
+                'minicpm': 'Fast and efficient vision-language model for quick analysis',
+                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities'
+            };
+            
+            modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
+        }
+    }
+    
+    revertModelSelection() {
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            // Revert to previous selection (you might want to store the previous value)
+            modelSelect.value = 'minicpm';
+            this.updateModelInfo();
+        }
+        
+        // Re-enable select
+        modelSelect.disabled = false;
     }
 }
 

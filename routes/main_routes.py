@@ -127,7 +127,7 @@ def upload_video():
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @main_bp.route('/analyze', methods=['POST'])
-def analyze_video():
+async def analyze_video():
     """Analyze uploaded video"""
     try:
         data = request.get_json()
@@ -154,8 +154,9 @@ def analyze_video():
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': 'Video file not found'})
         
-        # Perform analysis using synchronous method
-        analysis_result = minicpm_service.analyze_video(video_path, analysis_type, user_focus)
+        # Perform analysis using model manager
+        from services.model_manager import model_manager
+        analysis_result = await model_manager.analyze_video(video_path, analysis_type, user_focus)
         
         # Extract video metadata to validate timestamps
         video_metadata = extract_video_metadata(video_path)
