@@ -36,34 +36,58 @@ except ImportError:
         video_inputs = []
         
         try:
+            if not messages or not isinstance(messages, list):
+                print("⚠️ Invalid messages format")
+                return image_inputs, video_inputs
+                
             for message in messages:
-                if "content" in message:
-                    for content in message["content"]:
-                        if content.get("type") == "image":
-                            # Handle image processing
-                            print("🖼️ Processing image content...")
-                            # For now, just add a placeholder
-                            image_inputs.append(None)
-                        elif content.get("type") == "video":
-                            # Handle video processing
-                            video_path = content.get("video", "")
-                            print(f"🎬 Processing video content: {video_path}")
-                            
-                            # Verify video file exists
-                            if os.path.exists(video_path):
-                                # For now, just add the video path as a placeholder
-                                # In a real implementation, you would load and process the video
-                                video_inputs.append(video_path)
-                                print(f"✅ Video file found and added: {video_path}")
-                            else:
-                                print(f"⚠️ Video file not found: {video_path}")
-                                # Add None to maintain list structure
+                if not isinstance(message, dict) or "content" not in message:
+                    continue
+                    
+                content_list = message["content"]
+                if not isinstance(content_list, list):
+                    continue
+                    
+                for content in content_list:
+                    if not isinstance(content, dict):
+                        continue
+                        
+                    content_type = content.get("type")
+                    if content_type == "image":
+                        # Handle image processing
+                        print("🖼️ Processing image content...")
+                        # For now, just add a placeholder
+                        image_inputs.append(None)
+                    elif content_type == "video":
+                        # Handle video processing
+                        video_path = content.get("video", "")
+                        print(f"🎬 Processing video content: {video_path}")
+                        
+                        # Verify video file exists and is accessible
+                        if video_path and os.path.exists(str(video_path)):
+                            # Check if it's a valid video file
+                            try:
+                                file_size = os.path.getsize(str(video_path))
+                                if file_size > 0:
+                                    video_inputs.append(video_path)
+                                    print(f"✅ Video file found and added: {video_path} ({file_size} bytes)")
+                                else:
+                                    print(f"⚠️ Video file is empty: {video_path}")
+                                    video_inputs.append(None)
+                            except OSError as e:
+                                print(f"⚠️ Error accessing video file {video_path}: {e}")
                                 video_inputs.append(None)
+                        else:
+                            print(f"⚠️ Video file not found: {video_path}")
+                            # Add None to maintain list structure
+                            video_inputs.append(None)
             
             print(f"📊 Processed: {len(image_inputs)} images, {len(video_inputs)} videos")
             
         except Exception as e:
             print(f"⚠️ Error in fallback process_vision_info: {e}")
+            import traceback
+            traceback.print_exc()
             # Return empty lists on error
             image_inputs = []
             video_inputs = []
@@ -327,6 +351,7 @@ class Qwen25VLService:
                             return await self._generate_text_only_analysis(prompt, video_path)
                         
                         video_inputs = valid_videos
+                        print(f"✅ Using {len(video_inputs)} valid video inputs for analysis")
                     else:
                         print("⚠️ No video inputs found, using fallback")
                         return await self._generate_text_only_analysis(prompt, video_path)
@@ -347,14 +372,16 @@ class Qwen25VLService:
             
             # Prepare inputs with proper error handling
             try:
+                # Use the actual video inputs from vision processing
                 inputs = self.processor(
                     text=[text],
-                    images=image_inputs if 'image_inputs' in locals() else None,
-                    videos=video_inputs if 'video_inputs' in locals() else None,
+                    images=image_inputs if image_inputs else None,
+                    videos=video_inputs if video_inputs else None,
                     padding=True,
                     return_tensors="pt"
                 )
                 inputs = inputs.to(self.device)
+                print(f"✅ Inputs prepared successfully - Text: {len(text)}, Videos: {len(video_inputs) if video_inputs else 0}")
             except Exception as e:
                 print(f"⚠️ Input processing failed: {e}")
                 return await self._generate_text_only_analysis(prompt, video_path)
@@ -408,7 +435,13 @@ class Qwen25VLService:
 Video Information:
 {video_info}
 
-Please provide a comprehensive analysis based on the video description and context.
+Please provide a comprehensive analysis based on the video description and context. Since direct video analysis is not available, focus on:
+1. General insights about the video content based on the metadata
+2. Potential analysis approaches for this type of video
+3. Recommendations for what to look for in similar videos
+4. Contextual information based on the video parameters
+
+Please provide a detailed, helpful analysis.
 """
             
             # Create messages for text-only generation
@@ -609,11 +642,43 @@ Your mission is to provide **exceptional quality responses** that demonstrate de
     def _extract_video_summary(self, video_path: str) -> str:
         """Extract basic video information for context"""
         try:
-            # For now, return basic info - could be enhanced with video metadata
-            return f"Video file: {os.path.basename(video_path)}"
+            if not os.path.exists(video_path):
+                return f"Video file: {os.path.basename(video_path)} (file not found)"
+            
+            # Get file information
+            file_size = os.path.getsize(video_path)
+            file_size_mb = file_size / (1024 * 1024)
+            
+            # Try to extract video metadata using video_utils
+            try:
+                from utils.video_utils import extract_video_metadata
+                metadata = extract_video_metadata(video_path)
+                if metadata:
+                    duration = metadata.get('duration', 0)
+                    fps = metadata.get('fps', 0)
+                    width = metadata.get('width', 0)
+                    height = metadata.get('height', 0)
+                    frame_count = metadata.get('frame_count', 0)
+                    
+                    summary = f"""
+Video File: {os.path.basename(video_path)}
+File Size: {file_size_mb:.2f} MB
+Duration: {duration:.2f} seconds
+Frame Rate: {fps:.2f} fps
+Resolution: {width}x{height} pixels
+Total Frames: {frame_count}
+"""
+                else:
+                    summary = f"Video File: {os.path.basename(video_path)}\nFile Size: {file_size_mb:.2f} MB\nDuration: Unknown"
+            except ImportError:
+                # Fallback if video_utils not available
+                summary = f"Video File: {os.path.basename(video_path)}\nFile Size: {file_size_mb:.2f} MB"
+            
+            return summary.strip()
+            
         except Exception as e:
             print(f"⚠️ Warning: Could not extract video summary: {e}")
-            return "Video file"
+            return f"Video file: {os.path.basename(video_path)}"
     
     def get_status(self) -> Dict:
         """Get service status"""
