@@ -154,54 +154,60 @@ Develop an agentic chat assistant for visual understanding that can process vide
 ## 🚀 Quick Start
 
 ### **Prerequisites**
-- Python 3.8 or higher
-- Redis server
-- Google Gemini API key
-- 2GB+ RAM
-- Stable internet connection
+- Python 3.8+
+- CUDA-capable GPU (for Round 2 performance)
+- Hugging Face account (for gated models)
 
-### **1. Clone Repository**
+### **1. Clone and Setup**
 ```bash
-git clone https://github.com/MantraHackathon/visual-understanding-chat-assistant.git
-cd visual-understanding-chat-assistant
-```
-
-### **2. Setup Environment**
-```bash
-# Create virtual environment
+git clone <repository-url>
+cd ai_video_detective
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### **3. Configure API Keys**
-   ```bash
-# Create environment file
-   cp .env.example .env
-
-# Edit with your API key
-nano .env
-```
-
-Add your Gemini API key:
-```env
-GOOGLE_API_KEY=your_gemini_api_key_here
-SECRET_KEY=your_secret_key_here
-```
-
-### **4. Start Services**
+### **2. Configure Environment**
+Copy the environment template and configure your Hugging Face token:
 ```bash
-# Start Redis (if not running)
-redis-server
+cp env_template.txt .env
+# Edit .env and add your HF_TOKEN
+```
 
-# Run the application
+### **3. Run the Application**
+```bash
 python main.py
 ```
 
-### **5. Access Application**
-Open your browser and visit: `http://localhost:5000`
+## ⚠️ **IMPORTANT: Hugging Face Authentication**
+
+### **Why This Error Occurs**
+The MiniCPM-V-2_6 model is now a **gated repository** on Hugging Face, requiring authentication and access approval. This is a recent change that affects all users.
+
+### **How to Fix It**
+
+#### **Option 1: Use Hugging Face Token (Recommended)**
+1. **Get your token**: Visit [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. **Request access**: Go to [https://huggingface.co/openbmb/MiniCPM-V-2_6](https://huggingface.co/openbmb/MiniCPM-V-2_6) and click "Request access"
+3. **Create .env file**:
+   ```bash
+   HF_TOKEN=your_token_here
+   MINICPM_MODEL_PATH=openbmb/MiniCPM-V-2_6
+   ```
+
+#### **Option 2: Use Open Model (Automatic Fallback)**
+The system automatically falls back to `microsoft/DialoGPT-medium` if authentication fails. This model is open and doesn't require authentication.
+
+#### **Option 3: Use Different Model**
+Set a different open model in your `.env`:
+```bash
+MINICPM_MODEL_PATH=microsoft/DialoGPT-medium
+```
+
+### **Current Status**
+- ✅ **Primary Model**: `openbmb/MiniCPM-V-2_6` (requires authentication)
+- ✅ **Fallback Model**: `microsoft/DialoGPT-medium` (open, no authentication)
+- ✅ **Automatic Fallback**: System switches automatically if primary fails
 
 ## 📦 Installation
 

@@ -26,14 +26,15 @@ class Config:
     }
     
     # MiniCPM-V Model Configuration
-    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
+    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'microsoft/DialoGPT-medium')  # Fallback to open model
     MINICPM_CONFIG = {
-        'model_name': 'openbmb/MiniCPM-V-2_6',
+        'model_name': os.getenv('MINICPM_MODEL_PATH', 'microsoft/DialoGPT-medium'),  # Fallback to open model
         'hf_token': os.getenv('HF_TOKEN', ''),
         'max_length': 32768,
         'temperature': 0.2,
         'top_p': 0.9,
-        'top_k': 40
+        'top_k': 40,
+        'fallback_model': 'microsoft/DialoGPT-medium'  # Open model as fallback
     }
     
 

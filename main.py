@@ -32,6 +32,24 @@ def main():
         print("⚠️  Warning: PyTorch not installed")
         print("   Please install PyTorch with CUDA support")
     
+    # Check Hugging Face configuration
+    print("\n🔐 Hugging Face Configuration:")
+    hf_token = os.getenv('HF_TOKEN', '')
+    if hf_token:
+        print(f"✅ HF_TOKEN configured: {hf_token[:8]}...")
+    else:
+        print("⚠️  No HF_TOKEN found")
+        print("   Some models may require authentication")
+        print("   Create .env file with HF_TOKEN=your_token")
+        print("   Get token from: https://huggingface.co/settings/tokens")
+    
+    # Check model configuration
+    model_path = os.getenv('MINICPM_MODEL_PATH', 'microsoft/DialoGPT-medium')
+    print(f"🤖 Model: {model_path}")
+    if 'openbmb/MiniCPM-V-2_6' in model_path and not hf_token:
+        print("⚠️  MiniCPM-V-2_6 requires authentication")
+        print("   System will fallback to open model automatically")
+    
     # Check if upload directory exists
     upload_dir = Config.UPLOAD_FOLDER
     if not os.path.exists(upload_dir):
