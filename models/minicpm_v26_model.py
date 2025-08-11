@@ -2,6 +2,9 @@
 MiniCPM-V-2_6 Model Management for Round 2
 Handles model loading, GPU optimization, and inference for local AI processing
 Based on official MiniCPM-V-2_6 implementation
+
+FIXED: Now uses model.chat() API instead of incorrectly passing images to tokenizers.
+Routes MiniCPM through model.chat and never passes images to a tokenizer.
 """
 
 import os
@@ -10,7 +13,7 @@ import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple, Union
-from transformers import AutoModel, AutoTokenizer, AutoProcessor
+from transformers import AutoModel, AutoTokenizer, AutoProcessor, PreTrainedTokenizerBase
 from config import Config
 
 class MiniCPMV26Model:
@@ -23,6 +26,11 @@ class MiniCPMV26Model:
         self.device = None
         self.is_initialized = False
         self.model_path = Config.MINICPM_MODEL_PATH
+    
+    def _has_vision_processor(self):
+        """Check if the processor has vision capabilities"""
+        p = self.processor
+        return p is not None and (hasattr(p, "image_processor") or hasattr(p, "image_processor_class"))
         
     def test_generation(self) -> bool:
         """Test if the model can actually generate text"""
@@ -33,19 +41,33 @@ class MiniCPMV26Model:
             
             print("🧪 Testing model text generation...")
             
-            # Test with chat interface
-            try:
-                test_prompt = "Hello, how are you today?"
-                result = self.generate_text(test_prompt, max_new_tokens=10)
-                if result and isinstance(result, str) and len(result) > 0:
-                    print(f"✅ Chat interface test successful: Generated '{result[:50]}...'")
-                    return True
-                else:
-                    print(f"❌ Chat interface test failed: Invalid result: {result}")
-            except Exception as e:
-                print(f"❌ Chat interface test failed: {e}")
-                import traceback
-                traceback.print_exc()
+            # Test with processor if available
+            if self.processor:
+                print("🧪 Testing with processor...")
+                try:
+                    test_prompt = "Hello, how are you today?"
+                    result = self.generate_text(test_prompt, max_new_tokens=10)
+                    if result and isinstance(result, str) and len(result) > 0:
+                        print(f"✅ Processor test successful: Generated '{result[:50]}...'")
+                        return True
+                    else:
+                        print(f"❌ Processor test failed: Invalid result: {result}")
+                except Exception as e:
+                    print(f"❌ Processor test failed: {e}")
+            
+            # Test with tokenizer if available
+            if self.tokenizer:
+                print("🧪 Testing with tokenizer...")
+                try:
+                    test_prompt = "Hello, how are you today?"
+                    result = self.generate_text(test_prompt, max_new_tokens=10)
+                    if result and isinstance(result, str) and len(result) > 0:
+                        print(f"✅ Tokenizer test successful: Generated '{result[:50]}...'")
+                        return True
+                    else:
+                        print(f"❌ Tokenizer test failed: Invalid result: {result}")
+                except Exception as e:
+                    print(f"❌ Tokenizer test failed: {e}")
             
             print("❌ All tests failed")
             return False
@@ -175,14 +197,14 @@ class MiniCPMV26Model:
             if not self._check_model_compatibility():
                 print("⚠️ Warning: Model compatibility check failed, but continuing")
             
-            # Test chat interface functionality
+            # Test tokenizer functionality
             try:
                 test_text = "Hello, world!"
                 # Test using the helper method
-                test_inputs = self._process_inputs(test_text)
-                print(f"✅ Chat interface test successful: {len(test_inputs.get('msgs', []))} messages prepared")
+                test_tokens = self._process_inputs(test_text)
+                print(f"✅ Tokenizer test successful: {test_tokens.input_ids.shape if hasattr(test_tokens, 'input_ids') else 'processed'}")
             except Exception as e:
-                print(f"⚠️ Warning: Chat interface test failed: {e}")
+                print(f"⚠️ Warning: Tokenizer test failed: {e}")
                 print("⚠️ Warning: Model may not work properly")
             
             # Warm up the model (don't fail if warmup fails)
@@ -223,8 +245,8 @@ class MiniCPMV26Model:
         print("🔥 Warming up MiniCPM-V-2_6 model...")
         
         try:
-            # Simple text warmup using chat interface
-            print("📝 Using text-only warmup with chat interface...")
+            # Simple text warmup
+            print("📝 Using text-only warmup...")
             try:
                 # Create a simple warmup prompt
                 warmup_text = "Hello, how are you?"
@@ -232,8 +254,13 @@ class MiniCPMV26Model:
                     print("⚠️ Warning: Invalid warmup text")
                     return
                 
-                # Use the generate_text method which now uses the chat interface
-                _ = self.generate_text(warmup_text, max_new_tokens=10)
+                if hasattr(self.model, "chat"):
+                    tok = self.processor.tokenizer if (self._has_vision_processor() and hasattr(self.processor, "tokenizer")) else self.tokenizer
+                    _ = self.model.chat(image=None, msgs=[{'role':'user','content':[warmup_text]}], tokenizer=tok)
+                else:
+                    inputs = self._process_inputs(warmup_text)
+                    with torch.no_grad():
+                        _ = self.model.generate(**inputs, max_new_tokens=10, do_sample=False)
                 print("✅ Text warmup completed")
             except Exception as e:
                 print(f"❌ Text warmup failed: {e}")
@@ -280,7 +307,7 @@ class MiniCPMV26Model:
     def generate_text(self, prompt: str, max_new_tokens: int = 512, 
                      temperature: float = 0.2, top_p: float = 0.9, 
                      top_k: int = 40) -> str:
-        """Generate text using the MiniCPM-V-2_6 model via chat interface"""
+        """Generate text using the MiniCPM-V-2_6 model"""
         try:
             if not self.is_initialized:
                 raise RuntimeError("Model not initialized")
@@ -292,63 +319,96 @@ class MiniCPMV26Model:
             
             print(f"🔍 Generating text with prompt length: {len(prompt)} characters")
             
-            # Process inputs using the helper method to get chat format
-            chat_inputs = self._process_inputs(prompt)
-            print(f"✅ Input processing successful, chat format prepared")
+            # If this model exposes `.chat`, use it (MiniCPM path)
+            if hasattr(self.model, "chat"):
+                msgs = [{'role': 'user', 'content': [prompt]}]  # text-only
+                tok = self.processor.tokenizer if (self._has_vision_processor() and hasattr(self.processor, "tokenizer")) else self.tokenizer
+                if tok is None:
+                    raise RuntimeError("Tokenizer required for model.chat")
+                out = self.model.chat(image=None, msgs=msgs, tokenizer=tok)
+                return out.strip() if isinstance(out, str) else str(out)
+
+            # Fallback: standard HF generate for plain LMs
+            inputs = self._process_inputs(prompt)
+            print(f"✅ Input processing successful, input_ids: {inputs.get('input_ids').shape if 'input_ids' in inputs else 'n/a'}")
+
+            # Validate inputs before generation
+            if not hasattr(inputs, 'input_ids') or inputs.input_ids is None:
+                raise ValueError("Input processing failed: no input_ids")
             
-            # Validate chat inputs
-            if 'msgs' not in chat_inputs or 'tokenizer' not in chat_inputs:
-                raise ValueError("Input processing failed: missing required chat components")
+            print(f"🔍 Final input validation: {list(inputs.keys())}")
             
-            print(f"🔍 Chat inputs prepared: {list(chat_inputs.keys())}")
-            
-            # Generate response using the chat interface
+            # Generate response
             with torch.no_grad():
-                # Ensure the model has the chat method
-                if not hasattr(self.model, 'chat'):
-                    raise RuntimeError("Model does not have chat method")
+                # Ensure the model has the generate method
+                if not hasattr(self.model, 'generate'):
+                    raise RuntimeError("Model does not have generate method")
                 
-                print("🔍 Using model.chat interface...")
+                # Check if the model expects specific input formats
+                if hasattr(self.model, 'config') and hasattr(self.model.config, 'model_type'):
+                    print(f"🔍 Model type: {self.model.config.model_type}")
                 
                 try:
-                    # Use the chat interface as per official MiniCPM-V 2.6 documentation
-                    response = self.model.chat(
-                        image=chat_inputs['image'],
-                        msgs=chat_inputs['msgs'],
-                        tokenizer=chat_inputs['tokenizer'],
+                    eos_token_id = self._get_eos_token_id()
+                    if eos_token_id is None:
+                        print("⚠️ Warning: No EOS token ID available, using default")
+                        eos_token_id = 0
+                    
+                    generated_ids = self.model.generate(
+                        **inputs,
                         max_new_tokens=max_new_tokens,
                         temperature=temperature,
                         top_p=top_p,
                         top_k=top_k,
-                        do_sample=True
+                        do_sample=True,
+                        pad_token_id=eos_token_id
                     )
-                    
-                    print("✅ Chat generation successful")
-                    
                 except Exception as e:
-                    print(f"❌ Chat generation failed: {e}")
+                    print(f"❌ Model generation failed: {e}")
                     print("🔄 Trying with simplified parameters...")
                     
                     # Try with simplified generation parameters
                     try:
-                        response = self.model.chat(
-                            image=chat_inputs['image'],
-                            msgs=chat_inputs['msgs'],
-                            tokenizer=chat_inputs['tokenizer'],
+                        eos_token_id = self._get_eos_token_id()
+                        if eos_token_id is None:
+                            eos_token_id = 0
+                        
+                        generated_ids = self.model.generate(
+                            **inputs,
                             max_new_tokens=min(max_new_tokens, 100),  # Reduce tokens
-                            do_sample=False  # Use greedy decoding
+                            do_sample=False,  # Use greedy decoding
+                            pad_token_id=eos_token_id
                         )
                         print("✅ Generation successful with simplified parameters")
                     except Exception as e2:
                         print(f"❌ Simplified generation also failed: {e2}")
                         raise RuntimeError(f"Model generation failed: {e2}")
             
-            # Ensure we return a valid string
-            if response is None:
-                response = "Text generation failed"
+            print(f"✅ Generation successful, output shape: {generated_ids.shape}")
             
-            print(f"✅ Final result length: {len(response)} characters")
-            return response
+            # Decode response
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            
+            # Use the appropriate component for decoding
+            decoding_component = self._get_decoding_component()
+            output_text = decoding_component.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )
+            print(f"✅ Using {type(decoding_component).__name__} for decoding")
+            
+            print(f"✅ Decoding successful, output texts: {len(output_text)}")
+            
+            # Ensure we return a valid string
+            result = output_text[0] if output_text else "Text generation failed"
+            if result is None:
+                result = "Text generation failed"
+            
+            print(f"✅ Final result length: {len(result)} characters")
+            return result
             
         except Exception as e:
             print(f"❌ Text generation failed: {e}")
@@ -489,31 +549,43 @@ class MiniCPMV26Model:
         """Destructor to ensure cleanup"""
         self.cleanup()
 
-
+    def _get_decoding_component(self):
+        """Get the appropriate component for decoding (processor or tokenizer)"""
+        if self.processor and hasattr(self.processor, 'batch_decode'):
+            return self.processor
+        elif self.tokenizer and hasattr(self.tokenizer, 'batch_decode'):
+            return self.tokenizer
+        else:
+            raise RuntimeError("No suitable component found for decoding")
+    
+    def _get_eos_token_id(self):
+        """Get the EOS token ID from the appropriate component"""
+        if self.processor and hasattr(self.processor, 'tokenizer'):
+            return self.processor.tokenizer.eos_token_id
+        elif self.tokenizer:
+            return self.tokenizer.eos_token_id
+        else:
+            return None
     
     def _process_inputs(self, prompt: str, image=None):
-        """Process inputs for the model using the chat interface"""
+        """Process inputs for the model, handling both processor and tokenizer cases"""
         try:
-            print(f"🔍 Processing inputs - Processor: {self.processor is not None}, Tokenizer: {self.tokenizer is not None}, Image: {image is not None}")
-            
-            # For MiniCPM-V 2.6, we need to use the chat interface
-            # Create the message format expected by the model
-            if image is not None:
-                # Vision-language task
-                msgs = [{'role': 'user', 'content': [image, prompt]}]
-                print("✅ Using vision-language chat format")
+            # TEXT-ONLY by default (never pass images to a tokenizer)
+            if self._has_vision_processor() and image is not None:
+                if isinstance(image, Image.Image):
+                    image = image.convert("RGB")
+                inputs = self.processor(text=prompt, images=image, return_tensors="pt")
             else:
-                # Text-only task - create a dummy image for the model
-                dummy_image = Image.new('RGB', (224, 224), color='black')
-                msgs = [{'role': 'user', 'content': [dummy_image, prompt]}]
-                print("✅ Using text-only chat format with dummy image")
-            
-            # Return the message format and dummy image for the model.chat method
-            return {
-                'msgs': msgs,
-                'image': None,  # The image is included in the msgs
-                'tokenizer': self.tokenizer
-            }
+                tok = self.processor.tokenizer if (self._has_vision_processor() and hasattr(self.processor, "tokenizer")) else self.tokenizer
+                if tok is None:
+                    raise RuntimeError("No tokenizer available")
+                inputs = dict(tok(prompt, return_tensors="pt"))
+
+            # Ensure all inputs are on the correct device
+            for key, value in dict(inputs).items():
+                if isinstance(value, torch.Tensor):
+                    inputs[key] = value.to(self.device)
+            return inputs
             
         except Exception as e:
             print(f"❌ Error processing inputs: {e}")
@@ -532,11 +604,11 @@ class MiniCPMV26Model:
             if hasattr(config, 'model_type'):
                 print(f"🔍 Model type: {config.model_type}")
                 
-                # Check if it supports chat interface
-                if hasattr(self.model, 'chat'):
-                    print("✅ Model supports chat interface")
+                # Check if it supports text generation
+                if hasattr(self.model, 'generate'):
+                    print("✅ Model supports text generation")
                 else:
-                    print("❌ Model does not support chat interface")
+                    print("❌ Model does not support text generation")
                     return False
                 
                 # Check if it's a vision-language model
