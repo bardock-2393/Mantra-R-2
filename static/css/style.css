@@ -215,6 +215,29 @@ body {
     background: #f8fafc;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
+    position: relative;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.model-selection * {
+    pointer-events: auto;
+}
+
+/* Model selection visual feedback */
+.model-selection.model-selected-minicpm {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.model-selection.model-selected-qwen25vl {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.model-selection.model-selected-qwen25vl_32b {
+    border-color: #8b5cf6;
+    background: #faf5ff;
 }
 
 .model-label {
@@ -241,6 +264,8 @@ body {
     color: #374151;
     cursor: pointer;
     transition: all 0.2s ease;
+    position: relative;
+    z-index: 15;
 }
 
 .model-select:focus {
@@ -251,6 +276,25 @@ body {
 
 .model-select:hover {
     border-color: #9ca3af;
+}
+
+.model-select option {
+    background: #ffffff;
+    color: #374151;
+    padding: 0.5rem;
+}
+
+/* Model select visual feedback */
+.model-select.model-selected-minicpm {
+    border-color: #10b981;
+}
+
+.model-select.model-selected-qwen25vl {
+    border-color: #3b82f6;
+}
+
+.model-select.model-selected-qwen25vl_32b {
+    border-color: #8b5cf6;
 }
 
 .model-info {

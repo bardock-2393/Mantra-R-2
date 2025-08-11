@@ -45,7 +45,13 @@ class VideoDetective {
             }
         });
 
-        uploadArea.addEventListener('click', () => {
+        uploadArea.addEventListener('click', (e) => {
+            // Don't open file dialog if clicking on model selection or other interactive elements
+            if (e.target.closest('.model-selection') || 
+                e.target.closest('.upload-buttons') || 
+                e.target.closest('.upload-features')) {
+                return;
+            }
             videoFile.click();
         });
 
@@ -949,10 +955,32 @@ class VideoDetective {
         // Add event listener for model switching
         const modelSelect = document.getElementById('modelSelect');
         if (modelSelect) {
-            modelSelect.addEventListener('change', (e) => {
-                this.switchModel(e.target.value);
+            // Remove any existing event listeners to prevent duplicates
+            modelSelect.removeEventListener('change', this.handleModelChange);
+            
+            // Add the event listener
+            this.handleModelChange = this.handleModelChange.bind(this);
+            modelSelect.addEventListener('change', this.handleModelChange);
+            
+            // Add click event to prevent bubbling
+            modelSelect.addEventListener('click', (e) => {
+                e.stopPropagation();
             });
         }
+        
+        // Also prevent clicks on the model selection container from bubbling
+        const modelSelection = document.querySelector('.model-selection');
+        if (modelSelection) {
+            modelSelection.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+    }
+    
+    handleModelChange(e) {
+        // Prevent event bubbling
+        e.stopPropagation();
+        this.switchModel(e.target.value);
     }
     
     async switchModel(modelName) {
@@ -1016,7 +1044,19 @@ class VideoDetective {
                 'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
             };
             
+            // Update the model info text
             modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
+            
+            // Add visual feedback for selected model
+            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+            modelSelect.classList.add(`model-selected-${selectedModel}`);
+            
+            // Update the model selection container styling
+            const modelSelection = document.querySelector('.model-selection');
+            if (modelSelection) {
+                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+                modelSelection.classList.add(`model-selected-${selectedModel}`);
+            }
         }
     }
     
