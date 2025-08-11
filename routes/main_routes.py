@@ -107,30 +107,36 @@ def upload_video():
                 'is_default_video': True
             }
         
-        print(f"Debug: Upload - File info: {file_info}")
+        # Store file info in session
         store_session_data(session_id, file_info)
-        
-        # Verify storage
-        stored_data = get_session_data(session_id)
-        print(f"Debug: Upload - Stored data keys: {list(stored_data.keys()) if stored_data else 'None'}")
-        
-        message = 'Default video loaded successfully' if file_info.get('is_default_video', False) else 'Video uploaded successfully'
+        print(f"✅ Session data stored locally: {session_id}")
+        print(f"Debug: Upload - Stored data keys: {list(file_info.keys())}")
         
         return jsonify({
             'success': True,
-            'filename': unique_filename,
-            'message': message,
-            'is_default_video': file_info.get('is_default_video', False)
+            'message': 'Video uploaded successfully',
+            'filename': file_info['filename'],
+            'session_id': session_id
         })
         
     except Exception as e:
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+        print(f"❌ Upload error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Upload failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @main_bp.route('/analyze', methods=['POST'])
 def analyze_video():
     """Analyze uploaded video"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON data received'}), 400
+        
         analysis_type = data.get('analysis_type', 'comprehensive_analysis')
         user_focus = data.get('user_focus', 'Analyze this video comprehensively')
         
@@ -138,7 +144,7 @@ def analyze_video():
         print(f"Debug: Session ID: {session_id}")
         
         if not session_id:
-            return jsonify({'success': False, 'error': 'No session found'})
+            return jsonify({'success': False, 'error': 'No session found'}), 400
         
         # Get session data
         session_data = get_session_data(session_id)
@@ -146,17 +152,19 @@ def analyze_video():
         print(f"Debug: Session data: {session_data}")
         
         if not session_data or 'filepath' not in session_data:
-            return jsonify({'success': False, 'error': 'No video uploaded'})
+            return jsonify({'success': False, 'error': 'No video uploaded'}), 400
         
         video_path = session_data['filepath']
         print(f"Debug: Video path: {video_path}")
         
         if not os.path.exists(video_path):
-            return jsonify({'success': False, 'error': 'Video file not found'})
+            return jsonify({'success': False, 'error': 'Video file not found'}), 404
         
         # Perform analysis using model manager
         from services.model_manager import model_manager
         import asyncio
+        
+        analysis_result = None
         try:
             # Get or create event loop
             try:
@@ -167,9 +175,25 @@ def analyze_video():
             
             # Run the async function
             analysis_result = loop.run_until_complete(model_manager.analyze_video(video_path, analysis_type, user_focus))
+            
+            # Validate the analysis result
+            if not analysis_result or analysis_result.startswith("Error:"):
+                print(f"❌ Analysis returned error: {analysis_result}")
+                return jsonify({
+                    'success': False, 
+                    'error': f'Analysis failed: {analysis_result}',
+                    'analysis': analysis_result
+                }), 500
+                
         except Exception as e:
-            print(f"Error in video analysis: {e}")
-            return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
+            print(f"❌ Error in video analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False, 
+                'error': f'Analysis failed: {str(e)}',
+                'details': 'Check server logs for more information'
+            }), 500
         
         # Extract video metadata to validate timestamps
         video_metadata = extract_video_metadata(video_path)
@@ -234,8 +258,14 @@ def analyze_video():
         })
         
     except Exception as e:
-        print(f"Analysis error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'details': 'Unexpected error occurred during analysis'
+        }), 500
 
 @main_bp.route('/screenshot/<filename>')
 def get_screenshot(filename):

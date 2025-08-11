@@ -29,6 +29,33 @@ def create_app():
     app.register_blueprint(chat_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
     
+    # Global error handlers to ensure JSON responses
+    @app.errorhandler(400)
+    def bad_request(error):
+        return {'success': False, 'error': 'Bad Request', 'details': str(error)}, 400, {'Content-Type': 'application/json'}
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        return {'success': False, 'error': 'Not Found', 'details': str(error)}, 404, {'Content-Type': 'application/json'}
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        return {'success': False, 'error': 'Internal Server Error', 'details': str(error)}, 500, {'Content-Type': 'application/json'}
+    
+    @app.errorhandler(Exception)
+    def handle_exception(error):
+        # Log the error
+        import traceback
+        print(f"❌ Unhandled exception: {error}")
+        traceback.print_exc()
+        
+        return {
+            'success': False, 
+            'error': 'Internal Server Error', 
+            'details': str(error),
+            'message': 'An unexpected error occurred'
+        }, 500, {'Content-Type': 'application/json'}
+    
     return app
 
 async def initialize_gpu_services():

@@ -22,20 +22,46 @@ api_bp = Blueprint('api', __name__)
 def get_session(session_id):
     """Get session data"""
     try:
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Session ID required'}), 400
+        
         session_data = get_session_data(session_id)
-        return jsonify(session_data)
+        if not session_data:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'session_data': session_data
+        })
+        
     except Exception as e:
-        return jsonify({'error': f'Failed to get session: {str(e)}'}), 500
+        print(f"❌ Get session error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get session: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/health')
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'AI Video Detective API',
-        'version': '2.0.0',
-        'timestamp': time.time()
-    })
+    try:
+        return jsonify({
+            'success': True,
+            'status': 'healthy',
+            'service': 'AI Video Detective API',
+            'version': '2.0.0',
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        print(f"❌ Health check error: {e}")
+        return jsonify({
+            'success': False,
+            'status': 'error',
+            'error': str(e)
+        }), 500
 
 @api_bp.route('/model-health')
 def model_health_check():
@@ -55,6 +81,7 @@ def model_health_check():
         health_status = loop.run_until_complete(model_manager.health_check())
         
         return jsonify({
+            'success': True,
             'status': 'healthy',
             'service': 'AI Model Health Check',
             'timestamp': time.time(),
@@ -62,11 +89,16 @@ def model_health_check():
         })
         
     except Exception as e:
+        print(f"❌ Model health check error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
+            'success': False,
             'status': 'error',
             'service': 'AI Model Health Check',
             'error': str(e),
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'details': 'Check server logs for more information'
         }), 500
 
 @api_bp.route('/switch-model', methods=['POST'])
@@ -74,10 +106,12 @@ def switch_model():
     """Switch between different AI models"""
     try:
         data = request.get_json()
-        model_name = data.get('model')
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON data received'}), 400
         
+        model_name = data.get('model')
         if not model_name:
-            return jsonify({'success': False, 'error': 'Model name required'})
+            return jsonify({'success': False, 'error': 'Model name required'}), 400
         
         # Import model manager
         from services.model_manager import model_manager
@@ -98,68 +132,83 @@ def switch_model():
             if success:
                 # Get updated model status
                 model_status = model_manager.get_current_model()
+                
                 return jsonify({
                     'success': True,
-                    'model': model_name,
-                    'model_name': model_name.replace('_', ' ').title(),
                     'message': f'Successfully switched to {model_name}',
-                    'model_status': model_status
+                    'current_model': model_status
                 })
             else:
                 return jsonify({
-                    'success': False, 
-                    'error': f'Failed to switch to {model_name}. Check logs for details.'
-                })
+                    'success': False,
+                    'error': f'Failed to switch to {model_name}',
+                    'details': 'Model initialization failed'
+                }), 500
                 
         except Exception as e:
-            print(f"Error in model switching: {e}")
+            print(f"❌ Model switch error: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
-                'success': False, 
-                'error': f'Model switching failed: {str(e)}'
+                'success': False,
+                'error': f'Model switch failed: {str(e)}',
+                'details': 'Check server logs for more information'
             }), 500
-        
+            
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"❌ Switch model endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Switch model failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/model-status')
 def get_model_status():
     """Get current model status"""
     try:
         from services.model_manager import model_manager
-        return jsonify(model_manager.get_status())
+        
+        model_status = model_manager.get_status()
+        
+        return jsonify({
+            'success': True,
+            'model_status': model_status
+        })
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Model status error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get model status: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/agent-info')
 def get_agent_info():
-    """Get information about the AI agent capabilities"""
-    from analysis_templates import ANALYSIS_TEMPLATES
-    return jsonify({
-        'agent_name': 'AI Video Detective Agent',
-        'version': '2.0.0',
-        'description': 'Advanced AI video analysis agent with comprehensive understanding capabilities',
-        'capabilities': AGENT_CAPABILITIES,
-        'tools': AGENT_TOOLS,
-        'analysis_types': {
-            key: {
-                'name': value['name'],
-                'description': value['description'],
-                'icon': value['icon'],
-                'agent_capabilities': value.get('agent_capabilities', [])
-            }
-            for key, value in ANALYSIS_TEMPLATES.items()
-        },
-        'features': [
-            'Autonomous video analysis with multi-modal understanding',
-            'Context-aware conversations with memory',
-            'Proactive insights generation',
-            'Comprehensive reporting across multiple dimensions',
-            'Adaptive focus based on content and user needs',
-            'Professional-grade analysis protocols',
-            'Real-time conversation with video context',
-            'Advanced pattern recognition and behavioral analysis'
-        ]
-    })
+    """Get agent capabilities and tools information"""
+    try:
+        return jsonify({
+            'success': True,
+            'capabilities': AGENT_CAPABILITIES,
+            'tools': AGENT_TOOLS,
+            'service': 'AI Video Detective Agent',
+            'version': '2.0.0'
+        })
+        
+    except Exception as e:
+        print(f"❌ Agent info error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get agent info: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/capture-screenshots', methods=['POST'])
 def capture_screenshots():
@@ -244,28 +293,40 @@ def auto_capture_screenshots():
 
 @api_bp.route('/session/cleanup', methods=['POST'])
 def cleanup_current_session():
-    """Clean up the current session data and files"""
+    """Clean up current session data"""
     try:
         session_id = session.get('session_id')
         if not session_id:
-            return jsonify({'success': False, 'error': 'No active session'})
+            return jsonify({
+                'success': False,
+                'error': 'No active session to cleanup'
+            }), 400
         
         # Clean up session data
-        success = cleanup_session_data(session_id)
-        
-        if success:
-            # Clear Flask session
-            session.clear()
+        if cleanup_session_data(session_id):
+            # Clear session
+            session.pop('session_id', None)
+            
             return jsonify({
                 'success': True,
                 'message': 'Session cleaned up successfully',
                 'session_id': session_id
             })
         else:
-            return jsonify({'success': False, 'error': 'Failed to cleanup session'})
+            return jsonify({
+                'success': False,
+                'error': 'Failed to cleanup session'
+            }), 500
             
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Session cleanup error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Session cleanup failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/session/status')
 def get_session_status():
@@ -274,6 +335,7 @@ def get_session_status():
         session_id = session.get('session_id')
         if not session_id:
             return jsonify({
+                'success': False,
                 'active': False,
                 'session_id': None,
                 'message': 'No active session'
@@ -284,6 +346,7 @@ def get_session_status():
         
         if not session_data:
             return jsonify({
+                'success': False,
                 'active': False,
                 'session_id': session_id,
                 'message': 'Session data not found'
@@ -307,6 +370,7 @@ def get_session_status():
                     evidence_count += 1
         
         return jsonify({
+            'success': True,
             'active': True,
             'session_id': session_id,
             'video_uploaded': video_exists,
@@ -318,7 +382,14 @@ def get_session_status():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Session status error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Session status failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/session/cleanup-all', methods=['POST'])
 def cleanup_all_sessions():
@@ -342,7 +413,14 @@ def cleanup_all_sessions():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Cleanup all sessions error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Cleanup all sessions failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @api_bp.route('/cleanup-uploads', methods=['POST'])
 def cleanup_uploads():
@@ -355,7 +433,11 @@ def cleanup_uploads():
         })
         
     except Exception as e:
+        print(f"❌ Cleanup uploads error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'Uploads cleanup failed: {str(e)}'
+            'error': f'Uploads cleanup failed: {str(e)}',
+            'details': 'Check server logs for more information'
         }), 500 

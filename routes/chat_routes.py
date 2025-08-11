@@ -20,17 +20,25 @@ def chat():
     """Handle chat messages with enhanced AI responses using vector search"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON data received'}), 400
+        
         message = data.get('message', '')
+        if not message or not message.strip():
+            return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
         
         session_id = session.get('session_id')
         print(f"Debug: Chat - Session ID: {session_id}")
         
         if not session_id:
-            return jsonify({'error': 'No active session'}), 400
+            return jsonify({'success': False, 'error': 'No active session'}), 400
         
         # Get session data including video analysis
         session_data = get_session_data(session_id)
         print(f"Debug: Chat - Session data keys: {list(session_data.keys()) if session_data else 'None'}")
+        
+        if not session_data:
+            return jsonify({'success': False, 'error': 'Session data not found'}), 400
         
         # Store chat message
         chat_history = session_data.get('chat_history', [])
@@ -56,6 +64,8 @@ def chat():
         
         # Use vector search to find relevant content for the question
         relevant_content = []
+        ai_response = ""
+        
         if analysis_result:
             try:
                 # Search for content similar to the user's question
@@ -76,9 +86,11 @@ def chat():
                 
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
-                from services.model_manager import model_manager
-                import asyncio
+                
                 try:
+                    from services.model_manager import model_manager
+                    import asyncio
+                    
                     # Get or create event loop
                     try:
                         loop = asyncio.get_event_loop()
@@ -90,16 +102,25 @@ def chat():
                     ai_response = loop.run_until_complete(model_manager.generate_chat_response(
                         analysis_result, analysis_type, user_focus, enhanced_message, chat_list
                     ))
+                    
+                    # Validate the response
+                    if not ai_response or ai_response.startswith("Error:"):
+                        print(f"❌ AI response generation failed: {ai_response}")
+                        ai_response = f"I apologize, but I encountered an error while generating a response. Please try again."
+                        
                 except Exception as e:
-                    print(f"Error in chat response generation: {e}")
+                    print(f"❌ Error in chat response generation: {e}")
+                    import traceback
+                    traceback.print_exc()
                     ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
                 
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
-                from services.model_manager import model_manager
-                import asyncio
                 try:
+                    from services.model_manager import model_manager
+                    import asyncio
+                    
                     # Get or create event loop
                     try:
                         loop = asyncio.get_event_loop()
@@ -111,12 +132,24 @@ def chat():
                     ai_response = loop.run_until_complete(model_manager.generate_chat_response(
                         analysis_result, analysis_type, user_focus, message, chat_list
                     ))
+                    
+                    # Validate the response
+                    if not ai_response or ai_response.startswith("Error:"):
+                        print(f"❌ Fallback AI response generation failed: {ai_response}")
+                        ai_response = f"I apologize, but I encountered an error while generating a response. Please try again."
+                        
                 except Exception as e:
-                    print(f"Error in fallback chat response generation: {e}")
+                    print(f"❌ Error in fallback chat response generation: {e}")
+                    import traceback
+                    traceback.print_exc()
                     ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
         else:
             # No analysis available yet
             ai_response = f"I don't have the video analysis results yet. Please first analyze the uploaded video, then I can help you with: {message}. Click 'Start Analysis' to begin the video analysis."
+        
+        # Ensure we have a valid response
+        if not ai_response or not ai_response.strip():
+            ai_response = "I apologize, but I couldn't generate a proper response. Please try again."
         
         chat_list.append({
             'ai': ai_response,
@@ -141,35 +174,61 @@ def chat():
         })
         
     except Exception as e:
-        print(f"Debug: Chat - Error in chat endpoint: {e}")
+        print(f"❌ Debug: Chat - Error in chat endpoint: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'Chat failed: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'error': f'Chat failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @chat_bp.route('/search', methods=['POST'])
 def search_content():
     """Search for specific content in the video analysis"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON data received'}), 400
+        
         query = data.get('query', '')
+        if not query or not query.strip():
+            return jsonify({'success': False, 'error': 'Search query cannot be empty'}), 400
         
         session_id = session.get('session_id')
         if not session_id:
-            return jsonify({'error': 'No active session'}), 400
+            return jsonify({'success': False, 'error': 'No active session'}), 400
         
         # Search for relevant content
-        relevant_content = vector_search_service.search_similar_content(session_id, query, top_k=5)
-        
-        return jsonify({
-            'success': True,
-            'query': query,
-            'results': relevant_content,
-            'result_count': len(relevant_content)
-        })
+        try:
+            relevant_content = vector_search_service.search_similar_content(session_id, query, top_k=5)
+            
+            return jsonify({
+                'success': True,
+                'query': query,
+                'results': relevant_content,
+                'result_count': len(relevant_content)
+            })
+            
+        except Exception as e:
+            print(f"❌ Vector search error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'error': f'Search failed: {str(e)}',
+                'details': 'Vector search service error'
+            }), 500
         
     except Exception as e:
-        print(f"Search error: {e}")
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Search error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Search failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500
 
 @chat_bp.route('/vector-status', methods=['GET'])
 def get_vector_status():
@@ -177,16 +236,33 @@ def get_vector_status():
     try:
         session_id = session.get('session_id')
         if not session_id:
-            return jsonify({'error': 'No active session'}), 400
+            return jsonify({'success': False, 'error': 'No active session'}), 400
         
-        summary = vector_search_service.get_session_summary(session_id)
-        
-        return jsonify({
-            'success': True,
-            'vector_search_available': summary['available'],
-            'summary': summary
-        })
+        try:
+            summary = vector_search_service.get_session_summary(session_id)
+            
+            return jsonify({
+                'success': True,
+                'vector_search_available': summary['available'],
+                'summary': summary
+            })
+            
+        except Exception as e:
+            print(f"❌ Vector status service error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'error': f'Vector status failed: {str(e)}',
+                'details': 'Vector search service error'
+            }), 500
         
     except Exception as e:
-        print(f"Vector status error: {e}")
-        return jsonify({'error': str(e)}), 500 
+        print(f"❌ Vector status error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Vector status failed: {str(e)}',
+            'details': 'Check server logs for more information'
+        }), 500 
