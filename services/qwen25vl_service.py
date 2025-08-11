@@ -12,6 +12,15 @@ from PIL import Image
 from typing import Dict, List, Optional, Tuple
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
 
+# Import analysis templates from the old project
+try:
+    from analysis_templates import generate_analysis_prompt
+    ANALYSIS_TEMPLATES_AVAILABLE = True
+    print("✅ Analysis templates imported successfully")
+except ImportError:
+    ANALYSIS_TEMPLATES_AVAILABLE = False
+    print("⚠️ Analysis templates not available, using fallback prompts")
+
 # Import qwen-vl-utils with proper error handling
 try:
     from qwen_vl_utils import process_vision_info
@@ -49,7 +58,7 @@ except ImportError:
                             else:
                                 print(f"⚠️ Video file not found: {video_path}")
                                 # Add None to maintain list structure
-                                video_inputs.append(None)
+                                image_inputs.append(None)
             
             print(f"📊 Processed: {len(image_inputs)} images, {len(video_inputs)} videos")
             
@@ -235,14 +244,16 @@ class Qwen25VLService:
                 else:
                     print(f"⚠️ Resolved path also doesn't exist: {abs_path}")
             
-            # Extract video summary for context
-            video_summary = self._extract_video_summary(video_path)
-            
-            # Generate analysis prompt
-            prompt = self._generate_analysis_prompt(analysis_type, user_focus)
+            # Generate analysis prompt using the same system as the old project
+            if ANALYSIS_TEMPLATES_AVAILABLE:
+                analysis_prompt = generate_analysis_prompt(analysis_type, user_focus)
+                print("✅ Using analysis templates from old project")
+            else:
+                analysis_prompt = self._generate_fallback_analysis_prompt(analysis_type, user_focus)
+                print("⚠️ Using fallback analysis prompt")
             
             # Generate analysis using Qwen2.5-VL
-            analysis_result = await self._generate_analysis(prompt, video_path)
+            analysis_result = await self._generate_analysis(analysis_prompt, video_path)
             
             return analysis_result
             
@@ -250,24 +261,18 @@ class Qwen25VLService:
             print(f"❌ Video analysis failed: {e}")
             raise RuntimeError(f"Video analysis failed: {e}")
     
-    def _extract_video_summary(self, video_path: str) -> str:
-        """Extract basic video information for context"""
-        try:
-            # For now, return basic info - could be enhanced with video metadata
-            return f"Video file: {os.path.basename(video_path)}"
-        except Exception as e:
-            print(f"⚠️ Warning: Could not extract video summary: {e}")
-            return "Video file"
-    
-    def _generate_analysis_prompt(self, analysis_type: str, user_focus: str) -> str:
-        """Generate analysis prompt based on type and user focus"""
+    def _generate_fallback_analysis_prompt(self, analysis_type: str, user_focus: str) -> str:
+        """Generate fallback analysis prompt when templates are not available"""
         base_prompts = {
             'general': "Analyze this video and provide a comprehensive overview.",
             'behavioral': "Analyze the behavior patterns and actions in this video.",
             'technical': "Provide a technical analysis of this video content.",
             'narrative': "Analyze the narrative structure and storytelling elements.",
             'forensic': "Conduct a forensic analysis of this video for evidence.",
-            'commercial': "Analyze this video from a commercial and marketing perspective."
+            'commercial': "Analyze this video from a commercial and marketing perspective.",
+            'comprehensive_analysis': "Provide a comprehensive multi-dimensional analysis covering all aspects.",
+            'safety_investigation': "Conduct a thorough safety analysis with risk assessment.",
+            'creative_review': "Provide comprehensive creative and aesthetic analysis."
         }
         
         base_prompt = base_prompts.get(analysis_type, base_prompts['general'])
@@ -461,20 +466,20 @@ Please provide a comprehensive analysis based on the video description and conte
             return f"Video analysis failed. Error: {str(e)}"
     
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
-        """Generate chat response using Qwen2.5-VL-7B-Instruct"""
+        """Generate chat response using Qwen2.5-VL-7B-Instruct with the same prompt system as the old project"""
         try:
             if not self.is_initialized:
                 raise RuntimeError("Qwen2.5-VL service not initialized")
             
-            # Build chat context
-            context = self._build_chat_context(analysis_result, analysis_type, user_focus, chat_history)
+            # Build chat context using the same system as the old project
+            context_prompt = self._build_enhanced_chat_context(analysis_result, analysis_type, user_focus, chat_history)
             
             # Create messages for Qwen2.5-VL
             messages = [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": f"{context}\n\nUser: {message}"}
+                        {"type": "text", "text": f"{context_prompt}\n\nUser: {message}"}
                     ]
                 }
             ]
@@ -521,20 +526,95 @@ Please provide a comprehensive analysis based on the video description and conte
             print(f"❌ Chat response generation failed: {e}")
             raise RuntimeError(f"Chat response generation failed: {e}")
     
-    def _build_chat_context(self, analysis_result: str, analysis_type: str, user_focus: str, chat_history: List[Dict]) -> str:
-        """Build chat context from analysis and history"""
-        context_parts = [
-            f"Analysis Type: {analysis_type}",
-            f"User Focus: {user_focus}",
-            f"Video Analysis: {analysis_result}"
-        ]
+    def _build_enhanced_chat_context(self, analysis_result: str, analysis_type: str, user_focus: str, chat_history: List[Dict]) -> str:
+        """Build enhanced chat context using the same system as the old project"""
+        # Enhanced agentic conversation prompt with advanced capabilities (same as old project)
+        context_prompt = f"""
+You are an advanced AI video analysis agent with comprehensive understanding capabilities. You are engaging in a multi-turn conversation about a video that has been analyzed.
+
+## AGENT CONVERSATION PROTOCOL
+
+### Current Context:
+- Analysis Type: {analysis_type.replace('_', ' ').title()}
+- Original Analysis Focus: {user_focus}
+- User Question: "{message}"
+- Conversation History: Available for context awareness
+
+### Video Analysis Context:
+{analysis_result}
+            
+### Agent Capabilities:
+- Autonomous Analysis: Provide comprehensive insights beyond the immediate question
+- Multi-Modal Understanding: Reference visual, audio, temporal, and spatial elements
+- Context Awareness: Adapt responses based on conversation history and user intent
+- Proactive Insights: Offer additional relevant information and observations
+- Comprehensive Reporting: Provide detailed, structured responses
+- Adaptive Focus: Adjust response depth based on question complexity
+
+### Response Quality Standards:
+1. **Precision & Accuracy**: Provide exact, verifiable information with specific timestamps
+2. **Comprehensive Coverage**: Address all aspects of the question thoroughly
+3. **Evidence-Based**: Support every claim with specific evidence from the analysis
+4. **Clear Structure**: Use logical organization with clear headings and bullet points
+5. **Professional Tone**: Maintain engaging yet professional communication
+6. **Proactive Insights**: Offer additional relevant observations beyond the direct question
+7. **Visual Clarity**: Use formatting to enhance readability (bold, italics, lists)
+8. **Contextual Awareness**: Reference previous conversation context when relevant
+
+### Response Format Guidelines:
+- **Start with a direct answer** to the user's question
+- **Use clear headings** for different sections (e.g., "**Key Findings:**", "**Timeline:**", "**Additional Insights:**")
+- **Include specific timestamps** when discussing events (e.g., "At **00:15-00:17**")
+- **Use bullet points** for lists and multiple items
+- **Bold important information** for emphasis
+- **Provide quantitative data** when available (durations, counts, measurements)
+- **Include relevant context** that enhances understanding
+- **End with actionable insights** or additional observations when relevant
+
+### Specialized Response Areas:
+- **Safety Analysis**: Focus on specific safety concerns, violations, and recommendations
+- **Timeline Events**: Provide chronological details with precise timestamps
+- **Pattern Recognition**: Highlight recurring behaviors, trends, and anomalies
+- **Performance Assessment**: Discuss quality, efficiency, and optimization opportunities
+- **Creative Elements**: Analyze artistic, aesthetic, and creative aspects
+- **Technical Details**: Provide technical specifications and quality assessments
+- **Behavioral Insights**: Analyze human behavior, interactions, and social dynamics
+- **Environmental Factors**: Consider context, setting, and environmental conditions
+
+### Quality Enhancement Techniques:
+- **Quantify responses**: Use specific numbers, durations, and measurements
+- **Cross-reference information**: Connect related details across different sections
+- **Provide context**: Explain why certain details are significant
+- **Use descriptive language**: Make responses vivid and engaging
+- **Structure complex information**: Break down complex topics into digestible sections
+- **Highlight patterns**: Identify and explain recurring themes or behaviors
+- **Offer insights**: Provide analysis beyond simple description
+
+Your mission is to provide **exceptional quality responses** that demonstrate deep understanding of the video content, offer precise information with timestamps, and deliver insights that exceed user expectations. Every response should be comprehensive, well-structured, and highly informative.
+"""
         
-        if chat_history:
-            context_parts.append("Chat History:")
-            for entry in chat_history[-3:]:  # Last 3 messages
-                context_parts.append(f"- {entry.get('role', 'user')}: {entry.get('content', '')}")
+        # Include conversation history for context awareness (same as old project)
+        conversation_context = ""
+        if len(chat_history) > 2:  # More than just current message
+            recent_messages = chat_history[-6:]  # Last 6 messages for context
+            conversation_context = "\n\n### Recent Conversation Context:\n"
+            for msg in recent_messages:
+                if 'user' in msg:
+                    conversation_context += f"User: {msg['user']}\n"
+                elif 'ai' in msg:
+                    conversation_context += f"Agent: {msg['ai'][:200]}...\n"  # Truncate for context
         
-        return "\n".join(context_parts)
+        enhanced_context_prompt = context_prompt + conversation_context
+        return enhanced_context_prompt
+    
+    def _extract_video_summary(self, video_path: str) -> str:
+        """Extract basic video information for context"""
+        try:
+            # For now, return basic info - could be enhanced with video metadata
+            return f"Video file: {os.path.basename(video_path)}"
+        except Exception as e:
+            print(f"⚠️ Warning: Could not extract video summary: {e}")
+            return "Video file"
     
     def get_status(self) -> Dict:
         """Get service status"""
@@ -545,7 +625,8 @@ Please provide a comprehensive analysis based on the video description and conte
             'gpu_available': torch.cuda.is_available(),
             'memory_allocated': torch.cuda.memory_allocated() if torch.cuda.is_available() else 0,
             'memory_reserved': torch.cuda.memory_reserved() if torch.cuda.is_available() else 0,
-            'qwen_vl_utils_available': QWEN_VL_UTILS_AVAILABLE
+            'qwen_vl_utils_available': QWEN_VL_UTILS_AVAILABLE,
+            'analysis_templates_available': ANALYSIS_TEMPLATES_AVAILABLE
         }
     
     def cleanup(self):
