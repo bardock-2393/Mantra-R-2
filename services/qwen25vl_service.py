@@ -58,7 +58,7 @@ except ImportError:
                             else:
                                 print(f"⚠️ Video file not found: {video_path}")
                                 # Add None to maintain list structure
-                                image_inputs.append(None)
+                                video_inputs.append(None)
             
             print(f"📊 Processed: {len(image_inputs)} images, {len(video_inputs)} videos")
             
