@@ -11,7 +11,7 @@ import logging
 
 from config import Config
 from models.deepstream_pipeline import DeepStreamPipeline
-from services.ai_service import AIService
+from services.ai_service import ai_service
 from services.vector_search_service import VectorSearchService
 from services.gpu_service import GPUService
 
@@ -20,7 +20,7 @@ class HybridAnalysisService:
     
     def __init__(self):
         self.deepstream_pipeline = DeepStreamPipeline()
-        self.ai_service = AIService()
+        self.ai_service = ai_service
         self.vector_service = VectorSearchService()
         self.gpu_service = GPUService()
         self.is_initialized = False
@@ -132,10 +132,10 @@ class HybridAnalysisService:
             }
             
             # Generate comprehensive analysis using 7B model
-            qwen_analysis = await self.ai_service.analyze_video_content(
+            qwen_analysis = await self.ai_service.analyze_video(
                 video_path=video_path,
                 analysis_type="hybrid_comprehensive",
-                context=analysis_context
+                user_focus="comprehensive_analysis"
             )
             
             return {

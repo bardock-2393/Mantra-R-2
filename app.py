@@ -14,6 +14,7 @@ from routes.api_routes import api_bp
 from services.session_service import cleanup_expired_sessions, cleanup_old_uploads
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
+from services.ai_service import ai_service
 
 def create_app():
     """Create and configure the Flask application for Round 2 - 7B Model Only"""
@@ -43,6 +44,10 @@ async def initialize_gpu_services():
         # Initialize performance monitor
         performance_monitor = PerformanceMonitor()
         performance_monitor.start()
+        
+        # Initialize AI service (7B model)
+        print("🤖 Initializing Qwen2.5-VL-7B model...")
+        await ai_service.initialize()
         
         print("✅ GPU services initialized successfully for 7B model")
         return gpu_service, performance_monitor
