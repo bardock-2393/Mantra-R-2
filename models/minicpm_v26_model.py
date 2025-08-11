@@ -179,7 +179,15 @@ class MiniCPMV26Model:
                     print("⚠️ Warning: Invalid warmup text")
                     return
                 
-                inputs = self.tokenizer(warmup_text, return_tensors="pt").to(self.device)
+                # Create a dummy image for warmup
+                dummy_image = Image.new('RGB', (1, 1), color='black')
+                
+                # Tokenize with both text and image
+                inputs = self.tokenizer(
+                    warmup_text, 
+                    images=dummy_image,
+                    return_tensors="pt"
+                ).to(self.device)
                 
                 with torch.no_grad():
                     _ = self.model.generate(
@@ -232,9 +240,35 @@ class MiniCPMV26Model:
             
             print(f"🔍 Generating text with prompt length: {len(prompt)} characters")
             
-            # Tokenize input
-            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-            print(f"✅ Tokenization successful, input shape: {inputs.input_ids.shape}")
+            # For MiniCPM-V-2_6, we need to provide both text and image inputs
+            # Since this is text-only generation, we'll create a dummy image or use a placeholder
+            try:
+                # Create a dummy 1x1 pixel image (black) for text-only generation
+                dummy_image = Image.new('RGB', (1, 1), color='black')
+                
+                # Tokenize input with both text and image
+                inputs = self.tokenizer(
+                    prompt, 
+                    images=dummy_image,
+                    return_tensors="pt"
+                ).to(self.device)
+                
+                print(f"✅ Tokenization successful, input shape: {inputs.input_ids.shape}")
+                print(f"✅ Image inputs shape: {inputs.pixel_values.shape if hasattr(inputs, 'pixel_values') else 'No pixel values'}")
+                
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to create dummy image, trying text-only: {e}")
+                # Fallback to text-only tokenization
+                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                
+                # Ensure pixel_values is not None
+                if not hasattr(inputs, 'pixel_values') or inputs.pixel_values is None:
+                    # Create a dummy tensor for pixel_values
+                    batch_size = inputs.input_ids.shape[0]
+                    inputs.pixel_values = torch.zeros(batch_size, 3, 224, 224).to(self.device)
+                
+                print(f"✅ Fallback tokenization successful, input shape: {inputs.input_ids.shape}")
+                print(f"✅ Fallback pixel values shape: {inputs.pixel_values.shape}")
             
             # Generate response
             with torch.no_grad():
