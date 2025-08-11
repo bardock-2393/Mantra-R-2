@@ -53,9 +53,21 @@ def switch_model():
         # Import model manager
         from services.model_manager import model_manager
         
-        # Switch model (this would be async in a real implementation)
-        # For now, we'll simulate the switch
-        success = True  # Placeholder for actual switch logic
+        # Switch model using the model manager (run in event loop)
+        import asyncio
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the async function
+            success = loop.run_until_complete(model_manager.switch_model(model_name))
+        except Exception as e:
+            print(f"Error in model switching: {e}")
+            success = False
         
         if success:
             return jsonify({
@@ -79,7 +91,7 @@ def get_model_status():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@api_bp.route('/api/agent-info')
+@api_bp.route('/agent-info')
 def get_agent_info():
     """Get information about the AI agent capabilities"""
     from analysis_templates import ANALYSIS_TEMPLATES

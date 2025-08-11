@@ -16,7 +16,7 @@ from services.vector_search_service import vector_search_service
 chat_bp = Blueprint('chat', __name__)
 
 @chat_bp.route('/chat', methods=['POST'])
-async def chat():
+def chat():
     """Handle chat messages with enhanced AI responses using vector search"""
     try:
         data = request.get_json()
@@ -77,17 +77,43 @@ async def chat():
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
                 from services.model_manager import model_manager
-                ai_response = await model_manager.generate_chat_response(
-                    analysis_result, analysis_type, user_focus, enhanced_message, chat_list
-                )
+                import asyncio
+                try:
+                    # Get or create event loop
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    # Run the async function
+                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                        analysis_result, analysis_type, user_focus, enhanced_message, chat_list
+                    ))
+                except Exception as e:
+                    print(f"Error in chat response generation: {e}")
+                    ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
                 
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
                 from services.model_manager import model_manager
-                ai_response = await model_manager.generate_chat_response(
-                    analysis_result, analysis_type, user_focus, message, chat_list
-                )
+                import asyncio
+                try:
+                    # Get or create event loop
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    # Run the async function
+                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                        analysis_result, analysis_type, user_focus, message, chat_list
+                    ))
+                except Exception as e:
+                    print(f"Error in fallback chat response generation: {e}")
+                    ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
         else:
             # No analysis available yet
             ai_response = f"I don't have the video analysis results yet. Please first analyze the uploaded video, then I can help you with: {message}. Click 'Start Analysis' to begin the video analysis."

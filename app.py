@@ -27,7 +27,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(chat_bp)
-    app.register_blueprint(api_bp)
+    app.register_blueprint(api_bp, url_prefix='/api')
     
     return app
 

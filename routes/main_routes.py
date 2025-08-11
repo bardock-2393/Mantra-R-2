@@ -127,7 +127,7 @@ def upload_video():
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @main_bp.route('/analyze', methods=['POST'])
-async def analyze_video():
+def analyze_video():
     """Analyze uploaded video"""
     try:
         data = request.get_json()
@@ -156,7 +156,20 @@ async def analyze_video():
         
         # Perform analysis using model manager
         from services.model_manager import model_manager
-        analysis_result = await model_manager.analyze_video(video_path, analysis_type, user_focus)
+        import asyncio
+        try:
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Run the async function
+            analysis_result = loop.run_until_complete(model_manager.analyze_video(video_path, analysis_type, user_focus))
+        except Exception as e:
+            print(f"Error in video analysis: {e}")
+            return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
         
         # Extract video metadata to validate timestamps
         video_metadata = extract_video_metadata(video_path)
