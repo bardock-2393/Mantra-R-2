@@ -190,6 +190,13 @@ class Qwen25VL32BService:
             print(f"🚀 Moving model to device: {self.device}")
             self.model.to(self.device)
             
+            # Enable torch.compile for massive speed improvement
+            try:
+                self.model = torch.compile(self.model, mode='reduce-overhead')
+                print("✅ Torch compile enabled - expect 2-3x speed improvement")
+            except Exception as e:
+                print(f"⚠️ Torch compile failed: {e}")
+            
             # Warm up the model
             await self._warmup_model()
             
@@ -396,7 +403,9 @@ class Qwen25VL32BService:
                     temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
                     top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                    do_sample=True,
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
                     pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
@@ -477,7 +486,9 @@ Please provide a detailed, helpful analysis.
                     temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
                     top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                    do_sample=True,
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
                     pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
@@ -540,7 +551,9 @@ Please provide a detailed, helpful analysis.
                     temperature=Config.QWEN25VL_32B_CONFIG['chat_temperature'],
                     top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
                     top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                    do_sample=True,
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
                     pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             

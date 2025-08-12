@@ -9,7 +9,8 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from config import Config
 from services.session_service import get_session_data, store_session_data
-from services.ai_service_fixed import minicpm_service
+# COMMENTED OUT TO SAVE MEMORY - ONLY USE 32B MODEL
+# from services.ai_service_fixed import minicpm_service
 from services.vector_search_service import vector_search_service
 
 # Create Blueprint

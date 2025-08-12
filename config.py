@@ -15,14 +15,17 @@ class Config:
     # File Upload Configuration
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'webm', 'mkv', 'm4v'}
     
-    # GPU Configuration
+    # GPU Configuration - Optimized for 80GB + 32B model + video processing
     GPU_CONFIG = {
         'enabled': True,
         'device': 'cuda:0',  # Primary GPU
         'memory_limit': 80 * 1024 * 1024 * 1024,  # 80GB
-        'batch_size': 32,
-        'precision': 'float16',  # Use FP16 for speed
-        'num_workers': 4
+        'batch_size': 1,  # Reduced for 32B model + video processing
+        'precision': 'bfloat16',  # Better for 32B models than float16
+        'num_workers': 2,  # Reduced for memory efficiency
+        'gradient_checkpointing': False,  # Disable for inference
+        'use_flash_attention': False,  # Disable for compatibility
+        'compile_mode': 'reduce-overhead'  # Speed optimization
     }
     
     # MiniCPM-V Model Configuration
@@ -48,36 +51,45 @@ class Config:
         'chat_temperature': 0.3
     }
     
-    # Qwen2.5-VL-32B Model Configuration (New)
+    # Qwen2.5-VL-32B Model Configuration - Optimized for speed
     QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
     QWEN25VL_32B_CONFIG = {
         'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
         'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 32768,
-        'temperature': 0.2,
-        'top_p': 0.9,
-        'top_k': 40,
-        'chat_temperature': 0.3,
+        'max_length': 8192,  # Reduced for faster generation
+        'temperature': 0.1,   # More deterministic = faster
+        'top_p': 0.8,        # Reduced for faster sampling
+        'top_k': 20,          # Reduced for faster sampling
+        'chat_temperature': 0.2,
         'min_pixels': 256 * 28 * 28,  # 256 tokens
-        'max_pixels': 1280 * 28 * 28   # 1280 tokens
+        'max_pixels': 1280 * 28 * 28,  # 1280 tokens
+        # Speed optimization settings
+        'use_cache': True,
+        'do_sample': False,   # Disable sampling for speed
+        'num_beams': 1,       # Single beam for speed
+        'early_stopping': True
     }
     
-    # DeepStream Configuration
+    # DeepStream Configuration - Optimized for 120min 720p 90fps
     DEEPSTREAM_CONFIG = {
         'enabled': True,
         'fps_target': 90,
         'max_video_duration': 120 * 60,  # 120 minutes
         'yolo_model': 'yolov8n.engine',  # TensorRT optimized
         'tracking': 'nvdcf',  # NVIDIA DeepStream tracker
-        'gpu_memory': 4 * 1024 * 1024 * 1024  # 4GB for DeepStream
+        'gpu_memory': 8 * 1024 * 1024 * 1024,  # 8GB for DeepStream (increased)
+        'chunk_size': 30,  # Process 30-second chunks
+        'overlap': 5,  # 5-second overlap between chunks
+        'memory_efficient': True  # Enable memory optimization
     }
     
-    # Performance Targets
+    # Performance Targets - Adjusted for 80GB constraint
     PERFORMANCE_TARGETS = {
-        'latency_target': 1000,  # ms
+        'latency_target': 2000,  # Increased to 2s for 32B model
         'fps_target': 90,
-        'max_video_duration': 120 * 60,  # seconds
-        'concurrent_sessions': 10
+        'max_video_duration': 120 * 60,  # 120 minutes
+        'concurrent_sessions': 2,  # Reduced for 32B model
+        'memory_buffer': 10 * 1024 * 1024 * 1024  # 10GB buffer
     }
     
     # Session Configuration (Local storage)
