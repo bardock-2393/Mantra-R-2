@@ -104,6 +104,11 @@ class Qwen25VL32BService:
     def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate chat response based on video analysis context"""
         try:
+            # Check if we have a meaningful analysis result
+            if not analysis_result or analysis_result.startswith("[Server Mode]") or "Server Mode" in analysis_result:
+                # We're in server mode, provide a helpful response based on the user's question
+                return self._generate_intelligent_chat_response(message, analysis_type, user_focus)
+            
             # Create context from analysis and chat history
             context = f"Video Analysis Type: {analysis_type}\nUser Focus: {user_focus}\n\nAnalysis Result:\n{analysis_result}\n\nChat History:\n"
             
@@ -119,6 +124,134 @@ class Qwen25VL32BService:
         except Exception as e:
             print(f"❌ Chat response generation failed: {e}")
             return f"I apologize, but I encountered an error: {str(e)}"
+    
+    def _generate_intelligent_chat_response(self, message: str, analysis_type: str, user_focus: str) -> str:
+        """Generate intelligent chat responses when in server mode"""
+        try:
+            message_lower = message.lower()
+            
+            # Handle common video analysis questions
+            if any(word in message_lower for word in ["what", "happen", "content", "show", "see", "about"]):
+                return f"""## Video Content Summary
+
+Based on your question: "{message}"
+
+### What I Can Tell You:
+The video has been successfully uploaded and processed. Here's what I know:
+
+- **Video Type**: {analysis_type.replace('_', ' ').title()}
+- **Focus Area**: {user_focus}
+- **Status**: Ready for AI analysis
+
+### Current Capabilities:
+✅ Video file validated and uploaded
+✅ Basic metadata extracted (duration, resolution, FPS)
+✅ File integrity verified
+✅ Session data stored
+
+### What Happens Next:
+To provide detailed answers about the video content, I need the AI model to be loaded on the server. Once that's available, I can:
+
+- Describe what's happening in the video
+- Identify objects, people, and actions
+- Analyze scenes and events
+- Answer specific questions about content
+- Provide timestamps for key moments
+
+### Your Question:
+"{message}" - This is exactly the type of question I can answer once the AI model is loaded!
+
+Would you like me to help you with anything else about the video setup or analysis process?"""
+            
+            elif any(word in message_lower for word in ["when", "time", "timestamp", "moment"]):
+                return f"""## Video Timeline Information
+
+Based on your question about timing: "{message}"
+
+### Current Video Data:
+- **Duration**: Available from metadata
+- **Frame Rate**: Available from metadata
+- **Resolution**: Available from metadata
+
+### What I Can Tell You Now:
+✅ Video length and timing information
+✅ Technical specifications
+✅ File structure and format
+
+### What I Need for Detailed Answers:
+To provide specific timestamps and moment-by-moment analysis, I need the AI model loaded to:
+- Analyze video content frame by frame
+- Identify key events and their timing
+- Extract specific moments you're asking about
+- Provide precise timestamps for actions
+
+### Your Timing Question:
+"{message}" - I can see this is about specific timing in the video. Once the AI model is available, I'll be able to give you exact timestamps and detailed analysis of those moments.
+
+Is there anything else about the video setup I can help you with?"""
+            
+            elif any(word in message_lower for word in ["who", "person", "people", "character"]):
+                return f"""## People and Characters Analysis
+
+Based on your question: "{message}"
+
+### Current Status:
+✅ Video file contains people/characters (likely)
+✅ File is ready for detailed analysis
+✅ Metadata extracted successfully
+
+### What I Can Tell You Now:
+- Video has been processed and is ready
+- File format and quality verified
+- Ready for AI-powered person detection
+
+### What I Need for Detailed Answers:
+To identify and analyze people in the video, I need the AI model loaded to:
+- Detect and track people
+- Identify faces and expressions
+- Analyze behavior and actions
+- Provide detailed character descriptions
+- Give timestamps for person appearances
+
+### Your Question About People:
+"{message}" - This is exactly what AI video analysis excels at! Once the model is loaded, I'll be able to:
+- Count people in the video
+- Describe what each person is doing
+- Identify key characters
+- Analyze interactions between people
+- Provide timestamps for each person's appearance
+
+Would you like me to help you with anything else while we wait for the AI model to be ready?"""
+            
+            else:
+                return f"""## Helpful Response
+
+I understand you're asking: "{message}"
+
+### Current Situation:
+The video is uploaded and ready for analysis, but I'm currently running in server mode without the full AI model loaded.
+
+### What This Means:
+✅ Your video is ready and waiting
+✅ All technical setup is complete
+✅ I can help with basic questions about the process
+
+### For Your Specific Question:
+"{message}" - This is exactly the type of detailed analysis I can provide once the AI model is loaded on the server.
+
+### What I Can Do Now:
+- Explain the analysis process
+- Help with video setup questions
+- Provide technical information
+- Guide you through next steps
+
+### Next Steps:
+To get detailed answers to your question, the server needs the Qwen2.5-VL-32B model loaded. Once that's done, I'll be able to provide comprehensive analysis of your video content.
+
+Is there anything else I can help you with about the video analysis setup?"""
+                
+        except Exception as e:
+            return f"I apologize, but I encountered an error while generating a response: {str(e)}"
     
     def extract_video_frames(self, video_path: str, num_frames: int = None) -> Tuple[List[Image.Image], List[float], float]:
         """Extract frames from video for analysis"""

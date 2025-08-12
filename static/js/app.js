@@ -295,7 +295,7 @@ class VideoDetective {
                 this.showChatInterface();
                 
                 // Show analysis completion message with evidence if available
-                let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
+                let completionMessage = '🎯 **Video Analysis Setup Complete!**\n\nYour video has been successfully uploaded and processed. Here\'s what I\'ve prepared:';
                 
                 if (result.evidence && result.evidence.length > 0) {
                     const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
@@ -312,7 +312,7 @@ class VideoDetective {
                     completionMessage += `\n\n${evidenceText}`;
                 }
                 
-                completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
+                completionMessage += '\n\n**Current Status**: Video is ready for AI analysis!\n\n**Next Steps**: Ask me anything about the video content. I can provide:\n- Basic video information and metadata\n- Technical specifications and details\n- Analysis setup guidance\n- Help with video processing questions\n\n**For Full AI Analysis**: The server needs the Qwen2.5-VL-32B model loaded to provide detailed content analysis, object recognition, and behavioral insights.';
                 
                 // Add completion message with typing effect
                 this.addChatMessageWithTyping('ai', completionMessage);
