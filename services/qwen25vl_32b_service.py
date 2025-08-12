@@ -73,9 +73,53 @@ except ImportError:
                                     abs_path = os.path.abspath(str(video_path))
                                     print(f"✅ Video file found and added: {abs_path} ({file_size} bytes)")
                                     
-                                    # For Qwen2.5-VL, we need to pass the video path directly
-                                    # The processor will handle the video loading
-                                    video_inputs.append(abs_path)
+                                    # For the fallback, we need to handle video loading ourselves
+                                    # since qwen-vl-utils is not available
+                                    try:
+                                        # Try to load video with OpenCV to create a tensor
+                                        import cv2
+                                        import torch
+                                        
+                                        cap = cv2.VideoCapture(abs_path)
+                                        if cap.isOpened():
+                                            # Extract a few frames to create a video tensor
+                                            frames = []
+                                            frame_count = 0
+                                            max_frames = 8  # Limit frames for memory
+                                            
+                                            while cap.isOpened() and frame_count < max_frames:
+                                                ret, frame = cap.read()
+                                                if ret:
+                                                    # Convert BGR to RGB and normalize
+                                                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                                    frame_tensor = torch.from_numpy(frame_rgb).float() / 255.0
+                                                    frames.append(frame_tensor)
+                                                    frame_count += 1
+                                                else:
+                                                    break
+                                            
+                                            cap.release()
+                                            
+                                            if frames:
+                                                # Stack frames into a video tensor
+                                                video_tensor = torch.stack(frames, dim=0)
+                                                print(f"✅ Created video tensor with {len(frames)} frames, shape: {video_tensor.shape}")
+                                                video_inputs.append(video_tensor)
+                                            else:
+                                                print(f"⚠️ No frames extracted from video: {abs_path}")
+                                                # Fallback: just pass the path and let processor handle it
+                                                video_inputs.append(abs_path)
+                                        else:
+                                            print(f"⚠️ Could not open video with OpenCV: {abs_path}")
+                                            # Fallback: just pass the path
+                                            video_inputs.append(abs_path)
+                                            
+                                    except ImportError:
+                                        print(f"⚠️ OpenCV not available, passing video path directly: {abs_path}")
+                                        video_inputs.append(abs_path)
+                                    except Exception as e:
+                                        print(f"⚠️ Video loading failed: {e}, passing path directly: {abs_path}")
+                                        video_inputs.append(abs_path)
                                 else:
                                     print(f"⚠️ Video file is empty: {video_path}")
                             except OSError as e:
@@ -468,7 +512,15 @@ class Qwen25VL32BService:
                         
                 else:
                     print("⚠️ qwen-vl-utils not available, using fallback")
-                    return await self._generate_text_only_analysis(prompt, video_path)
+                    # Use our fallback function
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    print(f"✅ Fallback vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+                    
+                    if not video_inputs or len(video_inputs) == 0:
+                        print("⚠️ No video inputs from fallback, using text-only analysis")
+                        return await self._generate_text_only_analysis(prompt, video_path)
+                    
+                    print(f"✅ Using {len(video_inputs)} video inputs from fallback")
                     
             except Exception as e:
                 print(f"⚠️ Vision info processing failed: {e}")
@@ -480,21 +532,43 @@ class Qwen25VL32BService:
                 messages, tokenize=False, add_generation_prompt=True
             )
             
-            # Prepare inputs - ONLY pass paths to videos parameter
+            # Prepare inputs - handle both video tensors and paths
             try:
-                # Ensure video_inputs is a non-empty list of existing absolute paths
-                video_inputs = [os.path.abspath(v) for v in (video_inputs or []) if v and os.path.exists(v)]
-                if not video_inputs:
-                    print("⚠️ No valid video paths available, using fallback")
+                # Check what type of video inputs we have
+                if not video_inputs or len(video_inputs) == 0:
+                    print("⚠️ No video inputs available, using fallback")
                     return await self._generate_text_only_analysis(prompt, video_path)
                 
-                # Process with the processor - let it handle video loading
-                inputs = self.processor(
-                    text=[text],
-                    videos=video_inputs,  # <-- list of paths, not tensors
-                    padding=True,
-                    return_tensors="pt"
-                )
+                # Check if we have video tensors or paths
+                has_tensors = any(hasattr(v, 'shape') for v in video_inputs)
+                has_paths = any(isinstance(v, str) for v in video_inputs)
+                
+                if has_tensors:
+                    # We have video tensors from our fallback
+                    print(f"✅ Using video tensors from fallback")
+                    inputs = self.processor(
+                        text=[text],
+                        videos=video_inputs,  # Video tensors
+                        padding=True,
+                        return_tensors="pt"
+                    )
+                elif has_paths:
+                    # We have video paths, ensure they exist
+                    valid_paths = [os.path.abspath(v) for v in video_inputs if v and os.path.exists(str(v))]
+                    if not valid_paths:
+                        print("⚠️ No valid video paths available, using fallback")
+                        return await self._generate_text_only_analysis(prompt, video_path)
+                    
+                    print(f"✅ Using video paths: {len(valid_paths)}")
+                    inputs = self.processor(
+                        text=[text],
+                        videos=valid_paths,  # Video paths
+                        padding=True,
+                        return_tensors="pt"
+                    )
+                else:
+                    print("⚠️ No valid video inputs found, using fallback")
+                    return await self._generate_text_only_analysis(prompt, video_path)
                 
                 # Move inputs to the same device as the model (let accelerate handle this)
                 model_device = next(self.model.parameters()).device
@@ -852,13 +926,53 @@ class Qwen25VL32BService:
                     messages, tokenize=False, add_generation_prompt=True
                 )
                 
-                # Try direct video processing
-                inputs = self.processor(
-                    text=[text],
-                    videos=[os.path.abspath(video_path)],  # Pass video path directly
-                    padding=True,
-                    return_tensors="pt"
-                )
+                # Process vision info first to get proper video inputs
+                if QWEN_VL_UTILS_AVAILABLE:
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    print(f"✅ Vision info processed for direct video - Videos: {len(video_inputs)}")
+                    
+                    if video_inputs and len(video_inputs) > 0:
+                        # Use the processed video inputs from qwen-vl-utils
+                        inputs = self.processor(
+                            text=[text],
+                            videos=video_inputs,  # Use processed video inputs
+                            padding=True,
+                            return_tensors="pt"
+                        )
+                    else:
+                        raise RuntimeError("No video inputs processed from qwen-vl-utils")
+                else:
+                    # Fallback: process vision info with our fallback function
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    print(f"✅ Fallback vision info processed - Videos: {len(video_inputs)}")
+                    
+                    if video_inputs and len(video_inputs) > 0:
+                        # Check if we have video tensors or paths
+                        has_tensors = any(hasattr(v, 'shape') for v in video_inputs)
+                        has_paths = any(isinstance(v, str) for v in video_inputs)
+                        
+                        if has_tensors:
+                            # We have video tensors from our fallback
+                            print(f"✅ Using video tensors from fallback")
+                            inputs = self.processor(
+                                text=[text],
+                                videos=video_inputs,  # Video tensors
+                                padding=True,
+                                return_tensors="pt"
+                            )
+                        elif has_paths:
+                            # We have video paths, try direct processing
+                            print(f"✅ Using video paths from fallback")
+                            inputs = self.processor(
+                                text=[text],
+                                videos=video_inputs,  # Video paths
+                                padding=True,
+                                return_tensors="pt"
+                            )
+                        else:
+                            raise RuntimeError("No valid video inputs found")
+                    else:
+                        raise RuntimeError("No video inputs processed from fallback")
                 
                 # Move to device
                 model_device = next(self.model.parameters()).device
@@ -1292,12 +1406,30 @@ Total Frames: {frame_count}
             
             # Test 5: Try processor
             try:
-                inputs = self.processor(
-                    text=[text],
-                    videos=[abs_path],
-                    padding=True,
-                    return_tensors="pt"
-                )
+                # Process vision info first to get proper video inputs
+                if QWEN_VL_UTILS_AVAILABLE:
+                    image_inputs, video_inputs = process_vision_info(test_messages)
+                    print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+                    print(f"   Video inputs: {video_inputs}")
+                    
+                    if video_inputs and len(video_inputs) > 0:
+                        inputs = self.processor(
+                            text=[text],
+                            videos=video_inputs,  # Use processed video inputs
+                            padding=True,
+                            return_tensors="pt"
+                        )
+                    else:
+                        raise RuntimeError("No video inputs processed")
+                else:
+                    # Fallback: direct processor call
+                    inputs = self.processor(
+                        text=[text],
+                        videos=[abs_path],
+                        padding=True,
+                        return_tensors="pt"
+                    )
+                
                 print(f"✅ Processor successful - Input keys: {list(inputs.keys())}")
                 
                 # Check if video inputs are properly processed
@@ -1307,7 +1439,7 @@ Total Frames: {frame_count}
                 else:
                     print("⚠️ No video tensor found in inputs")
                 
-                return f"Video processing test successful!\n- File: {abs_path}\n- Video inputs: {len(video_inputs)}\n- Input keys: {list(inputs.keys())}"
+                return f"Video processing test successful!\n- File: {abs_path}\n- Video inputs: {len(video_inputs) if 'video_inputs' in locals() else 'N/A'}\n- Input keys: {list(inputs.keys())}"
                 
             except Exception as e:
                 return f"Processor failed: {e}"
