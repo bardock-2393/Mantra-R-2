@@ -36,65 +36,7 @@ class Qwen25VL32BService:
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
         
-    async def initialize(self):
-        """Initialize the Qwen2.5-VL-32B model on GPU"""
-        try:
-            print(f"🚀 Initializing Qwen2.5-VL-32B on {self.device}...")
-            
-            # Check GPU availability
-            if not torch.cuda.is_available():
-                raise RuntimeError("CUDA not available. GPU is required.")
-            
-            # Initialize GPU service
-            await self.gpu_service.initialize()
-            
-            # Load processor
-            print(f"📝 Loading processor...")
-            try:
-                self.processor = AutoProcessor.from_pretrained(
-                    "Qwen/Qwen2.5-VL-32B-Instruct",
-                    trust_remote_code=True
-                )
-                print(f"✅ Processor loaded successfully")
-            except Exception as e:
-                print(f"❌ Processor loading failed: {e}")
-                raise RuntimeError(f"Failed to load processor: {e}")
-            
-            # Load tokenizer
-            try:
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    "Qwen/Qwen2.5-VL-32B-Instruct",
-                    trust_remote_code=True
-                )
-                print(f"✅ Tokenizer loaded successfully")
-            except Exception as e:
-                print(f"⚠️ Tokenizer loading failed: {e}")
-                self.tokenizer = None
-            
-            # Load model
-            print(f"🤖 Loading model...")
-            try:
-                self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                    "Qwen/Qwen2.5-VL-32B-Instruct",
-                    torch_dtype=torch.float16 if Config.GPU_CONFIG.get('precision') == 'float16' else torch.float32,
-                    device_map="auto",
-                    trust_remote_code=True
-                )
-                print(f"✅ Model loaded successfully")
-            except Exception as e:
-                print(f"❌ Model loading failed: {e}")
-                raise RuntimeError(f"Failed to load model: {e}")
-            
-            # Move to GPU
-            self.model.to(self.device)
-            self.model.eval()
-            
-            self.is_initialized = True
-            print(f"✅ Qwen2.5-VL-32B service initialized successfully")
-            
-        except Exception as e:
-            print(f"❌ Failed to initialize service: {e}")
-            raise
+    # async initialize method removed - not used
     
     async def analyze_video_with_gemini(self, video_path: str, analysis_type: str, user_focus: str, session_id: str = None) -> str:
         """Analyze video content using the 32B model (maintained compatibility)"""
@@ -214,14 +156,17 @@ class Qwen25VL32BService:
                 return_tensors="pt"
             ).to(self.device)
             
-            # Generate
+            # Generate - OPTIMIZED for speed
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
-                    max_new_tokens=max_new_tokens,
-                    do_sample=True,
-                    temperature=0.7,
-                    top_p=0.9,
+                    max_new_tokens=min(max_new_tokens, 512),  # Reduced from 2048 for speed
+                    do_sample=False,                          # Greedy decoding = faster
+                    temperature=0.1,                          # Lower temp = more deterministic
+                    top_p=0.8,                               # Reduced for speed
+                    top_k=20,                                # Reduced for speed
+                    num_beams=1,                             # Single beam = faster
+                    early_stopping=True,                      # Stop early when possible
                     pad_token_id=self.tokenizer.eos_token_id if self.tokenizer else self.processor.tokenizer.eos_token_id
                 )
             
@@ -292,21 +237,6 @@ class Qwen25VL32BService:
         base_prompt += f"3. Content summary\n"
         base_prompt += f"4. Insights relevant to the user's focus\n"
         return base_prompt
-    
-    def cleanup(self):
-        """Cleanup resources"""
-        try:
-            if self.model:
-                del self.model
-            if self.tokenizer:
-                del self.tokenizer
-            if self.processor:
-                del self.processor
-            torch.cuda.empty_cache()
-            self.is_initialized = False
-            print("🧹 Service cleanup completed")
-        except Exception as e:
-            print(f"⚠️ Warning: Cleanup failed: {e}")
 
 # Create global instance for compatibility
 ai_service = Qwen25VL32BService()

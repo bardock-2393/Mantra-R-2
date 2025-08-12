@@ -69,182 +69,84 @@ def model_health_check():
             'timestamp': time.time()
         }), 500
 
-@api_bp.route('/switch-model', methods=['POST'])
+@api_bp.route('/model/switch', methods=['POST'])
 def switch_model():
-    """Switch between different AI models"""
+    """Switch between available AI models"""
     try:
         data = request.get_json()
-        model_name = data.get('model')
+        model_name = data.get('model_name')
         
         if not model_name:
             return jsonify({'success': False, 'error': 'Model name required'})
         
-        # Import model manager
+        # Import here to avoid circular imports
         from services.model_manager import model_manager
         
-        # Switch model using the model manager (run in event loop)
+        # Switch model
         import asyncio
         try:
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            # Run the async function
-            success = loop.run_until_complete(model_manager.switch_model(model_name))
-            
-            if success:
-                # Get updated model status
-                model_status = model_manager.get_current_model()
-                return jsonify({
-                    'success': True,
-                    'model': model_name,
-                    'model_name': model_name.replace('_', ' ').title(),
-                    'message': f'Successfully switched to {model_name}',
-                    'model_status': model_status
-                })
-            else:
-                return jsonify({
-                    'success': False, 
-                    'error': f'Failed to switch to {model_name}. Check logs for details.'
-                })
-                
-        except Exception as e:
-            print(f"Error in model switching: {e}")
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        success = loop.run_until_complete(model_manager.switch_model(model_name))
+        
+        if success:
             return jsonify({
-                'success': False, 
-                'error': f'Model switching failed: {str(e)}'
-            }), 500
-        
+                'success': True,
+                'message': f'Switched to {model_name}',
+                'current_model': model_name
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to switch to {model_name}'
+            })
+            
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@api_bp.route('/model-status')
-def get_model_status():
-    """Get current model status"""
-    try:
-        from services.model_manager import model_manager
-        return jsonify(model_manager.get_status())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@api_bp.route('/agent-info')
-def get_agent_info():
-    """Get information about the AI agent capabilities"""
-    from analysis_templates import ANALYSIS_TEMPLATES
-    return jsonify({
-        'agent_name': 'AI Video Detective Agent',
-        'version': '2.0.0',
-        'description': 'Advanced AI video analysis agent with comprehensive understanding capabilities',
-        'capabilities': AGENT_CAPABILITIES,
-        'tools': AGENT_TOOLS,
-        'analysis_types': {
-            key: {
-                'name': value['name'],
-                'description': value['description'],
-                'icon': value['icon'],
-                'agent_capabilities': value.get('agent_capabilities', [])
-            }
-            for key, value in ANALYSIS_TEMPLATES.items()
-        },
-        'features': [
-            'Autonomous video analysis with multi-modal understanding',
-            'Context-aware conversations with memory',
-            'Proactive insights generation',
-            'Comprehensive reporting across multiple dimensions',
-            'Adaptive focus based on content and user needs',
-            'Professional-grade analysis protocols',
-            'Real-time conversation with video context',
-            'Advanced pattern recognition and behavioral analysis'
-        ]
-    })
-
-@api_bp.route('/capture-screenshots', methods=['POST'])
-def capture_screenshots():
-    """Capture screenshots at specific timestamps from the analyzed video"""
-    try:
-        data = request.get_json()
-        session_id = data.get('session_id')
-        timestamps = data.get('timestamps', [])
-        
-        if not session_id:
-            return jsonify({'success': False, 'error': 'Session ID required'})
-        
-        # Get session data
-        session_data = get_session_data(session_id)
-        if not session_data or 'filepath' not in session_data:
-            return jsonify({'success': False, 'error': 'No video found for session'})
-        
-        video_path = session_data['filepath']
-        
-        if not os.path.exists(video_path):
-            return jsonify({'success': False, 'error': 'Video file not found'})
-        
-        # Capture screenshots for each timestamp
-        screenshots = []
-        for timestamp in timestamps:
-            screenshot_data = capture_screenshot(video_path, timestamp, session_id, Config.UPLOAD_FOLDER)
-            if screenshot_data:
-                screenshots.append(screenshot_data)
-        
-        return jsonify({
-            'success': True,
-            'screenshots': screenshots,
-            'count': len(screenshots)
-        })
-        
-    except Exception as e:
+        print(f"Model switch error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@api_bp.route('/auto-capture-screenshots', methods=['POST'])
-def auto_capture_screenshots():
-    """Automatically capture screenshots based on timestamps found in analysis text"""
+@api_bp.route('/session/status', methods=['GET'])
+def get_session_status():
+    """Get current session status"""
     try:
-        data = request.get_json()
-        session_id = data.get('session_id')
-        analysis_text = data.get('analysis_text', '')
-        
+        session_id = session.get('session_id')
         if not session_id:
-            return jsonify({'success': False, 'error': 'Session ID required'})
-        
-        # Extract timestamps from analysis text
-        timestamps = extract_timestamps_from_text(analysis_text)
-        
-        if not timestamps:
-            return jsonify({'success': False, 'error': 'No timestamps found in analysis'})
+            return jsonify({
+                'success': False,
+                'error': 'No active session',
+                'has_session': False
+            })
         
         # Get session data
         session_data = get_session_data(session_id)
-        if not session_data or 'filepath' not in session_data:
-            return jsonify({'success': False, 'error': 'No video found for session'})
         
-        video_path = session_data['filepath']
-        
-        if not os.path.exists(video_path):
-            return jsonify({'success': False, 'error': 'Video file not found'})
-        
-        # Capture screenshots for extracted timestamps
-        screenshots = []
-        for timestamp in timestamps:
-            screenshot_data = capture_screenshot(video_path, timestamp, session_id, Config.UPLOAD_FOLDER)
-            if screenshot_data:
-                screenshots.append(screenshot_data)
-        
-        return jsonify({
-            'success': True,
-            'screenshots': screenshots,
-            'timestamps': timestamps,
-            'count': len(screenshots)
-        })
-        
+        if session_data:
+            return jsonify({
+                'success': True,
+                'has_session': True,
+                'session_id': session_id,
+                'analysis_available': 'analysis_result' in session_data,
+                'chat_history_count': len(session_data.get('chat_history', [])),
+                'evidence_count': len(session_data.get('evidence', [])),
+                'timestamps_count': len(session_data.get('timestamps_found', []))
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Session not found',
+                'has_session': False
+            })
+            
     except Exception as e:
+        print(f"Session status error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @api_bp.route('/session/cleanup', methods=['POST'])
 def cleanup_current_session():
-    """Clean up the current session data and files"""
+    """Clean up current session data"""
     try:
         session_id = session.get('session_id')
         if not session_id:
@@ -254,108 +156,59 @@ def cleanup_current_session():
         success = cleanup_session_data(session_id)
         
         if success:
-            # Clear Flask session
+            # Clear session
             session.clear()
             return jsonify({
                 'success': True,
-                'message': 'Session cleaned up successfully',
-                'session_id': session_id
+                'message': 'Session cleaned up successfully'
             })
         else:
-            return jsonify({'success': False, 'error': 'Failed to cleanup session'})
+            return jsonify({
+                'success': False,
+                'error': 'Failed to cleanup session'
+            })
             
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@api_bp.route('/session/status')
-def get_session_status():
-    """Get current session status and file information"""
-    try:
-        session_id = session.get('session_id')
-        if not session_id:
-            return jsonify({
-                'active': False,
-                'session_id': None,
-                'message': 'No active session'
-            })
-        
-        # Get session data
-        session_data = get_session_data(session_id)
-        
-        if not session_data:
-            return jsonify({
-                'active': False,
-                'session_id': session_id,
-                'message': 'Session data not found'
-            })
-        
-        # Check if video file exists
-        video_exists = False
-        video_size = 0
-        if 'filepath' in session_data:
-            video_path = session_data['filepath']
-            if os.path.exists(video_path):
-                video_exists = True
-                video_size = os.path.getsize(video_path)
-        
-        # Count evidence files
-        evidence_count = 0
-        upload_folder = Config.UPLOAD_FOLDER
-        if os.path.exists(upload_folder):
-            for filename in os.listdir(upload_folder):
-                if filename.startswith(f"screenshot_{session_id}_") or filename.startswith(f"clip_{session_id}_"):
-                    evidence_count += 1
-        
-        return jsonify({
-            'active': True,
-            'session_id': session_id,
-            'video_uploaded': video_exists,
-            'video_size': video_size,
-            'evidence_count': evidence_count,
-            'analysis_complete': 'analysis_result' in session_data,
-            'upload_time': session_data.get('upload_time'),
-            'analysis_time': session_data.get('analysis_time')
-        })
-        
-    except Exception as e:
+        print(f"Session cleanup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @api_bp.route('/session/cleanup-all', methods=['POST'])
 def cleanup_all_sessions():
-    """Clean up all sessions (admin function)"""
+    """Clean up all expired sessions"""
     try:
-        # Get all session keys from local storage
+        # Get all session keys
         session_keys = get_all_session_keys()
-        cleaned_sessions = 0
         
+        cleaned_count = 0
         for session_id in session_keys:
             if cleanup_session_data(session_id):
-                cleaned_sessions += 1
+                cleaned_count += 1
         
         # Also clean up old uploads
         cleanup_old_uploads()
         
         return jsonify({
             'success': True,
-            'message': f'Cleaned up {cleaned_sessions} sessions and old uploads',
-            'cleaned_count': cleaned_sessions
+            'message': f'Cleaned up {cleaned_count} sessions',
+            'sessions_cleaned': cleaned_count
         })
         
     except Exception as e:
+        print(f"Cleanup all sessions error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @api_bp.route('/cleanup-uploads', methods=['POST'])
 def cleanup_uploads():
-    """Clean up old upload files"""
+    """Clean up old uploaded files"""
     try:
         cleanup_old_uploads()
         return jsonify({
             'success': True,
             'message': 'Uploads cleanup completed'
         })
-        
     except Exception as e:
+        print(f"Uploads cleanup error: {e}")
         return jsonify({
             'success': False,
             'error': f'Uploads cleanup failed: {str(e)}'
-        }), 500 
+        }) 

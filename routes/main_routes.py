@@ -265,16 +265,4 @@ def get_screenshot(filename):
         else:
             return jsonify({'error': 'Screenshot not found'}), 404
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@main_bp.route('/demo-video')
-def get_demo_video():
-    """Serve the demo video file"""
-    try:
-        demo_video_path = Config.DEFAULT_VIDEO_PATH
-        if os.path.exists(demo_video_path):
-            return send_file(demo_video_path, mimetype='video/mp4')
-        else:
-            return jsonify({'error': 'Demo video not found'}), 404
-    except Exception as e:
         return jsonify({'error': str(e)}), 500 

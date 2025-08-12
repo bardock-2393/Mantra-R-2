@@ -31,26 +31,6 @@ def create_app():
     
     return app
 
-async def initialize_gpu_services():
-    """Initialize GPU services for Round 2"""
-    try:
-        print("🚀 Initializing GPU services...")
-        
-        # Initialize GPU service
-        gpu_service = GPUService()
-        await gpu_service.initialize()
-        
-        # Initialize performance monitor
-        performance_monitor = PerformanceMonitor()
-        performance_monitor.start()
-        
-        print("✅ GPU services initialized successfully")
-        return gpu_service, performance_monitor
-        
-    except Exception as e:
-        print(f"❌ Failed to initialize GPU services: {e}")
-        return None, None
-
 def start_cleanup_thread():
     """Start background cleanup thread"""
     def periodic_cleanup():
@@ -67,8 +47,8 @@ def start_cleanup_thread():
 
 # Create the application instance
 app = create_app()
-async def main():
-    """Main async function to initialize and run the application"""
+
+if __name__ == '__main__':
     # Create necessary directories
     os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(Config.SESSION_STORAGE_PATH, exist_ok=True)
@@ -76,9 +56,6 @@ async def main():
     # Clean up expired sessions on startup
     print("🧹 Cleaning up expired sessions...")
     cleanup_expired_sessions()
-    
-    # Initialize GPU services for Round 2
-    gpu_service, performance_monitor = await initialize_gpu_services()
     
     # Start background cleanup thread
     cleanup_thread = start_cleanup_thread()
@@ -89,13 +66,5 @@ async def main():
     print(f"🤖 GPU Processing: {'Enabled' if Config.GPU_CONFIG['enabled'] else 'Disabled'}")
     print(f"🎯 Performance targets: <{Config.PERFORMANCE_TARGETS['latency_target']}ms latency, {Config.PERFORMANCE_TARGETS['fps_target']}fps")
     
-    if gpu_service:
-        print(f"🖥️  GPU Device: {Config.GPU_CONFIG['device']}")
-        print(f"💾 GPU Memory: {Config.GPU_CONFIG['memory_limit'] // (1024**3)}GB")
-    
-    return app
-
-if __name__ == '__main__':
-    import asyncio
-    app_instance = asyncio.run(main())
-    app_instance.run(host='0.0.0.0', port=8000, debug=True) 
+    # Run the Flask application
+    app.run(host='0.0.0.0', port=8000, debug=True) 
