@@ -56,8 +56,8 @@ except ImportError:
                     if content_type == "image":
                         # Handle image processing
                         print("🖼️ Processing image content...")
-                        # For now, just add a placeholder
-                        image_inputs.append(None)
+                        # For now, just skip images since we're focusing on video
+                        pass
                     elif content_type == "video":
                         # Handle video processing
                         video_path = content.get("video", "")
@@ -73,14 +73,13 @@ except ImportError:
                                     print(f"✅ Video file found and added: {video_path} ({file_size} bytes)")
                                 else:
                                     print(f"⚠️ Video file is empty: {video_path}")
-                                    video_inputs.append(None)
+                                    # Don't add None, just skip
                             except OSError as e:
                                 print(f"⚠️ Error accessing video file {video_path}: {e}")
-                                video_inputs.append(None)
+                                # Don't add None, just skip
                         else:
                             print(f"⚠️ Video file not found: {video_path}")
-                            # Add None to maintain list structure
-                            video_inputs.append(None)
+                            # Don't add None, just skip
             
             print(f"📊 Processed: {len(image_inputs)} images, {len(video_inputs)} videos")
             
@@ -141,7 +140,7 @@ class Qwen25VL32BService:
                     hf_token = os.getenv('HF_TOKEN', '')
                     print(f"⚠️ No HF_TOKEN found in config, trying environment variable: {'Found' if hf_token else 'Not found'}")
                 
-                if hf_token:
+                if hf_token and len(hf_token) > 0:
                     print(f"🔑 Using HF token: {hf_token[:10]}...{hf_token[-4:] if len(hf_token) > 14 else ''}")
                 else:
                     print("⚠️ No HF_TOKEN available, trying without authentication")

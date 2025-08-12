@@ -94,7 +94,7 @@ class VideoDetective {
 
     async cleanupOldUploads() {
         try {
-            const response = await fetch('/cleanup-uploads', {
+            const response = await fetch('/api/cleanup-uploads', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -760,7 +760,7 @@ class VideoDetective {
 
     async checkSessionStatus() {
         try {
-            const response = await fetch('/session/status');
+            const response = await fetch('/api/session/status');
             const result = await response.json();
             
             if (result.active) {

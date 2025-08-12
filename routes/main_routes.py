@@ -172,11 +172,28 @@ def analyze_video():
             print(f"Error in video analysis: {e}")
             return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
         
-        # Extract video metadata to validate timestamps
-        video_metadata = extract_video_metadata(video_path)
-        video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+        # Use stored video metadata from session instead of re-extracting
+        stored_metadata = session_data.get('metadata')
+        print(f"🔍 Debug: Stored metadata type: {type(stored_metadata)}")
+        print(f"🔍 Debug: Stored metadata content: {stored_metadata}")
         
-        print(f"🎯 Video duration: {video_duration:.2f} seconds")
+        if stored_metadata and isinstance(stored_metadata, str):
+            try:
+                video_metadata = json.loads(stored_metadata)
+                print(f"🔍 Debug: Parsed metadata: {video_metadata}")
+                video_duration = video_metadata.get('duration', 0)
+                print(f"🎯 Using stored video duration: {video_duration:.2f} seconds")
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Failed to parse stored metadata: {e}, re-extracting...")
+                video_metadata = extract_video_metadata(video_path)
+                video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+                print(f"🎯 Re-extracted video duration: {video_duration:.2f} seconds")
+        else:
+            # Fallback to re-extraction if no stored metadata
+            print("⚠️ No stored metadata found, re-extracting...")
+            video_metadata = extract_video_metadata(video_path)
+            video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+            print(f"🎯 Fallback video duration: {video_duration:.2f} seconds")
         
         # Extract timestamps and capture screenshots automatically
         timestamps = extract_timestamps_from_text(analysis_result)
@@ -199,7 +216,7 @@ def analyze_video():
         
         if timestamps:
             # Create evidence (screenshots or video clips) based on timeframe length
-            evidence = create_evidence_for_timestamps(timestamps, video_path, session_id, Config.UPLOAD_FOLDER)
+            evidence = create_evidence_for_timestamps(timestamps, video_path, session_id, Config.UPLOAD_FOLDER, video_metadata)
         
         # Store analysis results and evidence in session
         analysis_data = {

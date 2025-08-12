@@ -140,12 +140,14 @@ def extract_video_clip(video_path, start_time, end_time, session_id, upload_fold
         print(f"Error extracting video clip: {e}")
         return None
 
-def create_evidence_for_timestamps(timestamps, video_path, session_id, upload_folder):
+def create_evidence_for_timestamps(timestamps, video_path, session_id, upload_folder, video_metadata=None):
     """Create evidence (screenshots or video clips) based on timeframe length"""
     evidence = []
     
-    # First, get the actual video duration to validate timestamps
-    video_metadata = extract_video_metadata(video_path)
+    # Use provided metadata or extract if not provided
+    if video_metadata is None:
+        video_metadata = extract_video_metadata(video_path)
+    
     if not video_metadata:
         print("❌ Warning: Could not extract video metadata, skipping evidence creation")
         return evidence
