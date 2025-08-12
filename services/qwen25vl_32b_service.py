@@ -162,7 +162,7 @@ class Qwen25VL32BService:
         self.tokenizer = None
         self.processor = None
         self.gpu_service = GPUService()
-        self.performance_monitor = PerformanceMonitor()
+        self.performance_monitor = PerformanceMonitor(Config.__dict__)
         self.is_initialized = False
         
         # Initialize video chunking service if available
