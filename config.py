@@ -51,12 +51,12 @@ class Config:
         'chat_temperature': 0.3
     }
     
-    # Qwen2.5-VL-32B Model Configuration - Optimized for speed
+    # Qwen2.5-VL-32B Model Configuration - Optimized for speed and 80GB GPU
     QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
     QWEN25VL_32B_CONFIG = {
         'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
         'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 8192,  # Reduced for faster generation
+        'max_length': 4096,  # Reduced for faster generation and memory efficiency
         'temperature': 0.1,   # More deterministic = faster
         'top_p': 0.8,        # Reduced for faster sampling
         'top_k': 20,          # Reduced for faster sampling
@@ -67,7 +67,22 @@ class Config:
         'use_cache': True,
         'do_sample': False,   # Disable sampling for speed
         'num_beams': 1,       # Single beam for speed
-        'early_stopping': True
+        'early_stopping': True,
+        # Memory optimization for 80GB GPU
+        'batch_size': 1,      # Single batch for memory efficiency
+        'gradient_checkpointing': False,  # Disable for inference
+        'use_flash_attention': False,  # Disable for compatibility
+        'compile_mode': 'reduce-overhead',  # Speed optimization
+        # Timeout settings to prevent Cloudflare 524
+        'vision_timeout': 60,  # 60 seconds for vision processing
+        'generation_timeout': 180,  # 3 minutes for text generation
+        'total_timeout': 300,  # 5 minutes total analysis time
+        # Frame optimization
+        'max_frames_large': 4,   # Large videos (>500MB)
+        'max_frames_medium': 6,  # Medium videos (100-500MB)
+        'max_frames_small': 8,   # Small videos (<100MB)
+        'frame_resolution': 224,  # Resize frames to 224x224 for memory efficiency
+        'use_half_precision': True,  # Use FP16 for memory efficiency
     }
     
     # DeepStream Configuration - Optimized for 120min 720p 90fps
