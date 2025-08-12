@@ -155,12 +155,12 @@ class Qwen25VL32BService:
                     print(f"⚠️ Loading with token failed: {token_error}")
                     if hf_token:
                         print("🔄 Trying without token...")
-                        self.processor = AutoProcessor.from_pretrained(
-                            Config.QWEN25VL_32B_MODEL_PATH,
-                            min_pixels=min_pixels,
-                            max_pixels=max_pixels,
-                            trust_remote_code=True
-                        )
+                self.processor = AutoProcessor.from_pretrained(
+                    Config.QWEN25VL_32B_MODEL_PATH,
+                    min_pixels=min_pixels,
+                    max_pixels=max_pixels,
+                    trust_remote_code=True
+                )
                     else:
                         raise token_error
                 
@@ -191,7 +191,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load processor from both paths: {e}")
                 else:
-                    raise RuntimeError(f"Failed to load processor: {e}")
+                raise RuntimeError(f"Failed to load processor: {e}")
             
             # Load tokenizer as fallback
             try:
@@ -246,7 +246,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load model from both paths: {e}")
                 else:
-                    raise RuntimeError(f"Failed to load model: {e}")
+                raise RuntimeError(f"Failed to load model: {e}")
             
             # Don't manually move to device when using device_map="auto"
             # The model is already properly placed by accelerate
@@ -333,7 +333,7 @@ class Qwen25VL32BService:
             print(f"❌ Video analysis failed: {e}")
             # Return a fallback response
             return f"Video analysis failed. Error: {str(e)}. Please try again or contact support."
-
+    
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered Qwen2.5-VL-32B-Instruct"""
         try:
@@ -786,7 +786,7 @@ class Qwen25VL32BService:
         except Exception as e:
             print(f"❌ Chat failed: {e}")
             return f"Chat failed. Error: {str(e)}. Please try again."
-
+    
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate chat response using Qwen2.5-VL-32B-Instruct with the same prompt system as the old project"""
         try:
@@ -977,7 +977,7 @@ Total Frames: {frame_count}
     def is_ready(self) -> bool:
         """Check if the service is ready to use"""
         return self.is_initialized and self.model is not None and self.processor is not None
-
+    
     def get_status(self) -> Dict:
         """Get service status"""
         return {

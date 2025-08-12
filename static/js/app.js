@@ -297,32 +297,16 @@ class VideoDetective {
                 // Show analysis completion message with evidence if available
                 let completionMessage = '🎯 **Video Analysis Setup Complete!**\n\nYour video has been successfully uploaded and processed. Here\'s what I\'ve prepared:';
                 
-                if (result.evidence && result.evidence.length > 0) {
-                    const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
-                    const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
-                    
-                    let evidenceText = '';
-                    if (screenshotCount > 0 && videoCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
-                    } else if (screenshotCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
-                    } else if (videoCount > 0) {
-                        evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
-                    }
-                    completionMessage += `\n\n${evidenceText}`;
-                }
+                // DISABLED: Visual Evidence feature
+                // No evidence text will be displayed
                 
                 completionMessage += '\n\n**Current Status**: Video is ready for AI analysis!\n\n**Next Steps**: Ask me anything about the video content. I can provide:\n- Basic video information and metadata\n- Technical specifications and details\n- Analysis setup guidance\n- Help with video processing questions\n\n**For Full AI Analysis**: The server needs the Qwen2.5-VL-32B model loaded to provide detailed content analysis, object recognition, and behavioral insights.';
                 
                 // Add completion message with typing effect
                 this.addChatMessageWithTyping('ai', completionMessage);
                 
-                // Display evidence if available (after message appears)
-                if (result.evidence && result.evidence.length > 0) {
-                    setTimeout(() => {
-                        this.displayEvidence(result.evidence);
-                    }, 800); // Wait for fade-in effect to complete + buffer
-                }
+                // DISABLED: Evidence display
+                // No evidence will be shown
             } else {
                 console.error('❌ Analysis failed:', result.error);
                 this.showError(result.error || 'Analysis failed');
@@ -334,6 +318,8 @@ class VideoDetective {
         }
     }
 
+    // DISABLED: Evidence display function
+    /*
     displayEvidence(evidence, title = 'Visual Evidence') {
         const chatMessages = document.getElementById('chatMessages');
         
@@ -408,6 +394,7 @@ class VideoDetective {
         
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+    */
 
     openEvidenceModal(evidence) {
         const modal = document.getElementById('evidenceModal');

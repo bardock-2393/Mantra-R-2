@@ -92,10 +92,13 @@ class Config:
         'memory_buffer': 10 * 1024 * 1024 * 1024  # 10GB buffer
     }
     
-    # Session Configuration (Local storage)
+    # Redis Configuration
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://default:nswO0Z95wT9aeXIIOZMMphnDhsPY3slG@redis-10404.c232.us-east-1-2.ec2.redns.redis-cloud.com:10404')
+    
+    # Session Configuration
     SESSION_EXPIRY = 3600  # 1 hour in seconds
     UPLOAD_CLEANUP_TIME = 2 * 3600  # 2 hours in seconds
-    SESSION_STORAGE_PATH = 'sessions'  # Local file storage
+    SESSION_STORAGE_PATH = 'sessions'  # Local file storage (fallback)
     
     # Analysis Configuration
     MAX_OUTPUT_TOKENS = 32768

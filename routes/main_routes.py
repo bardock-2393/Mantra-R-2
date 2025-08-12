@@ -321,11 +321,9 @@ def analyze_video():
         else:
             print("⚠️ Warning: Could not determine video duration, using all extracted timestamps")
         
+        # DISABLED: Evidence creation (clips and images)
         evidence = []
-        
-        if timestamps:
-            # Create evidence (screenshots or video clips) based on timeframe length
-            evidence = create_evidence_for_timestamps(timestamps, video_path, session_id, Config.UPLOAD_FOLDER, video_metadata)
+        print("🚫 Evidence creation disabled - no clips or images will be generated")
         
         # Store analysis results and evidence in session
         analysis_data = {
@@ -354,8 +352,8 @@ def analyze_video():
             'success': True,
             'analysis': analysis_result,
             'timestamps': timestamps,
-            'evidence': evidence,
-            'evidence_count': len(evidence),
+            'evidence': evidence,  # Empty list - no evidence
+            'evidence_count': 0,  # Always 0
             'video_duration': video_duration,
             'vector_search_available': True
         })
@@ -364,14 +362,8 @@ def analyze_video():
         print(f"Analysis error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@main_bp.route('/screenshot/<filename>')
-def get_screenshot(filename):
-    """Serve screenshot files"""
-    try:
-        filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
-        if os.path.exists(filepath):
-            return send_file(filepath, mimetype='image/jpeg')
-        else:
-            return jsonify({'error': 'Screenshot not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+# DISABLED: Screenshot serving route
+# @main_bp.route('/screenshot/<filename>')
+# def get_screenshot(filename):
+#     """Serve screenshot files - DISABLED"""
+#     return jsonify({'error': 'Screenshot feature has been disabled'}), 404 

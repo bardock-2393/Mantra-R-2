@@ -1,109 +1,90 @@
 """
-Session Service Module for Round 2 - Local file-based session management
-Handles local session storage without external dependencies
+Session Service Module - Redis-based session management
+Handles Redis session management and data storage
 """
 
 import json
 import uuid
 import time
 import os
-import pickle
 from datetime import datetime
-from typing import Dict, Any, Optional
+import redis
 from config import Config
 
-class LocalSessionService:
-    """Local file-based session management service"""
-    
-    def __init__(self):
-        self.sessions_dir = Config.SESSION_STORAGE_PATH
-        self._ensure_sessions_directory()
-    
-    def _ensure_sessions_directory(self):
-        """Ensure the sessions directory exists"""
-        if not os.path.exists(self.sessions_dir):
-            os.makedirs(self.sessions_dir, exist_ok=True)
-    
-    def _get_session_file_path(self, session_id: str) -> str:
-        """Get the file path for a session"""
-        return os.path.join(self.sessions_dir, f"session_{session_id}.pkl")
-    
-    def _get_session_metadata_path(self, session_id: str) -> str:
-        """Get the metadata file path for a session"""
-        return os.path.join(self.sessions_dir, f"metadata_{session_id}.json")
+# Configure Redis
+try:
+    redis_client = redis.from_url(Config.REDIS_URL)
+    print("✅ Redis connection established")
+except Exception as e:
+    print(f"⚠️ Redis connection failed: {e}")
+    redis_client = None
 
 def generate_session_id():
     """Generate unique session ID"""
     return str(uuid.uuid4())
 
 def store_session_data(session_id, data):
-    """Store session data in local file storage"""
+    """Store session data in Redis"""
     try:
-        session_service = LocalSessionService()
-        session_file = session_service._get_session_file_path(session_id)
-        metadata_file = session_service._get_session_metadata_path(session_id)
+        if not redis_client:
+            print("⚠️ Redis not available, using fallback storage")
+            return
         
-        # Store main session data
-        with open(session_file, 'wb') as f:
-            pickle.dump(data, f)
+        # Convert complex data types to JSON strings for Redis storage
+        redis_data = {}
+        for key, value in data.items():
+            if isinstance(value, (list, dict)):
+                redis_data[key] = json.dumps(value)
+            else:
+                redis_data[key] = str(value)
         
-        # Store metadata for quick access
-        metadata = {
-            'created_at': datetime.now().isoformat(),
-            'last_accessed': datetime.now().isoformat(),
-            'expires_at': datetime.fromtimestamp(datetime.now().timestamp() + Config.SESSION_EXPIRY).isoformat(),
-            'data_keys': list(data.keys())
-        }
+        # Store as Redis Hash
+        redis_client.hset(f"session:{session_id}", mapping=redis_data)
+        redis_client.expire(f"session:{session_id}", Config.SESSION_EXPIRY)
         
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f)
-            
-        print(f"✅ Session data stored locally: {session_id}")
+        print(f"✅ Session data stored in Redis: {session_id}")
         
     except Exception as e:
-        print(f"❌ Error storing session data: {e}")
+        print(f"❌ Redis error: {e}")
 
 def get_session_data(session_id):
-    """Get session data from local file storage"""
+    """Get session data from Redis"""
     try:
-        session_service = LocalSessionService()
-        session_file = session_service._get_session_file_path(session_id)
-        metadata_file = session_service._get_session_metadata_path(session_id)
-        
-        # Check if session exists and is not expired
-        if not os.path.exists(session_file) or not os.path.exists(metadata_file):
+        if not redis_client:
+            print("⚠️ Redis not available, returning empty data")
             return {}
         
-        # Check expiration
-        with open(metadata_file, 'r') as f:
-            metadata = json.load(f)
+        data = redis_client.hgetall(f"session:{session_id}")
         
-        expires_at = datetime.fromisoformat(metadata['expires_at'])
-        if datetime.now() > expires_at:
-            cleanup_session_data(session_id)
-            return {}
-        
-        # Update last accessed time
-        metadata['last_accessed'] = datetime.now().isoformat()
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f)
-        
-        # Load session data
-        with open(session_file, 'rb') as f:
-            data = pickle.load(f)
-        
-        return data
+        # Convert bytes to strings for Windows compatibility
+        decoded_data = {}
+        for key, value in data.items():
+            if isinstance(key, bytes):
+                key = key.decode('utf-8')
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            
+            # Try to decode JSON strings back to original types
+            try:
+                if value.startswith('[') or value.startswith('{'):
+                    decoded_data[key] = json.loads(value)
+                else:
+                    decoded_data[key] = value
+            except (json.JSONDecodeError, AttributeError):
+                decoded_data[key] = value
+                
+        return decoded_data
         
     except Exception as e:
-        print(f"❌ Error loading session data: {e}")
+        print(f"❌ Redis error: {e}")
         return {}
 
 def cleanup_session_data(session_id):
     """Clean up all session data from local storage and delete uploaded files"""
     try:
-        session_service = LocalSessionService()
-        session_file = session_service._get_session_file_path(session_id)
-        metadata_file = session_service._get_session_metadata_path(session_id)
+        if not redis_client:
+            print("⚠️ Redis not available, skipping cleanup")
+            return False
         
         # Get session data to find uploaded files
         session_data = get_session_data(session_id)
@@ -147,37 +128,31 @@ def cleanup_session_data(session_id):
         return False
 
 def cleanup_expired_sessions():
-    """Clean up all expired sessions"""
+    """Clean up expired sessions"""
     try:
-        session_service = LocalSessionService()
-        sessions_dir = session_service.sessions_dir
-        
-        if not os.path.exists(sessions_dir):
+        if not redis_client:
+            print("⚠️ Redis not available, skipping expired session cleanup")
             return
         
-        cleaned_count = 0
-        for filename in os.listdir(sessions_dir):
-            if filename.startswith("metadata_"):
-                session_id = filename.replace("metadata_", "").replace(".json", "")
-                
-                try:
-                    metadata_file = os.path.join(sessions_dir, filename)
-                    with open(metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                    
-                    expires_at = datetime.fromisoformat(metadata['expires_at'])
-                    if datetime.now() > expires_at:
-                        if cleanup_session_data(session_id):
-                            cleaned_count += 1
-                            
-                except Exception as e:
-                    print(f"❌ Error processing metadata file {filename}: {e}")
+        # Get all session keys from Redis
+        session_keys = redis_client.keys("session:*")
         
-        if cleaned_count > 0:
-            print(f"🧹 Cleaned up {cleaned_count} expired sessions")
+        for key in session_keys:
+            session_id = key.decode('utf-8').replace('session:', '')
             
+            # Check if session is expired
+            ttl = redis_client.ttl(key)
+            if ttl == -1:  # No expiration set, set it now
+                redis_client.expire(key, Config.SESSION_EXPIRY)
+            elif ttl == -2:  # Key doesn't exist
+                continue
+            elif ttl == 0:  # Expired, clean it up
+                cleanup_session_data(session_id)
+        
+        print("✅ Expired sessions cleanup completed")
+        
     except Exception as e:
-        print(f"❌ Error in cleanup_expired_sessions: {e}")
+        print(f"❌ Error during expired session cleanup: {e}")
 
 def cleanup_old_uploads():
     """Clean up old uploaded files"""
@@ -187,30 +162,25 @@ def cleanup_old_uploads():
             return
         
         current_time = time.time()
-        cleaned_count = 0
+        max_age = Config.SESSION_EXPIRY  # Use session expiry as file age limit
         
         for filename in os.listdir(upload_folder):
             file_path = os.path.join(upload_folder, filename)
             
-            # Skip directories
-            if os.path.isdir(file_path):
-                continue
-            
             # Check file age
-            file_age = current_time - os.path.getmtime(file_path)
-            if file_age > Config.UPLOAD_CLEANUP_TIME:
-                try:
-                    os.remove(file_path)
-                    cleaned_count += 1
-                    print(f"🧹 Cleaned up old file: {filename}")
-                except Exception as e:
-                    print(f"❌ Error deleting old file {filename}: {e}")
+            if os.path.isfile(file_path):
+                file_age = current_time - os.path.getmtime(file_path)
+                if file_age > max_age:
+                    try:
+                        os.remove(file_path)
+                        print(f"✅ Deleted old file: {filename}")
+                    except Exception as e:
+                        print(f"⚠️ Error deleting old file {filename}: {e}")
         
-        if cleaned_count > 0:
-            print(f"🧹 Cleaned up {cleaned_count} old files")
-            
+        print("✅ Old uploads cleanup completed")
+        
     except Exception as e:
-        print(f"❌ Error in cleanup_old_uploads: {e}")
+        print(f"❌ Error during old uploads cleanup: {e}")
 
 def get_all_session_keys():
     """Get all active session keys"""

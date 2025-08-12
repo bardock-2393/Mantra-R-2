@@ -52,6 +52,9 @@ certifi==2025.4.26
 charset-normalizer==3.4.2
 idna==3.10
 
+# Redis for Session Management
+redis>=4.0.0
+
 # Additional Dependencies
 typing_extensions==4.13.2
 typing-inspection==0.4.1
