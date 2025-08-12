@@ -155,12 +155,13 @@ class Qwen25VL32BService:
                     print(f"⚠️ Loading with token failed: {token_error}")
                     if hf_token:
                         print("🔄 Trying without token...")
-                self.processor = AutoProcessor.from_pretrained(
-                    Config.QWEN25VL_32B_MODEL_PATH,
-                    min_pixels=min_pixels,
-                    max_pixels=max_pixels,
-                    trust_remote_code=True
-                )
+                        # Try again without token
+                        self.processor = AutoProcessor.from_pretrained(
+                            Config.QWEN25VL_32B_MODEL_PATH,
+                            min_pixels=min_pixels,
+                            max_pixels=max_pixels,
+                            trust_remote_code=True
+                        )
                     else:
                         raise token_error
                 
@@ -191,7 +192,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load processor from both paths: {e}")
                 else:
-                raise RuntimeError(f"Failed to load processor: {e}")
+                    raise RuntimeError(f"Failed to load processor: {e}")
             
             # Load tokenizer as fallback
             try:
@@ -246,7 +247,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load model from both paths: {e}")
                 else:
-                raise RuntimeError(f"Failed to load model: {e}")
+                    raise RuntimeError(f"Failed to load model: {e}")
             
             # Don't manually move to device when using device_map="auto"
             # The model is already properly placed by accelerate
