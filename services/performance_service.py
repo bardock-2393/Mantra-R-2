@@ -15,7 +15,7 @@ class PerformanceMonitor:
         # Only keep what's actually used
         self.analysis_latencies: Deque[float] = deque(maxlen=100)
         self.start_time = time.time()
-    
+        
     def record_analysis_latency(self, latency_ms: float):
         """Record analysis latency - only essential function kept"""
         self.analysis_latencies.append(latency_ms)

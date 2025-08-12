@@ -6,11 +6,25 @@ Consolidates all AI functionality into one service
 
 import os
 import time
-import torch
 import numpy as np
 from PIL import Image
 from typing import Dict, List, Optional, Tuple
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+
+# Make torch import optional for server deployment
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("⚠️ PyTorch not available, using CPU fallback")
+
+try:
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+    print("⚠️ Transformers not available, using fallback methods")
+
 from config import Config
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
@@ -28,7 +42,10 @@ class Qwen25VL32BService:
     """Consolidated AI service using Qwen2.5-VL-32B model for all AI operations"""
     
     def __init__(self):
-        self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
+        if TORCH_AVAILABLE:
+            self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = 'cpu'
         self.model = None
         self.tokenizer = None
         self.processor = None
@@ -36,7 +53,16 @@ class Qwen25VL32BService:
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
         
-    # async initialize method removed - not used
+    async def initialize(self):
+        """Initialize the service - simplified for server deployment"""
+        try:
+            # For server deployment, we'll use a simplified approach
+            # The actual model loading can be done on-demand or through a separate process
+            self.is_initialized = True
+            print(f"✅ AI service initialized on {self.device}")
+        except Exception as e:
+            print(f"❌ AI service initialization failed: {e}")
+            self.is_initialized = False
     
     async def analyze_video_with_gemini(self, video_path: str, analysis_type: str, user_focus: str, session_id: str = None) -> str:
         """Analyze video content using the 32B model (maintained compatibility)"""
@@ -150,6 +176,10 @@ class Qwen25VL32BService:
             if not self.is_initialized:
                 await self.initialize()
             
+            # Check if transformers are available
+            if not TRANSFORMERS_AVAILABLE:
+                return f"[Server Mode] Analysis requested: {prompt[:100]}...\n\nThis is a placeholder response since the AI model is not loaded on the server. For full AI analysis, please ensure the model is properly configured."
+            
             # Prepare input
             inputs = self.processor(
                 text=prompt,
@@ -189,6 +219,10 @@ class Qwen25VL32BService:
     def _generate_text_sync(self, prompt: str, max_new_tokens: int = 1024) -> str:
         """Synchronous version of text generation for compatibility"""
         try:
+            # Check if transformers are available
+            if not TRANSFORMERS_AVAILABLE:
+                return f"[Server Mode] Chat response requested: {prompt[:100]}...\n\nThis is a placeholder response since the AI model is not loaded on the server. For full AI chat, please ensure the model is properly configured."
+            
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

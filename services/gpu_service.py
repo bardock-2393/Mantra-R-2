@@ -3,7 +3,14 @@ GPU Service - Optimized for speed
 Only essential functions kept to reduce overhead
 """
 
-import torch
+# Make torch import optional for server deployment
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("⚠️ PyTorch not available in GPU service, using CPU fallback")
+
 import time
 from typing import Dict
 from config import Config
@@ -12,7 +19,10 @@ class GPUService:
     """Simplified GPU service - only essential functions kept for speed"""
     
     def __init__(self):
-        self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
+        if TORCH_AVAILABLE:
+            self.device = torch.device(Config.GPU_CONFIG['device'] if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = 'cpu'
         self.gpu_info = None
         self.memory_info = None
         self.last_update = 0
@@ -21,13 +31,17 @@ class GPUService:
     async def initialize(self):
         """Initialize GPU service - simplified"""
         try:
-            if torch.cuda.is_available():
+            if TORCH_AVAILABLE and torch.cuda.is_available():
                 self.device = torch.device(Config.GPU_CONFIG['device'])
                 self.is_initialized = True
                 print(f"✅ GPU service initialized on {self.device}")
-            else:
+            elif TORCH_AVAILABLE:
                 print("⚠️ CUDA not available, using CPU")
                 self.device = torch.device('cpu')
+                self.is_initialized = False
+            else:
+                print("⚠️ PyTorch not available, using CPU")
+                self.device = 'cpu'
                 self.is_initialized = False
         except Exception as e:
             print(f"❌ GPU service initialization failed: {e}")
@@ -36,7 +50,7 @@ class GPUService:
     def get_status(self) -> Dict:
         """Get basic GPU status - simplified for speed"""
         try:
-            if not torch.cuda.is_available():
+            if not TORCH_AVAILABLE or not torch.cuda.is_available():
                 return {
                     'available': False,
                     'device': 'cpu',
