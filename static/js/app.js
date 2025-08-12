@@ -233,6 +233,7 @@ class VideoDetective {
 
         try {
             this.showProgress();
+            console.log('📤 Uploading file:', file.name);
 
             const response = await fetch('/upload', {
                 method: 'POST',
@@ -240,19 +241,33 @@ class VideoDetective {
             });
 
             const result = await response.json();
+            console.log('📥 Upload response:', result);
 
             if (result.success) {
                 this.hideProgress();
-                this.showFileInfo(file, result.filename, result.file_size);
-                this.showCleanupButton();
-                this.analyzeVideo();
+                this.showSuccess(`✅ ${result.message}`);
+                
+                // Store the uploaded file info
+                this.uploadedFileInfo = {
+                    filename: result.filename,
+                    originalName: file.name,
+                    isDefaultVideo: result.is_default_video
+                };
+                
+                console.log('📁 File uploaded successfully:', this.uploadedFileInfo);
+                
+                // Show analysis options
+                this.showAnalysisOptions();
+                
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
+                console.error('❌ Upload failed:', result);
             }
         } catch (error) {
             this.hideProgress();
             this.showError('Upload failed: ' + error.message);
+            console.error('❌ Upload error:', error);
         }
     }
 
@@ -293,67 +308,56 @@ class VideoDetective {
 
     async analyzeVideo() {
         try {
-            console.log('🔍 Starting video analysis...');
-            this.showLoadingModal('Analyzing Video');
+            console.log('🔍 Starting hybrid video analysis...');
+            this.showLoadingModal('Starting Hybrid Analysis (DeepStream + 7B Model)');
 
+            // Get analysis options
+            const analysisType = document.getElementById('analysisType')?.value || 'hybrid';
+            const userFocus = document.getElementById('userFocus')?.value || '';
+            const processingMode = document.getElementById('processingMode')?.value || 'standard';
+
+            const analysisData = {
+                analysis_type: analysisType,
+                user_focus: userFocus,
+                processing_mode: processingMode
+            };
+
+            console.log('📊 Analysis data:', analysisData);
+
+            // Use the analyze endpoint (which internally uses hybrid analysis)
             const response = await fetch('/analyze', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    analysis_type: 'comprehensive_analysis',
-                    user_focus: 'Analyze this video comprehensively for all important events and observations'
-                })
+                body: JSON.stringify(analysisData)
             });
 
             const result = await response.json();
-            console.log('📊 Analysis response:', result);
-            
-            this.hideLoadingModal();
 
             if (result.success) {
-                console.log('✅ Analysis successful, showing chat interface...');
-                this.analysisComplete = true;
-                this.showChatInterface();
+                this.hideLoadingModal();
+                this.showSuccess(`✅ Hybrid analysis completed successfully!`);
+                console.log('🎉 Analysis results:', result);
                 
-                // Show analysis completion message with evidence if available
-                let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
+                // Store session ID for future use
+                this.currentSessionId = result.session_id;
                 
-                if (result.evidence && result.evidence.length > 0) {
-                    const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
-                    const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
-                    
-                    let evidenceText = '';
-                    if (screenshotCount > 0 && videoCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
-                    } else if (screenshotCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
-                    } else if (videoCount > 0) {
-                        evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
-                    }
-                    completionMessage += `\n\n${evidenceText}`;
-                }
+                // Show analysis results
+                this.showAnalysisResults(result);
                 
-                completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
+                // Enable chat functionality
+                this.enableChat();
                 
-                // Add completion message with typing effect
-                this.addChatMessageWithTyping('ai', completionMessage);
-                
-                // Display evidence if available (after message appears)
-                if (result.evidence && result.evidence.length > 0) {
-                    setTimeout(() => {
-                        this.displayEvidence(result.evidence);
-                    }, 800); // Wait for fade-in effect to complete + buffer
-                }
             } else {
-                console.error('❌ Analysis failed:', result.error);
+                this.hideLoadingModal();
                 this.showError(result.error || 'Analysis failed');
+                console.error('❌ Analysis failed:', result);
             }
         } catch (error) {
-            console.error('❌ Analysis error:', error);
             this.hideLoadingModal();
             this.showError('Analysis failed: ' + error.message);
+            console.error('❌ Analysis error:', error);
         }
     }
 
@@ -814,31 +818,26 @@ class VideoDetective {
     }
 
     showSuccess(message) {
+        // Create a success notification
         const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #10b981;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 3000;
-            font-weight: 500;
-            max-width: 300px;
-            animation: slideInRight 0.3s ease;
+        notification.className = 'notification success';
+        notification.innerHTML = `
+            <i class="fas fa-check-circle"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
         `;
-        notification.textContent = message;
-        
+
+        // Add to page
         document.body.appendChild(notification);
-        
+
+        // Auto-remove after 5 seconds
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 300);
-        }, 3000);
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
 
     async checkSessionStatus() {
@@ -1474,6 +1473,71 @@ class VideoDetective {
         `).join('');
         
         sessionsList.innerHTML = sessionsHtml;
+    }
+
+    showAnalysisResults(result) {
+        // Create a results display section
+        const resultsSection = document.createElement('div');
+        resultsSection.className = 'analysis-results';
+        resultsSection.innerHTML = `
+            <div class="results-header">
+                <h3><i class="fas fa-chart-line"></i> Analysis Results</h3>
+                <p>Hybrid analysis completed successfully</p>
+            </div>
+            <div class="results-content">
+                <div class="result-item">
+                    <i class="fas fa-clock"></i>
+                    <span>Processing Time: ${result.performance_metrics?.total_processing_time?.toFixed(2) || 'N/A'} seconds</span>
+                </div>
+                <div class="result-item">
+                    <i class="fas fa-film"></i>
+                    <span>Frames Processed: ${result.performance_metrics?.frames_processed || 'N/A'}</span>
+                </div>
+                <div class="result-item">
+                    <i class="fas fa-microchip"></i>
+                    <span>Processing Speed: ${result.performance_metrics?.deepstream_fps?.toFixed(1) || 'N/A'} FPS</span>
+                </div>
+                <div class="result-item">
+                    <i class="fas fa-id-card"></i>
+                    <span>Session ID: ${result.session_id || 'N/A'}</span>
+                </div>
+            </div>
+            <div class="results-actions">
+                <button class="btn primary" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-check"></i>
+                    Got it!
+                </button>
+            </div>
+        `;
+
+        // Insert after the analysis options
+        const analysisOptions = document.getElementById('analysisOptions');
+        if (analysisOptions) {
+            analysisOptions.parentNode.insertBefore(resultsSection, analysisOptions.nextSibling);
+        }
+
+        // Scroll to results
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    enableChat() {
+        // Enable the chat section
+        const chatSection = document.getElementById('chat');
+        if (chatSection) {
+            // Switch to chat tab
+            const chatTab = document.querySelector('[data-section="chat"]');
+            if (chatTab) {
+                chatTab.click();
+            }
+        }
+    }
+
+    showAnalysisOptions() {
+        const analysisOptions = document.getElementById('analysisOptions');
+        if (analysisOptions) {
+            analysisOptions.style.display = 'block';
+            analysisOptions.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 }
 

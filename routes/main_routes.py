@@ -18,6 +18,7 @@ from services.vector_search_service import vector_search_service
 from utils.video_utils import extract_video_metadata, create_evidence_for_timestamps
 from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
 from analysis_templates import ANALYSIS_TEMPLATES
+from services.hybrid_analysis_service import hybrid_analysis_service
 
 # Create Blueprint
 main_bp = Blueprint('main', __name__)
@@ -129,10 +130,10 @@ def upload_video():
 
 @main_bp.route('/analyze', methods=['POST'])
 def analyze_video():
-    """Analyze uploaded video"""
+    """Analyze uploaded video using hybrid analysis service"""
     try:
         data = request.get_json()
-        analysis_type = data.get('analysis_type', 'comprehensive_analysis')
+        analysis_type = data.get('analysis_type', 'hybrid')
         user_focus = data.get('user_focus', 'Analyze this video comprehensively')
         
         session_id = session.get('session_id')
@@ -155,8 +156,7 @@ def analyze_video():
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': 'Video file not found'})
         
-        # Perform analysis using model manager
-        from services.model_manager import model_manager
+        # Perform analysis using hybrid analysis service
         import asyncio
         try:
             # Get or create event loop
@@ -166,77 +166,64 @@ def analyze_video():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # Run the async function
-            analysis_result = loop.run_until_complete(model_manager.analyze_video(video_path, analysis_type, user_focus))
+            # Run the async hybrid analysis
+            analysis_result = loop.run_until_complete(
+                hybrid_analysis_service.analyze_video_hybrid(video_path, analysis_type)
+            )
+            
+            if 'error' in analysis_result:
+                return jsonify({'success': False, 'error': analysis_result['error']})
+            
+            # Extract video metadata to validate timestamps
+            video_metadata = extract_video_metadata(video_path)
+            video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+            
+            print(f"🎯 Video duration: {video_duration:.2f} seconds")
+            
+            # Extract timestamps from the analysis result
+            timestamps = []
+            if 'qwen_results' in analysis_result and 'content_analysis' in analysis_result['qwen_results']:
+                content = analysis_result['qwen_results']['content_analysis']
+                if isinstance(content, str):
+                    timestamps = extract_timestamps_from_text(content)
+                    print(f"🎯 Extracted timestamps: {timestamps}")
+            
+            # Clean and deduplicate timestamps
+            from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
+            timestamps = clean_and_deduplicate_timestamps(timestamps)
+            print(f"🎯 Cleaned timestamps: {timestamps}")
+            
+            # Filter timestamps to only include those within video duration
+            if video_duration > 0:
+                timestamps = aggressive_timestamp_validation(timestamps, video_duration)
+                print(f"🎯 Final valid timestamps: {timestamps}")
+            
+            evidence = []
+            
+            if timestamps:
+                # Create evidence for valid timestamps
+                evidence = create_evidence_for_timestamps(timestamps, video_path, session_id, Config.UPLOAD_FOLDER)
+                print(f"🎯 Created evidence: {len(evidence)} items")
+            
+            # Return hybrid analysis results
+            return jsonify({
+                'success': True,
+                'session_id': analysis_result.get('session_id'),
+                'analysis_type': analysis_type,
+                'analysis_result': analysis_result.get('combined_results', {}),
+                'performance_metrics': analysis_result.get('performance_metrics', {}),
+                'evidence': evidence,
+                'timestamps': timestamps,
+                'message': 'Hybrid analysis completed successfully'
+            })
+            
         except Exception as e:
-            print(f"Error in video analysis: {e}")
+            print(f"Error in hybrid video analysis: {e}")
             return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
         
-        # Extract video metadata to validate timestamps
-        video_metadata = extract_video_metadata(video_path)
-        video_duration = video_metadata.get('duration', 0) if video_metadata else 0
-        
-        print(f"🎯 Video duration: {video_duration:.2f} seconds")
-        
-        # Extract timestamps and capture screenshots automatically
-        timestamps = extract_timestamps_from_text(analysis_result)
-        print(f"🎯 Raw extracted timestamps: {timestamps}")
-        
-        # Clean and deduplicate timestamps
-        from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
-        timestamps = clean_and_deduplicate_timestamps(timestamps)
-        print(f"🎯 Cleaned timestamps: {timestamps}")
-        
-        # Filter timestamps to only include those within video duration
-        if video_duration > 0:
-            # Use aggressive validation to completely remove out-of-bounds timestamps
-            timestamps = aggressive_timestamp_validation(timestamps, video_duration)
-            print(f"🎯 Final valid timestamps: {timestamps}")
-        else:
-            print("⚠️ Warning: Could not determine video duration, using all extracted timestamps")
-        
-        evidence = []
-        
-        if timestamps:
-            # Create evidence (screenshots or video clips) based on timeframe length
-            evidence = create_evidence_for_timestamps(timestamps, video_path, session_id, Config.UPLOAD_FOLDER)
-        
-        # Store analysis results and evidence in session
-        analysis_data = {
-            'analysis_result': analysis_result,
-            'analysis_type': analysis_type,
-            'user_focus': user_focus,
-            'timestamps_found': timestamps,
-            'evidence': evidence,
-            'analysis_time': datetime.now().isoformat(),
-            'video_duration': video_duration,
-            'video_metadata': video_metadata
-        }
-        
-        # Update session data
-        session_data.update(analysis_data)
-        store_session_data(session_id, session_data)
-        
-        # Create vector embeddings for semantic search
-        try:
-            vector_search_service.create_embeddings(session_id, analysis_data)
-            print(f"✅ Vector embeddings created for session {session_id}")
-        except Exception as e:
-            print(f"⚠️ Warning: Could not create vector embeddings: {e}")
-        
-        return jsonify({
-            'success': True,
-            'analysis': analysis_result,
-            'timestamps': timestamps,
-            'evidence': evidence,
-            'evidence_count': len(evidence),
-            'video_duration': video_duration,
-            'vector_search_available': True
-        })
-        
     except Exception as e:
-        print(f"Analysis error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"Error in analyze_video: {e}")
+        return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
 
 @main_bp.route('/screenshot/<filename>')
 def get_screenshot(filename):

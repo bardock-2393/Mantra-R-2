@@ -17,7 +17,21 @@
                     <i class="fas fa-search"></i>
                     <h1>AI Video Detective</h1>
                 </div>
-                <p class="subtitle">GPU-Powered Local AI Video Analysis (7B Model Only)</p>
+                <p class="subtitle">GPU-Powered Local AI Video Analysis (Qwen2.5-VL-7B Model)</p>
+                <div class="system-info">
+                    <span class="info-badge">
+                        <i class="fas fa-microchip"></i>
+                        DeepStream + 7B Model + Vector Search
+                    </span>
+                    <span class="info-badge">
+                        <i class="fas fa-rocket"></i>
+                        90fps Processing
+                    </span>
+                    <span class="info-badge">
+                        <i class="fas fa-brain"></i>
+                        Intelligent Analysis
+                    </span>
+                </div>
             </div>
         </header>
 
@@ -67,12 +81,10 @@
                         AI Model Selection
                     </label>
                     <select id="modelSelect" class="model-select">
-                        <option value="minicpm">MiniCPM - Fast & Efficient</option>
-                        <option value="qwen25vl">Qwen2.5-VL - Advanced Multimodal</option>
-                        <option value="qwen25vl_32b">Qwen2.5-VL 32B - High Performance</option>
+                        <option value="qwen25vl" selected>Qwen2.5-VL-7B - Advanced Multimodal (GPU Optimized)</option>
                     </select>
                     <div class="model-info" id="modelInfo">
-                        <small>Select an AI model for video analysis</small>
+                        <small>Qwen2.5-VL-7B model with GPU acceleration for high-performance video analysis</small>
                     </div>
                 </div>
 
@@ -131,20 +143,28 @@
                     <div class="option-group">
                         <label>Analysis Type:</label>
                         <select id="analysisType">
-                            <option value="content">Content Analysis</option>
-                            <option value="objects">Object Detection</option>
-                            <option value="actions">Action Recognition</option>
+                            <option value="hybrid" selected>Hybrid Analysis (DeepStream + 7B Model)</option>
+                            <option value="content">Content Understanding</option>
+                            <option value="objects">Object Detection & Tracking</option>
+                            <option value="motion">Motion Analysis</option>
                             <option value="scenes">Scene Analysis</option>
-                            <option value="narrative">Narrative Analysis</option>
                         </select>
                     </div>
                     <div class="option-group">
                         <label>Focus Area:</label>
-                        <input type="text" id="userFocus" placeholder="What should I focus on? (optional)">
+                        <input type="text" id="userFocus" placeholder="What should I focus on? (e.g., security events, sports highlights, etc.)">
+                    </div>
+                    <div class="option-group">
+                        <label>Processing Mode:</label>
+                        <select id="processingMode">
+                            <option value="standard" selected>Standard (Balanced speed/accuracy)</option>
+                            <option value="fast">Fast (Lower accuracy, higher speed)</option>
+                            <option value="accurate">Accurate (Higher accuracy, lower speed)</option>
+                        </select>
                     </div>
                     <button class="analyze-btn" onclick="analyzeVideo()">
                         <i class="fas fa-search"></i>
-                        Analyze Video
+                        Start Hybrid Analysis
                     </button>
                 </div>
             </section>
