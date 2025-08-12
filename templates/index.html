@@ -33,18 +33,90 @@
                 </div>
 
                 <!-- File Upload Section -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5><i class="fas fa-upload"></i> Upload Video</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label for="videoFile" class="form-label">Select Video File</label>
-                            <input type="file" class="form-control" id="videoFile" accept="video/*">
-                            <div class="form-text">Supported formats: MP4, AVI, MOV, WebM, MKV (Max: 500MB)</div>
+                <div id="uploadSection" class="upload-section">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-upload"></i> Upload Video</h5>
                         </div>
-                        
-                        <div id="fileInfo" class="file-info"></div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-content text-center">
+                                        <div class="upload-icon mb-3">
+                                            <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
+                                        </div>
+                                        <h4>Drag and Drop Video Here</h4>
+                                        <p class="text-muted">or click to browse files</p>
+                                        <div class="upload-features mb-3">
+                                            <div class="feature-item d-inline-block me-3">
+                                                <i class="fas fa-check text-success"></i>
+                                                <span class="ms-1">Advanced AI Analysis</span>
+                                            </div>
+                                            <div class="feature-item d-inline-block me-3">
+                                                <i class="fas fa-check text-success"></i>
+                                                <span class="ms-1">Visual Evidence Capture</span>
+                                            </div>
+                                            <div class="feature-item d-inline-block">
+                                                <i class="fas fa-check text-success"></i>
+                                                <span class="ms-1">Real-time Insights</span>
+                                            </div>
+                                        </div>
+                                        <div class="file-requirements mb-3">
+                                            <p class="text-muted mb-1">Supported formats: MP4, AVI, MOV, WebM, MKV</p>
+                                            <p class="text-muted">Maximum size: 500MB</p>
+                                        </div>
+                                        <div class="upload-buttons">
+                                            <button class="btn btn-primary" onclick="document.getElementById('videoFile').click()">
+                                                <i class="fas fa-folder-open"></i>
+                                                Choose Video File
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="file" class="form-control" id="videoFile" accept="video/*" style="display: none;">
+                            </div>
+                            
+                            <div id="fileInfo" class="file-info" style="display: none;">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-video text-primary me-3 fa-2x"></i>
+                                            <div class="flex-grow-1">
+                                                <div id="fileName" class="fw-bold"></div>
+                                                <div id="fileSize" class="text-muted"></div>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="resetUpload()">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Video Preview -->
+                            <div id="videoPreview" class="mt-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6><i class="fas fa-play-circle"></i> Video Preview</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <video id="previewVideo" controls preload="metadata" class="img-fluid" style="max-height: 300px;">
+                                            <source src="" type="video/mp4">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Progress -->
+                            <div id="uploadProgress" class="mt-3" style="display: none;">
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">
+                                        <span>Uploading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -157,6 +229,33 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Chat Interface -->
+                <div id="chatInterface" class="chat-interface" style="display: none;">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-comments"></i> Chat with AI</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="chatMessages" class="chat-messages mb-3" style="height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 1rem; background-color: #f8f9fa;">
+                                <!-- Chat messages will be added here dynamically -->
+                            </div>
+                            
+                            <div class="chat-input-container">
+                                <div class="input-group">
+                                    <textarea id="chatInput" class="form-control" placeholder="Ask me anything about the video..." rows="2" style="resize: none;"></textarea>
+                                    <button id="sendBtn" class="btn btn-primary" type="button">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <div id="typingIndicator" class="typing-indicator mt-2" style="display: none;">
+                                    <i class="fas fa-circle fa-fade"></i>
+                                    <span class="ms-2">AI is typing...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- System Information -->
                 <div class="card">
@@ -185,6 +284,50 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Cleanup Button -->
+    <div id="floatingCleanup" class="floating-cleanup" style="display: none;">
+        <button class="cleanup-btn" onclick="cleanupOldUploads()">
+            <i class="fas fa-broom"></i>
+            Cleanup Old Uploads
+        </button>
+    </div>
+
+    <!-- Evidence Modal -->
+    <div class="modal fade" id="evidenceModal" tabindex="-1" aria-labelledby="evidenceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="evidenceModalLabel">Visual Evidence</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="evidenceModalImage" src="" alt="Evidence" class="img-fluid mb-3">
+                    <div id="evidenceModalInfo" class="text-muted"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loadingModalLabel">Processing Video</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p id="loadingMessage">Initializing analysis...</p>
                 </div>
             </div>
         </div>

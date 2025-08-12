@@ -24,6 +24,16 @@ class VideoDetective {
         const videoFile = document.getElementById('videoFile');
         const uploadArea = document.getElementById('uploadArea');
 
+        if (!videoFile) {
+            console.error('❌ videoFile element not found');
+            return;
+        }
+
+        if (!uploadArea) {
+            console.error('❌ uploadArea element not found');
+            return;
+        }
+
         videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
 
         // Drag and drop
@@ -58,22 +68,28 @@ class VideoDetective {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-        
-        sendBtn.addEventListener('click', () => this.sendMessage());
+        if (chatInput && sendBtn) {
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        } else {
+            console.log('ℹ️ Chat elements not found, chat functionality disabled');
+        }
     }
 
     setupAutoResize() {
         const chatInput = document.getElementById('chatInput');
-        chatInput.addEventListener('input', () => {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-        });
+        if (chatInput) {
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+            });
+        }
     }
 
     setupPageCleanup() {
