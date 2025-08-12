@@ -1,5 +1,0 @@
-[33m00fc03b[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m Update MiniCPM model configuration to use new model name and include Hugging Face token in minicpm_v26_model.py
-[33m5c3b74f[m[33m ([m[1;31morigin/main[m[33m)[m Update MINICPM_MODEL_PATH and model_name in config.py to reflect new repository structure
-[33m0c8e4b7[m Refactor ai_service.py to improve code readability and update session_service.py to correctly format session expiry timestamp
-[33m81a084a[m Refactor ai_service.py to use Config for MINICPM_CONFIG and update requirements_round2.txt to remove version specifier for mediapipe
-[33md2f4b00[m fix done
