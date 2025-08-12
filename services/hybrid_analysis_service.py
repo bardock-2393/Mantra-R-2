@@ -172,7 +172,7 @@ class HybridAnalysisService:
             
             # Select frames with significant events
             for frame_data in frames_data:
-                if self._is_key_frame(frame_data):
+                if self._is_key_frame(frame_data) == 'true':
                     key_frames.append({
                         'frame_idx': frame_data.get('frame_idx'),
                         'timestamp': frame_data.get('timestamp'),
@@ -188,28 +188,28 @@ class HybridAnalysisService:
             print(f"⚠️ Key frame extraction failed: {e}")
             return []
     
-    def _is_key_frame(self, frame_data: Dict) -> bool:
+    def _is_key_frame(self, frame_data: Dict) -> str:
         """Determine if a frame is a key frame"""
         try:
             # Check for object detection
             objects = frame_data.get('objects', [])
             if len(objects) > 0:
-                return True
+                return 'true'
             
             # Check for motion
             motion = frame_data.get('motion_detection', {})
-            if motion.get('motion_detected', False) and motion.get('motion_intensity', 0) > 0.3:
-                return True
+            if motion.get('motion_detected', 'false') == 'true' and motion.get('motion_intensity', 0) > 0.3:
+                return 'true'
             
             # Check for scene changes
             scene = frame_data.get('scene_analysis', {})
             if scene.get('scene_type') in ['outdoor', 'indoor', 'transition']:
-                return True
+                return 'true'
             
-            return False
+            return 'false'
             
         except Exception:
-            return False
+            return 'false'
     
     def _summarize_objects(self, deepstream_results: Dict) -> Dict:
         """Summarize object detection results"""
@@ -255,7 +255,7 @@ class HybridAnalysisService:
             
             for frame_data in frames_data:
                 motion = frame_data.get('motion_detection', {})
-                if motion.get('motion_detected', False):
+                if motion.get('motion_detected', 'false') == 'true':
                     total_motion_frames += 1
                     motion_events.append({
                         'timestamp': frame_data.get('timestamp', 0),
@@ -398,29 +398,29 @@ class HybridAnalysisService:
             
             for i in range(0, frame_count, sample_interval):
                 frames_data.append({
-                    'frame_idx': i,
-                    'timestamp': i / fps if fps > 0 else 0,
+                    'frame_idx': int(i),
+                    'timestamp': float(i / fps if fps > 0 else 0),
                     'objects': [],  # No object detection in fallback
-                    'motion_detection': {'motion_detected': False, 'motion_intensity': 0.0},
+                    'motion_detection': {'motion_detected': 'false', 'motion_intensity': 0.0},  # Convert bool to string
                     'scene_analysis': {'scene_type': 'unknown'}
                 })
             
             return {
                 'video_info': {
-                    'fps': fps,
-                    'frame_count': frame_count,
-                    'width': width,
-                    'height': height,
-                    'duration_seconds': duration_seconds,
-                    'duration_minutes': duration_seconds / 60,
-                    'resolution': f"{width}x{height}"
+                    'fps': float(fps) if fps else 0.0,
+                    'frame_count': int(frame_count),
+                    'width': int(width),
+                    'height': int(height),
+                    'duration_seconds': float(duration_seconds),
+                    'duration_minutes': float(duration_seconds / 60),
+                    'resolution': f"{int(width)}x{int(height)}"
                 },
                 'frames_data': frames_data,
                 'processing_metrics': {
                     'processing_time_seconds': 0.1,
-                    'actual_fps': len(frames_data),
+                    'actual_fps': float(len(frames_data)),
                     'target_fps': 30,
-                    'frames_processed': len(frames_data)
+                    'frames_processed': int(len(frames_data))
                 }
             }
             

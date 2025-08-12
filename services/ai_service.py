@@ -377,6 +377,23 @@ class Qwen25VL7BService:
     async def _generate_analysis(self, prompt: str, frames: List[Image.Image]) -> str:
         """Generate analysis using the model"""
         try:
+            # Ensure frames are properly formatted PIL Images
+            processed_frames = []
+            for frame in frames:
+                if frame is not None and hasattr(frame, 'mode'):
+                    # Convert to RGB if needed
+                    if frame.mode != 'RGB':
+                        frame = frame.convert('RGB')
+                    # Resize to reasonable dimensions for the model
+                    if frame.size[0] > 1024 or frame.size[1] > 1024:
+                        frame.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+                    processed_frames.append(frame)
+                else:
+                    print(f"⚠️ Skipping invalid frame: {type(frame)}")
+            
+            if not processed_frames:
+                return "❌ No valid frames found for analysis."
+            
             # Create messages for the model
             messages = [
                 {
@@ -387,8 +404,8 @@ class Qwen25VL7BService:
                 }
             ]
             
-            # Add frames to the message
-            for frame in frames:
+            # Add frames to the message - ensure proper format
+            for frame in processed_frames:
                 messages[0]["content"].insert(0, {"type": "image", "image": frame})
             
             # Process the input

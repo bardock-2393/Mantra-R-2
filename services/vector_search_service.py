@@ -115,7 +115,14 @@ class VectorSearchService:
             
             if not text_chunks:
                 print("⚠️ No text content found for embedding")
-                return False
+                # Create a fallback text chunk with basic video information
+                fallback_chunks = self._create_fallback_chunks(analysis_data)
+                if fallback_chunks:
+                    text_chunks = fallback_chunks
+                    print("✅ Created fallback text chunks for embedding")
+                else:
+                    print("⚠️ Could not create fallback chunks, skipping vector storage")
+                    return False
             
             # Generate embeddings
             embeddings = []
@@ -414,6 +421,63 @@ class VectorSearchService:
         except Exception as e:
             print(f"❌ Error cleaning up embeddings: {e}")
             return False
+
+    def _create_fallback_chunks(self, analysis_data: Dict) -> List[Dict]:
+        """Create fallback text chunks when no analysis text is available"""
+        chunks = []
+        
+        try:
+            # Extract basic video information
+            if 'analysis_result' in analysis_data and analysis_data['analysis_result']:
+                analysis = analysis_data['analysis_result']
+                
+                # Video metadata
+                if 'video_metadata' in analysis:
+                    metadata = analysis['video_metadata']
+                    if metadata.get('duration_seconds'):
+                        chunks.append({
+                            'text': f"Video duration: {metadata['duration_seconds']:.2f} seconds",
+                            'type': 'metadata',
+                            'source': 'fallback'
+                        })
+                    
+                    if metadata.get('resolution'):
+                        chunks.append({
+                            'text': f"Video resolution: {metadata['resolution']}",
+                            'type': 'metadata',
+                            'source': 'fallback'
+                        })
+                
+                # Performance metrics
+                if 'performance_metrics' in analysis_data:
+                    metrics = analysis_data['performance_metrics']
+                    if metrics.get('frames_processed'):
+                        chunks.append({
+                            'text': f"Processed {metrics['frames_processed']} video frames",
+                            'type': 'performance',
+                            'source': 'fallback'
+                        })
+                
+                # Analysis type
+                chunks.append({
+                    'text': f"Analysis type: {analysis_data.get('analysis_type', 'hybrid')}",
+                    'type': 'analysis_info',
+                    'source': 'fallback'
+                })
+            
+            # If still no chunks, create a generic one
+            if not chunks:
+                chunks.append({
+                    'text': "Video analysis completed using hybrid system (DeepStream + 7B AI Model)",
+                    'type': 'generic',
+                    'source': 'fallback'
+                })
+            
+            return chunks
+            
+        except Exception as e:
+            print(f"⚠️ Error creating fallback chunks: {e}")
+            return []
 
 # Global instance
 vector_search_service = VectorSearchService() 

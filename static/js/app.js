@@ -351,13 +351,30 @@ class VideoDetective {
                 
             } else {
                 this.hideLoadingModal();
-                this.showError(result.error || 'Analysis failed');
+                const errorMessage = result.error || 'Analysis failed with unknown error';
+                this.showError(`❌ Analysis failed: ${errorMessage}`);
                 console.error('❌ Analysis failed:', result);
+                
+                // Show detailed error information to help debugging
+                if (result.error && result.error.includes('JSON serializable')) {
+                    this.showError('❌ Analysis failed: Internal data processing error. Please try again or contact support.');
+                } else if (result.error && result.error.includes('7B model')) {
+                    this.showError('❌ Analysis failed: AI model processing error. The system is using fallback processing.');
+                } else {
+                    this.showError(`❌ Analysis failed: ${errorMessage}`);
+                }
             }
         } catch (error) {
             this.hideLoadingModal();
-            this.showError('Analysis failed: ' + error.message);
             console.error('❌ Analysis error:', error);
+            
+            if (error.name === 'TypeError' && error.message.includes('JSON')) {
+                this.showError('❌ Analysis failed: Invalid response format. Please try again.');
+            } else if (error.name === 'NetworkError') {
+                this.showError('❌ Analysis failed: Network error. Please check your connection and try again.');
+            } else {
+                this.showError(`❌ Analysis failed: ${error.message}`);
+            }
         }
     }
 
@@ -1476,48 +1493,150 @@ class VideoDetective {
     }
 
     showAnalysisResults(result) {
-        // Create a results display section
-        const resultsSection = document.createElement('div');
-        resultsSection.className = 'analysis-results';
-        resultsSection.innerHTML = `
-            <div class="results-header">
-                <h3><i class="fas fa-chart-line"></i> Analysis Results</h3>
-                <p>Hybrid analysis completed successfully</p>
-            </div>
-            <div class="results-content">
-                <div class="result-item">
-                    <i class="fas fa-clock"></i>
-                    <span>Processing Time: ${result.performance_metrics?.total_processing_time?.toFixed(2) || 'N/A'} seconds</span>
+        try {
+            // Create a results container
+            const resultsContainer = document.createElement('div');
+            resultsContainer.className = 'analysis-results';
+            resultsContainer.innerHTML = `
+                <div class="results-header">
+                    <h3>🎬 Video Analysis Results</h3>
+                    <p class="analysis-status">✅ Analysis completed successfully</p>
                 </div>
-                <div class="result-item">
-                    <i class="fas fa-film"></i>
-                    <span>Frames Processed: ${result.performance_metrics?.frames_processed || 'N/A'}</span>
+                <div class="results-content">
+                    ${this.formatAnalysisResults(result)}
                 </div>
-                <div class="result-item">
-                    <i class="fas fa-microchip"></i>
-                    <span>Processing Speed: ${result.performance_metrics?.deepstream_fps?.toFixed(1) || 'N/A'} FPS</span>
-                </div>
-                <div class="result-item">
-                    <i class="fas fa-id-card"></i>
-                    <span>Session ID: ${result.session_id || 'N/A'}</span>
-                </div>
-            </div>
-            <div class="results-actions">
-                <button class="btn primary" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-check"></i>
-                    Got it!
-                </button>
-            </div>
-        `;
-
-        // Insert after the analysis options
-        const analysisOptions = document.getElementById('analysisOptions');
-        if (analysisOptions) {
-            analysisOptions.parentNode.insertBefore(resultsSection, analysisOptions.nextSibling);
+            `;
+            
+            // Show the results
+            this.showModal('Analysis Results', resultsContainer.outerHTML);
+            
+        } catch (error) {
+            console.error('Error showing analysis results:', error);
+            this.showError('Failed to display analysis results');
         }
-
-        // Scroll to results
-        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    formatAnalysisResults(result) {
+        try {
+            let html = '';
+            
+            // Basic analysis info
+            if (result.analysis_result) {
+                const analysis = result.analysis_result;
+                
+                // Video metadata
+                if (analysis.video_metadata) {
+                    const metadata = analysis.video_metadata;
+                    html += `
+                        <div class="result-section">
+                            <h4>📹 Video Information</h4>
+                            <ul>
+                                <li><strong>Duration:</strong> ${metadata.duration_minutes ? metadata.duration_minutes.toFixed(2) + ' minutes' : 'Unknown'}</li>
+                                <li><strong>Resolution:</strong> ${metadata.resolution || 'Unknown'}</li>
+                                <li><strong>FPS:</strong> ${metadata.fps ? metadata.fps.toFixed(2) : 'Unknown'}</li>
+                                <li><strong>Total Frames:</strong> ${metadata.frame_count || 'Unknown'}</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                // Real-time analysis results
+                if (analysis.real_time_analysis) {
+                    const realTime = analysis.real_time_analysis;
+                    html += `
+                        <div class="result-section">
+                            <h4>🔍 Real-Time Analysis</h4>
+                            <ul>
+                                <li><strong>Frames Analyzed:</strong> ${realTime.object_detection ? realTime.object_detection.length : 0}</li>
+                                <li><strong>Processing Speed:</strong> ${realTime.performance_metrics ? realTime.performance_metrics.actual_fps + ' FPS' : 'Unknown'}</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                // Intelligent analysis results
+                if (analysis.intelligent_analysis) {
+                    const intelligent = analysis.intelligent_analysis;
+                    html += `
+                        <div class="result-section">
+                            <h4>🧠 AI Content Understanding</h4>
+                            <ul>
+                                <li><strong>Key Frames Analyzed:</strong> ${intelligent.key_frames || 0}</li>
+                                <li><strong>Objects Detected:</strong> ${intelligent.object_summary ? intelligent.object_summary.total_objects_detected : 0}</li>
+                                <li><strong>Motion Events:</strong> ${intelligent.motion_summary ? intelligent.motion_summary.motion_events.length : 0}</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                // Analysis summary
+                if (analysis.analysis_summary) {
+                    const summary = analysis.analysis_summary;
+                    html += `
+                        <div class="result-section">
+                            <h4>📊 Analysis Summary</h4>
+                            <ul>
+                                <li><strong>Total Frames Analyzed:</strong> ${summary.total_frames_analyzed || 0}</li>
+                                <li><strong>Objects Detected:</strong> ${summary.objects_detected || 0}</li>
+                                <li><strong>Motion Events:</strong> ${summary.motion_events || 0}</li>
+                                <li><strong>Analysis Quality:</strong> ${summary.analysis_quality || 'Standard'}</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Performance metrics
+            if (result.performance_metrics) {
+                const metrics = result.performance_metrics;
+                html += `
+                    <div class="result-section">
+                        <h4>⚡ Performance Metrics</h4>
+                        <ul>
+                            <li><strong>Total Processing Time:</strong> ${metrics.total_processing_time ? metrics.total_processing_time.toFixed(2) + ' seconds' : 'Unknown'}</li>
+                            <li><strong>Processing Speed Ratio:</strong> ${metrics.processing_speed_ratio ? metrics.processing_speed_ratio.toFixed(2) + 'x' : 'Unknown'}</li>
+                            <li><strong>DeepStream FPS:</strong> ${metrics.deepstream_fps ? metrics.deepstream_fps.toFixed(2) : 'Unknown'}</li>
+                            <li><strong>Frames Processed:</strong> ${metrics.frames_processed || 'Unknown'}</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            // Evidence and timestamps
+            if (result.evidence && result.evidence.length > 0) {
+                html += `
+                    <div class="result-section">
+                        <h4>🎯 Key Moments & Evidence</h4>
+                        <p>Found ${result.evidence.length} significant moments in the video</p>
+                        <div class="evidence-list">
+                            ${result.evidence.map((item, index) => `
+                                <div class="evidence-item">
+                                    <span class="evidence-time">${item.timestamp || 'Unknown'}</span>
+                                    <span class="evidence-type">${item.type || 'Event'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // If no detailed results, show a generic message
+            if (!html) {
+                html = `
+                    <div class="result-section">
+                        <h4>📋 Analysis Completed</h4>
+                        <p>The video has been analyzed using our hybrid system (DeepStream + 7B AI Model).</p>
+                        <p>You can now ask questions about the video content using the chat feature below.</p>
+                    </div>
+                `;
+            }
+            
+            return html;
+            
+        } catch (error) {
+            console.error('Error formatting analysis results:', error);
+            return '<p>❌ Error displaying analysis results. Please try again.</p>';
+        }
     }
 
     enableChat() {
@@ -1537,6 +1656,66 @@ class VideoDetective {
         if (analysisOptions) {
             analysisOptions.style.display = 'block';
             analysisOptions.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    showModal(title, content) {
+        // Remove existing modal if any
+        const existingModal = document.querySelector('.modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>${title}</h2>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    ${content}
+                </div>
+            </div>
+        `;
+        
+        // Add to page
+        document.body.appendChild(modal);
+        
+        // Show modal
+        modal.style.display = 'block';
+        
+        // Close functionality
+        const closeBtn = modal.querySelector('.close');
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            modal.remove();
+        };
+        
+        // Close on outside click
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+        };
+        
+        // Close on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.style.display === 'block') {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+        });
+    }
+    
+    hideModal() {
+        const modal = document.querySelector('.modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.remove();
         }
     }
 }
