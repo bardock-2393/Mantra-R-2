@@ -213,10 +213,14 @@ class Qwen25VL32BService:
             # Load model with optimizations for 32B model
             print(f"🤖 Loading Qwen2.5-VL-32B-Instruct model from {Config.QWEN25VL_32B_MODEL_PATH}...")
             try:
+                # Use dynamic dtype selection based on GPU support
+                dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+                print(f"🔧 Using dtype: {dtype} (BF16 supported: {torch.cuda.is_bf16_supported()})")
+                
                 # Use SDPA for better compatibility and performance
                 self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     Config.QWEN25VL_32B_MODEL_PATH,
-                    torch_dtype=torch.bfloat16,  # Use bfloat16 for 32B model
+                    torch_dtype=dtype,  # Dynamic dtype selection
                     attn_implementation="sdpa",  # Use SDPA instead of flash attention
                     device_map="auto",  # Let accelerate handle device mapping
                     trust_remote_code=True,
@@ -240,7 +244,7 @@ class Qwen25VL32BService:
                     try:
                         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                             alternative_path,
-                            torch_dtype=torch.bfloat16,
+                            torch_dtype=dtype,
                             attn_implementation="sdpa",
                             device_map="auto",
                             trust_remote_code=True,
@@ -257,12 +261,13 @@ class Qwen25VL32BService:
             # The model is already properly placed by accelerate
             print(f"🚀 Model device mapping handled by accelerate")
             
-            # Enable torch.compile for massive speed improvement
+            # Enable torch.compile for massive speed improvement with safer error handling
             try:
                 self.model = torch.compile(self.model, mode='reduce-overhead')
                 print("✅ Torch compile enabled - expect 2-3x speed improvement")
             except Exception as e:
                 print(f"⚠️ Torch compile failed: {e}")
+                print("🔄 Continuing without torch.compile")
             
             # Warm up the model
             await self._warmup_model()
@@ -437,22 +442,26 @@ class Qwen25VL32BService:
                     image_inputs, video_inputs = process_vision_info(messages)
                     print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
                     
-                    # Validate video inputs
+                    # Validate video inputs - ensure they are valid paths
                     if video_inputs and len(video_inputs) > 0:
-                        # Check if video inputs are valid
+                        # Check if video inputs are valid paths
                         valid_videos = []
                         for video_input in video_inputs:
                             if video_input is not None and os.path.exists(str(video_input)):
-                                valid_videos.append(video_input)
+                                # Ensure it's a path, not a tensor
+                                if isinstance(video_input, str):
+                                    valid_videos.append(video_input)
+                                else:
+                                    print(f"⚠️ Skipping non-path video input: {type(video_input)}")
                             else:
                                 print(f"⚠️ Invalid video input: {video_input}")
                         
                         if not valid_videos:
-                            print("⚠️ No valid video inputs found, using fallback")
+                            print("⚠️ No valid video paths found, using fallback")
                             return await self._generate_text_only_analysis(prompt, video_path)
                         
                         video_inputs = valid_videos
-                        print(f"✅ Using {len(video_inputs)} valid video inputs for analysis")
+                        print(f"✅ Using {len(video_inputs)} valid video paths for analysis")
                     else:
                         print("⚠️ No video inputs found, using fallback")
                         return await self._generate_text_only_analysis(prompt, video_path)
@@ -463,114 +472,26 @@ class Qwen25VL32BService:
                     
             except Exception as e:
                 print(f"⚠️ Vision info processing failed: {e}")
-                # Instead of immediately falling back to text-only, try to fix the issue
-                print("🔄 Attempting to fix video processing issue...")
-                
-                # Try direct video processing without qwen-vl-utils
-                try:
-                    # Create a simple video input directly
-                    if os.path.exists(video_path):
-                        abs_video_path = os.path.abspath(video_path)
-                        print(f"🎬 Direct video processing: {abs_video_path}")
-                        
-                        # Try to load video data properly
-                        try:
-                            # Method 1: Try using the processor's video loading capabilities
-                            print("🔄 Attempting to load video with processor...")
-                            
-                            # Create a simple message structure
-                            simple_messages = [
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {"type": "video", "video": abs_video_path},
-                                        {"type": "text", "text": prompt}
-                                    ]
-                                }
-                            ]
-                            
-                            # Apply chat template
-                            text = self.processor.apply_chat_template(
-                                simple_messages, tokenize=False, add_generation_prompt=True
-                            )
-                            
-                            # Try to process with the processor - let it handle video loading
-                            try:
-                                inputs = self.processor(
-                                    text=[text],
-                                    videos=[abs_video_path],  # Let processor handle video loading
-                                    padding=True,
-                                    return_tensors="pt"
-                                )
-                                
-                                # Move to device
-                                model_device = next(self.model.parameters()).device
-                                inputs = inputs.to(model_device)
-                                
-                                print(f"✅ Direct video processing successful - Videos: 1")
-                                video_inputs = [abs_video_path]
-                                image_inputs = []
-                                
-                            except Exception as processor_error:
-                                print(f"⚠️ Processor video loading failed: {processor_error}")
-                                
-                                # Method 2: Use our custom video loading method
-                                try:
-                                    print("🔄 Attempting custom video loading...")
-                                    video_tensor, sample_indices, method = await self._load_video_frames(abs_video_path, num_frames=8)
-                                    
-                                    if video_tensor is not None:
-                                        print(f"✅ Custom video loading successful using {method}")
-                                        
-                                        # Process with the loaded video tensor
-                                        inputs = self.processor(
-                                            text=[text],
-                                            videos=video_tensor,  # Use actual video tensor data
-                                            padding=True,
-                                            return_tensors="pt"
-                                        )
-                                        
-                                        # Move to device
-                                        model_device = next(self.model.parameters()).device
-                                        inputs = inputs.to(model_device)
-                                        
-                                        print(f"✅ Video processing successful - Frames: {len(sample_indices)}")
-                                        video_inputs = [video_tensor]  # Store the actual video tensor data
-                                        image_inputs = []
-                                        
-                                    else:
-                                        raise RuntimeError("Custom video loading failed")
-                                        
-                                except Exception as custom_error:
-                                    print(f"⚠️ Custom video loading failed: {custom_error}")
-                                    # All video loading methods failed, fall back to text-only
-                                    return await self._generate_text_only_analysis(prompt, video_path)
-                                        
-                        except Exception as video_loading_error:
-                            print(f"⚠️ Video loading failed: {video_loading_error}")
-                            return await self._generate_text_only_analysis(prompt, video_path)
-                            
-                    else:
-                        print(f"⚠️ Video file not found: {video_path}")
-                        return await self._generate_text_only_analysis(prompt, video_path)
-                        
-                except Exception as fix_error:
-                    print(f"⚠️ Video processing fix attempt failed: {fix_error}")
-                    # Fallback to text-only analysis
-                    return await self._generate_text_only_analysis(prompt, video_path)
+                print("🔄 Falling back to text-only analysis")
+                return await self._generate_text_only_analysis(prompt, video_path)
             
             # Apply chat template
             text = self.processor.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )
             
-            # Prepare inputs with proper error handling
+            # Prepare inputs - ONLY pass paths to videos parameter
             try:
-                # Use the actual video inputs from vision processing
+                # Ensure video_inputs is a non-empty list of existing absolute paths
+                video_inputs = [os.path.abspath(v) for v in (video_inputs or []) if v and os.path.exists(v)]
+                if not video_inputs:
+                    print("⚠️ No valid video paths available, using fallback")
+                    return await self._generate_text_only_analysis(prompt, video_path)
+                
+                # Process with the processor - let it handle video loading
                 inputs = self.processor(
                     text=[text],
-                    images=image_inputs if image_inputs else None,
-                    videos=video_inputs if video_inputs else None,
+                    videos=video_inputs,  # <-- list of paths, not tensors
                     padding=True,
                     return_tensors="pt"
                 )
@@ -579,7 +500,7 @@ class Qwen25VL32BService:
                 model_device = next(self.model.parameters()).device
                 inputs = inputs.to(model_device)
                 
-                print(f"✅ Inputs prepared successfully - Text: {len(text)}, Videos: {len(video_inputs) if video_inputs else 0}")
+                print(f"✅ Inputs prepared successfully - Text: {len(text)}, Videos: {len(video_inputs)}")
             except Exception as e:
                 print(f"⚠️ Input processing failed: {e}")
                 return await self._generate_text_only_analysis(prompt, video_path)
@@ -734,109 +655,6 @@ class Qwen25VL32BService:
             print("⚠️ PyTorch not available")
         
         return libraries
-    
-    async def _load_video_frames(self, video_path: str, num_frames: int = 8) -> tuple:
-        """Load video frames using available libraries"""
-        libraries = self._check_video_libraries()
-        
-        # Method 1: Try decord (most efficient)
-        if libraries.get('decord') and libraries.get('torch'):
-            try:
-                print("🔄 Loading video with decord...")
-                import decord
-                decord.bridge.set_bridge('torch')
-                
-                vr = decord.VideoReader(video_path)
-                total_frames = len(vr)
-                sample_indices = list(range(0, total_frames, max(1, total_frames // num_frames)))
-                
-                video_frames = vr.get_batch(sample_indices)
-                print(f"✅ Decord loaded {len(sample_indices)} frames")
-                return video_frames, sample_indices, 'decord'
-                
-            except Exception as e:
-                print(f"⚠️ Decord failed: {e}")
-        
-        # Method 2: Try OpenCV
-        if libraries.get('opencv') and libraries.get('torch'):
-            try:
-                print("🔄 Loading video with OpenCV...")
-                import cv2
-                import torch
-                
-                cap = cv2.VideoCapture(video_path)
-                if cap.isOpened():
-                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    fps = cap.get(cv2.CAP_PROP_FPS)
-                    
-                    sample_indices = list(range(0, total_frames, max(1, total_frames // num_frames)))
-                    video_frames = []
-                    
-                    for frame_idx in sample_indices:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                        ret, frame = cap.read()
-                        if ret:
-                            # Convert BGR to RGB and normalize
-                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                            frame_tensor = torch.from_numpy(frame_rgb).float() / 255.0
-                            video_frames.append(frame_tensor)
-                    
-                    cap.release()
-                    
-                    if video_frames:
-                        video_tensor = torch.stack(video_frames, dim=0)
-                        print(f"✅ OpenCV loaded {len(video_frames)} frames")
-                        return video_tensor, sample_indices, 'opencv'
-                    else:
-                        raise RuntimeError("No frames loaded with OpenCV")
-                else:
-                    raise RuntimeError("Could not open video with OpenCV")
-                    
-            except Exception as e:
-                print(f"⚠️ OpenCV failed: {e}")
-        
-        # Method 3: Try PIL + OpenCV for frame extraction
-        if libraries.get('opencv') and libraries.get('torch'):
-            try:
-                print("🔄 Loading video with OpenCV frame extraction...")
-                import cv2
-                import torch
-                import tempfile
-                import os
-                
-                cap = cv2.VideoCapture(video_path)
-                if cap.isOpened():
-                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    fps = cap.get(cv2.CAP_PROP_FPS)
-                    
-                    sample_indices = list(range(0, total_frames, max(1, total_frames // num_frames)))
-                    video_frames = []
-                    
-                    for frame_idx in sample_indices:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                        ret, frame = cap.read()
-                        if ret:
-                            # Convert BGR to RGB and normalize
-                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                            frame_tensor = torch.from_numpy(frame_rgb).float() / 255.0
-                            video_frames.append(frame_tensor)
-                    
-                    cap.release()
-                    
-                    if video_frames:
-                        video_tensor = torch.stack(video_frames, dim=0)
-                        print(f"✅ OpenCV frame extraction loaded {len(video_frames)} frames")
-                        return video_tensor, sample_indices, 'opencv_frames'
-                    else:
-                        raise RuntimeError("No frames extracted with OpenCV")
-                else:
-                    raise RuntimeError("Could not open video with OpenCV")
-                    
-            except Exception as e:
-                print(f"⚠️ OpenCV frame extraction failed: {e}")
-        
-        print("❌ No video loading method available")
-        return None, [], 'none'
     
     async def _extract_key_frames(self, video_path: str, num_frames: int = 8) -> List[str]:
         """Extract key frames from video for analysis"""
@@ -1053,10 +871,10 @@ class Qwen25VL32BService:
                     messages, tokenize=False, add_generation_prompt=True
                 )
                 
-                # Prepare inputs with images
+                # Prepare inputs with images - ONLY pass PIL Images to images parameter
                 inputs = self.processor(
                     text=[text],
-                    images=frame_images,
+                    images=frame_images,  # <-- PIL Images, not paths or tensors
                     padding=True,
                     return_tensors="pt"
                 )
