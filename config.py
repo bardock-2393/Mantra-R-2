@@ -27,15 +27,15 @@ class Config:
     
     # COMMENTED OUT FOR 7B OPTIMIZATION
     # MiniCPM-V Model Configuration
-    # MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
-    # MINICPM_CONFIG = {
-    #     'model_name': 'openbmb/MiniCPM-V-2_6',
-    #     'hf_token': os.getenv('HF_TOKEN', ''),
-    #     'max_length': 32768,
-    #     'temperature': 0.2,
-    #     'top_p': 0.9,
-    #     'top_k': 40
-    # }
+    MINICPM_MODEL_PATH = os.getenv('MINICPM_MODEL_PATH', 'openbmb/MiniCPM-V-2_6')
+    MINICPM_CONFIG = {
+        'model_name': 'openbmb/MiniCPM-V-2_6',
+        'hf_token': os.getenv('HF_TOKEN', ''),
+        'max_length': 32768,
+        'temperature': 0.2,
+        'top_p': 0.9,
+        'top_k': 40
+    }
     
     # Qwen2.5-VL-7B Model Configuration - OPTIMIZED FOR MAXIMUM PERFORMANCE
     QWEN25VL_MODEL_PATH = os.getenv('QWEN25VL_MODEL_PATH', 'Qwen/Qwen2.5-VL-7B-Instruct')
