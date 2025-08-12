@@ -53,12 +53,26 @@ class DeepStreamPipeline:
         """Check if DeepStream is available"""
         print("🔍 Checking DeepStream availability...")
         
-        # Check for DeepStream libraries
+        # Check for DeepStream libraries on Ubuntu
         deepstream_paths = [
             '/usr/lib/x86_64-linux-gnu/libnvinfer.so',
             '/usr/local/cuda/lib64/libnvinfer.so',
-            'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8/lib/x64/nvinfer.lib'
+            '/usr/lib/x86_64-linux-gnu/libnvinfer_plugin.so',
+            '/usr/local/cuda/lib64/libnvinfer_plugin.so',
+            '/usr/lib/x86_64-linux-gnu/libnvonnxparser.so',
+            '/usr/local/cuda/lib64/libnvonnxparser.so',
+            '/usr/lib/x86_64-linux-gnu/libnvparsers.so',
+            '/usr/local/cuda/lib64/libnvparsers.so'
         ]
+        
+        # Also check for DeepStream Python bindings
+        try:
+            import pyds
+            deepstream_python = True
+            print("✅ DeepStream Python bindings found")
+        except ImportError:
+            deepstream_python = False
+            print("⚠️ DeepStream Python bindings not found")
         
         deepstream_found = False
         for path in deepstream_paths:
@@ -67,12 +81,31 @@ class DeepStreamPipeline:
                 print(f"✅ DeepStream library found: {path}")
                 break
         
-        if deepstream_found:
+        # Check if we have CUDA and GPU support
+        try:
+            import torch
+            if torch.cuda.is_available():
+                print(f"✅ CUDA available: {torch.cuda.get_device_name(0)}")
+                cuda_available = True
+            else:
+                cuda_available = False
+                print("⚠️ CUDA not available")
+        except ImportError:
+            cuda_available = False
+            print("⚠️ PyTorch not available")
+        
+        if deepstream_found and deepstream_python and cuda_available:
             self.use_deepstream = True
             print("🚀 DeepStream enabled - using GPU-accelerated processing")
         else:
             self.use_deepstream = False
-            print("⚠️ DeepStream not detected, using OpenCV fallback")
+            if not deepstream_found:
+                print("⚠️ DeepStream libraries not found")
+            if not deepstream_python:
+                print("⚠️ DeepStream Python bindings not found")
+            if not cuda_available:
+                print("⚠️ CUDA not available")
+            print("🔄 Using OpenCV fallback for video processing")
     
     async def _initialize_yolo_model(self):
         """Initialize YOLO model for object detection"""

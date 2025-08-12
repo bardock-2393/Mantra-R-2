@@ -8,6 +8,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import logging
+import os # Added for os.path.basename
 
 from config import Config
 from models.deepstream_pipeline import DeepStreamPipeline
@@ -277,23 +278,52 @@ class HybridAnalysisService:
     def _combine_analysis_results(self, deepstream_results: Dict, qwen_results: Dict) -> Dict:
         """Combine DeepStream and 7B model results into unified analysis"""
         try:
+            # Ensure all data is JSON serializable
+            def make_json_safe(obj):
+                if isinstance(obj, (int, float, str, bool, type(None))):
+                    return obj
+                elif isinstance(obj, dict):
+                    return {str(k): make_json_safe(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [make_json_safe(item) for item in obj]
+                else:
+                    return str(obj)
+            
+            # Extract and clean data
+            video_info = deepstream_results.get('video_info', {})
+            frames_data = deepstream_results.get('frames_data', [])
+            processing_metrics = deepstream_results.get('processing_metrics', {})
+            
+            # Clean qwen results
+            content_analysis = qwen_results.get('content_analysis', {})
+            if isinstance(content_analysis, str):
+                # If it's a string, use it directly
+                content_text = content_analysis
+            else:
+                # If it's a dict or other type, convert to string
+                content_text = str(content_analysis)
+            
+            object_summary = qwen_results.get('object_summary', {})
+            motion_summary = qwen_results.get('motion_summary', {})
+            key_frames_count = qwen_results.get('key_frames_analyzed', 0)
+            
             combined = {
-                'video_metadata': deepstream_results.get('video_info', {}),
+                'video_metadata': make_json_safe(video_info),
                 'real_time_analysis': {
-                    'object_detection': deepstream_results.get('frames_data', []),
-                    'motion_analysis': deepstream_results.get('frames_data', []),
-                    'performance_metrics': deepstream_results.get('processing_metrics', {})
+                    'object_detection': make_json_safe(frames_data),
+                    'motion_analysis': make_json_safe(frames_data),
+                    'performance_metrics': make_json_safe(processing_metrics)
                 },
                 'intelligent_analysis': {
-                    'content_understanding': qwen_results.get('content_analysis', {}),
-                    'object_summary': qwen_results.get('object_summary', {}),
-                    'motion_summary': qwen_results.get('motion_summary', {}),
-                    'key_frames': qwen_results.get('key_frames_analyzed', 0)
+                    'content_understanding': content_text,
+                    'object_summary': make_json_safe(object_summary),
+                    'motion_summary': make_json_safe(motion_summary),
+                    'key_frames': int(key_frames_count) if key_frames_count else 0
                 },
                 'analysis_summary': {
-                    'total_frames_analyzed': len(deepstream_results.get('frames_data', [])),
-                    'objects_detected': qwen_results.get('object_summary', {}).get('total_objects_detected', 0),
-                    'motion_events': len(qwen_results.get('motion_summary', {}).get('motion_events', [])),
+                    'total_frames_analyzed': len(frames_data),
+                    'objects_detected': object_summary.get('total_objects_detected', 0) if isinstance(object_summary, dict) else 0,
+                    'motion_events': len(motion_summary.get('motion_events', [])) if isinstance(motion_summary, dict) else 0,
                     'analysis_quality': 'hybrid_high_accuracy'
                 }
             }
@@ -301,29 +331,69 @@ class HybridAnalysisService:
             return combined
             
         except Exception as e:
-            print(f"⚠️ Result combination failed: {e}")
-            return {'error': str(e)}
+            print(f"⚠️ Error combining analysis results: {e}")
+            # Return a safe fallback
+            return {
+                'video_metadata': {},
+                'real_time_analysis': {},
+                'intelligent_analysis': {
+                    'content_understanding': 'Analysis completed with limited results',
+                    'analysis_quality': 'hybrid_fallback'
+                },
+                'analysis_summary': {
+                    'analysis_quality': 'hybrid_fallback'
+                }
+            }
     
     async def _store_in_vector_database(self, session_id: str, combined_results: Dict):
-        """Store analysis results in vector database for search"""
+        """Store analysis results in vector database"""
         try:
+            print(f"💾 Phase 4: Vector Database Storage...")
+            
+            # Ensure session_id is a string
+            if not isinstance(session_id, str):
+                session_id = str(session_id)
+            
             # Store in vector database
             success = self.vector_service.create_embeddings(session_id, combined_results)
             
             if success:
-                print(f"✅ Results stored in vector database: {session_id}")
+                print(f"✅ Vector database storage successful for session: {session_id}")
             else:
                 print(f"⚠️ Warning: Vector database storage failed for session: {session_id}")
                 
         except Exception as e:
-            print(f"⚠️ Vector database storage failed: {e}")
+            print(f"⚠️ Warning: Vector database storage failed for session: {session_id}")
+            print(f"   Error: {e}")
     
     def _generate_session_id(self, video_path: str) -> str:
-        """Generate unique session ID for video analysis"""
-        import hashlib
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        video_hash = hashlib.md5(video_path.encode()).hexdigest()[:8]
-        return f"hybrid_{timestamp}_{video_hash}"
+        """Generate a unique session ID for the video analysis"""
+        try:
+            # Use video filename and timestamp for unique ID
+            import hashlib
+            from datetime import datetime
+            
+            # Get video filename
+            filename = os.path.basename(video_path)
+            
+            # Create timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create hash of filename + timestamp
+            hash_input = f"{filename}_{timestamp}".encode('utf-8')
+            hash_value = hashlib.md5(hash_input).hexdigest()[:8]
+            
+            # Format: hybrid_YYYYMMDD_HHMMSS_HASH
+            session_id = f"hybrid_{timestamp}_{hash_value}"
+            
+            return session_id
+            
+        except Exception as e:
+            print(f"⚠️ Error generating session ID: {e}")
+            # Fallback to timestamp-based ID
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return f"hybrid_{timestamp}_fallback"
     
     async def search_analysis_results(self, session_id: str, query: str, top_k: int = 10) -> List[Dict]:
         """Search analysis results using vector search"""

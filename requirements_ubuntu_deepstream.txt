@@ -1,0 +1,46 @@
+# Requirements for Ubuntu Server with DeepStream Support
+# Install with: pip install -r requirements_ubuntu_deepstream.txt
+
+# Core AI and ML libraries
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+accelerate>=0.20.0
+
+# Computer Vision
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+Pillow>=9.5.0
+
+# DeepStream and GPU acceleration
+pyds>=6.4.0
+nvidia-ml-py3>=11.0.0
+
+# Vector search and embeddings
+sentence-transformers>=2.2.0
+faiss-gpu>=1.7.0
+
+# Web framework
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+numpy>=1.24.0
+requests>=2.31.0
+
+# Performance monitoring
+psutil>=5.9.0
+GPUtil>=1.4.0
+
+# Video processing
+ffmpeg-python>=0.2.0
+
+# Async support
+aiofiles>=23.0.0
+asyncio-mqtt>=0.11.0
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

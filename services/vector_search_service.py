@@ -431,36 +431,55 @@ class VectorSearchService:
             if 'analysis_result' in analysis_data and analysis_data['analysis_result']:
                 analysis = analysis_data['analysis_result']
                 
-                # Video metadata
-                if 'video_metadata' in analysis:
-                    metadata = analysis['video_metadata']
-                    if metadata.get('duration_seconds'):
-                        chunks.append({
-                            'text': f"Video duration: {metadata['duration_seconds']:.2f} seconds",
-                            'type': 'metadata',
-                            'source': 'fallback'
-                        })
+                # Handle different analysis result formats
+                if isinstance(analysis, dict):
+                    # Video metadata
+                    if 'video_metadata' in analysis:
+                        metadata = analysis['video_metadata']
+                        if metadata.get('duration_seconds'):
+                            chunks.append({
+                                'text': f"Video duration: {float(metadata['duration_seconds']):.2f} seconds",
+                                'type': 'metadata',
+                                'source': 'fallback'
+                            })
+                        
+                        if metadata.get('resolution'):
+                            chunks.append({
+                                'text': f"Video resolution: {str(metadata['resolution'])}",
+                                'type': 'metadata',
+                                'source': 'fallback'
+                            })
                     
-                    if metadata.get('resolution'):
+                    # Performance metrics
+                    if 'performance_metrics' in analysis_data:
+                        metrics = analysis_data['performance_metrics']
+                        if metrics.get('frames_processed'):
+                            chunks.append({
+                                'text': f"Processed {int(metrics['frames_processed'])} video frames",
+                                'type': 'performance',
+                                'source': 'fallback'
+                            })
+                
+                elif isinstance(analysis, str):
+                    # If analysis is a string, create chunks from it
+                    if len(analysis) > 50:
                         chunks.append({
-                            'text': f"Video resolution: {metadata['resolution']}",
-                            'type': 'metadata',
+                            'text': analysis[:200] + "..." if len(analysis) > 200 else analysis,
+                            'type': 'analysis_text',
                             'source': 'fallback'
                         })
-                
-                # Performance metrics
-                if 'performance_metrics' in analysis_data:
-                    metrics = analysis_data['performance_metrics']
-                    if metrics.get('frames_processed'):
+                    else:
                         chunks.append({
-                            'text': f"Processed {metrics['frames_processed']} video frames",
-                            'type': 'performance',
+                            'text': analysis,
+                            'type': 'analysis_text',
                             'source': 'fallback'
                         })
-                
-                # Analysis type
+            
+            # Analysis type
+            analysis_type = analysis_data.get('analysis_type', 'hybrid')
+            if isinstance(analysis_type, str):
                 chunks.append({
-                    'text': f"Analysis type: {analysis_data.get('analysis_type', 'hybrid')}",
+                    'text': f"Analysis type: {analysis_type}",
                     'type': 'analysis_info',
                     'source': 'fallback'
                 })
@@ -477,7 +496,12 @@ class VectorSearchService:
             
         except Exception as e:
             print(f"⚠️ Error creating fallback chunks: {e}")
-            return []
+            # Return a safe fallback
+            return [{
+                'text': "Video analysis completed using hybrid system",
+                'type': 'generic',
+                'source': 'fallback'
+            }]
 
 # Global instance
 vector_search_service = VectorSearchService() 

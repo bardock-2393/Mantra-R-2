@@ -394,19 +394,29 @@ class Qwen25VL7BService:
             if not processed_frames:
                 return "❌ No valid frames found for analysis."
             
-            # Create messages for the model
+            # Limit frames to prevent memory issues (max 8 frames for 7B model)
+            if len(processed_frames) > 8:
+                # Select frames evenly distributed across the video
+                step = len(processed_frames) // 8
+                processed_frames = [processed_frames[i] for i in range(0, len(processed_frames), step)][:8]
+                print(f"📸 Limited to {len(processed_frames)} frames for analysis")
+            
+            # Create messages for the model - ensure proper format for Qwen2.5-VL
             messages = [
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt}
-                    ]
+                    "content": []
                 }
             ]
             
-            # Add frames to the message - ensure proper format
+            # Add frames first, then text prompt
             for frame in processed_frames:
-                messages[0]["content"].insert(0, {"type": "image", "image": frame})
+                messages[0]["content"].append({"type": "image", "image": frame})
+            
+            # Add the text prompt
+            messages[0]["content"].append({"type": "text", "text": prompt})
+            
+            print(f"📸 Extracted {len(processed_frames)} frames for analysis")
             
             # Process the input
             inputs = self.processor(
