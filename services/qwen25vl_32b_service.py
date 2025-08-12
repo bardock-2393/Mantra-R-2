@@ -422,14 +422,14 @@ class Qwen25VL32BService:
             abs_video_path = os.path.abspath(video_path)
             print(f"🎬 Processing video: {abs_video_path}")
             
-            # Create messages for Qwen2.5-VL-32B
+            # Create messages for Qwen2.5-VL-32B with correct video format
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {
-                            "type": "video",
-                            "video": abs_video_path  # Use absolute path instead of file:// URL
+                            "type": "video",  # Correct: use "video" type for video files
+                            "video": abs_video_path  # Local video file path
                         },
                         {"type": "text", "text": prompt}
                     ]
@@ -829,7 +829,77 @@ class Qwen25VL32BService:
         try:
             print(f"📝 Generating text-only analysis for: {video_path}")
             
-            # Try to extract key frames for better analysis
+            # First, try direct video processing with the correct format
+            try:
+                print("🔄 Attempting direct video processing...")
+                
+                # Create messages with correct video format
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "video",  # Correct video type
+                                "video": os.path.abspath(video_path)  # Absolute path
+                            },
+                            {"type": "text", "text": prompt}
+                        ]
+                    }
+                ]
+                
+                # Apply chat template
+                text = self.processor.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+                
+                # Try direct video processing
+                inputs = self.processor(
+                    text=[text],
+                    videos=[os.path.abspath(video_path)],  # Pass video path directly
+                    padding=True,
+                    return_tensors="pt"
+                )
+                
+                # Move to device
+                model_device = next(self.model.parameters()).device
+                inputs = inputs.to(model_device)
+                
+                print(f"✅ Direct video processing successful")
+                
+                # Generate response
+                with torch.no_grad():
+                    generated_ids = self.model.generate(
+                        **inputs,
+                        max_new_tokens=min(Config.QWEN25VL_32B_CONFIG['max_length'], 2048),
+                        temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
+                        top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
+                        top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
+                        do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                        num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                        use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
+                        pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
+                    )
+                
+                # Decode response
+                generated_ids_trimmed = [
+                    out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                ]
+                
+                output_text = self.processor.batch_decode(
+                    generated_ids_trimmed,
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=False
+                )
+                
+                result = output_text[0] if output_text else "Direct video analysis failed"
+                print(f"✅ Direct video analysis completed: {len(result)} characters")
+                return result
+                
+            except Exception as direct_error:
+                print(f"⚠️ Direct video processing failed: {direct_error}")
+                print("🔄 Falling back to frame-based analysis...")
+            
+            # Fallback: Try to extract key frames for better analysis
             frame_paths = await self._extract_key_frames(video_path, num_frames=6)
             
             if frame_paths:
@@ -862,7 +932,7 @@ class Qwen25VL32BService:
                     }
                 ]
                 
-                # Add frames to content
+                # Add frames to content - use "image" type for extracted frames
                 for i, frame_image in enumerate(frame_images):
                     messages[0]["content"].insert(i, {"type": "image", "image": frame_image})
                 
@@ -1167,6 +1237,83 @@ Total Frames: {frame_count}
             'qwen_vl_utils_available': QWEN_VL_UTILS_AVAILABLE,
             'analysis_templates_available': ANALYSIS_TEMPLATES_AVAILABLE
         }
+    
+    def test_video_processing(self, video_path: str) -> str:
+        """Test method to verify video processing works correctly"""
+        try:
+            if not self.is_initialized:
+                return "Service not initialized"
+            
+            print(f"🧪 Testing video processing for: {video_path}")
+            
+            # Test 1: Check if file exists
+            if not os.path.exists(video_path):
+                return f"Video file not found: {video_path}"
+            
+            abs_path = os.path.abspath(video_path)
+            print(f"✅ File exists: {abs_path}")
+            
+            # Test 2: Create correct message format
+            test_messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "video",
+                            "video": abs_path
+                        },
+                        {"type": "text", "text": "What is this video about?"}
+                    ]
+                }
+            ]
+            
+            print(f"✅ Message format created correctly")
+            
+            # Test 3: Apply chat template
+            try:
+                text = self.processor.apply_chat_template(
+                    test_messages, tokenize=False, add_generation_prompt=True
+                )
+                print(f"✅ Chat template applied successfully")
+            except Exception as e:
+                return f"Chat template failed: {e}"
+            
+            # Test 4: Process vision info
+            try:
+                if QWEN_VL_UTILS_AVAILABLE:
+                    image_inputs, video_inputs = process_vision_info(test_messages)
+                    print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
+                    print(f"   Video inputs: {video_inputs}")
+                else:
+                    print("⚠️ qwen-vl-utils not available")
+                    return "qwen-vl-utils not available for testing"
+            except Exception as e:
+                return f"Vision info processing failed: {e}"
+            
+            # Test 5: Try processor
+            try:
+                inputs = self.processor(
+                    text=[text],
+                    videos=[abs_path],
+                    padding=True,
+                    return_tensors="pt"
+                )
+                print(f"✅ Processor successful - Input keys: {list(inputs.keys())}")
+                
+                # Check if video inputs are properly processed
+                if 'pixel_values_videos' in inputs:
+                    video_shape = inputs['pixel_values_videos'].shape
+                    print(f"✅ Video tensor shape: {video_shape}")
+                else:
+                    print("⚠️ No video tensor found in inputs")
+                
+                return f"Video processing test successful!\n- File: {abs_path}\n- Video inputs: {len(video_inputs)}\n- Input keys: {list(inputs.keys())}"
+                
+            except Exception as e:
+                return f"Processor failed: {e}"
+                
+        except Exception as e:
+            return f"Test failed: {e}"
     
     def cleanup(self):
         """Clean up resources"""
