@@ -48,11 +48,13 @@ def get_analysis_types():
 def upload_video():
     """Handle video upload"""
     try:
+        print("🔍 Debug: Starting upload process...")
         session_id = session.get('session_id', generate_session_id())
         print(f"Debug: Upload - Session ID: {session_id}")
         
         # Check if video file was uploaded
         if 'video' in request.files and request.files['video'].filename != '':
+            print("🔍 Debug: User uploaded a file")
             # User uploaded a file
             file = request.files['video']
             
@@ -63,12 +65,16 @@ def upload_video():
             filename = secure_filename(file.filename)
             unique_filename = f"{uuid.uuid4()}_{filename}"
             filepath = os.path.join(Config.UPLOAD_FOLDER, unique_filename)
+            print(f"🔍 Debug: File will be saved to: {filepath}")
             
             # Save file
             file.save(filepath)
+            print(f"🔍 Debug: File saved successfully")
             
             # Extract video metadata
+            print(f"🔍 Debug: Extracting video metadata from: {filepath}")
             video_metadata = extract_video_metadata(filepath)
+            print(f"🔍 Debug: Video metadata extracted: {video_metadata}")
             
             file_info = {
                 'filename': unique_filename,
@@ -81,22 +87,30 @@ def upload_video():
             }
             
         else:
+            print("🔍 Debug: No file uploaded, using default video")
             # No file uploaded, use default video
             default_video_path = Config.DEFAULT_VIDEO_PATH
+            print(f"🔍 Debug: Default video path: {default_video_path}")
             
             if not os.path.exists(default_video_path):
+                print(f"❌ Debug: Default video not found at: {default_video_path}")
                 return jsonify({'error': 'Default video file not found'}), 500
             
             # Copy default video to uploads folder with unique name
             filename = os.path.basename(default_video_path)
             unique_filename = f"{uuid.uuid4()}_{filename}"
             filepath = os.path.join(Config.UPLOAD_FOLDER, unique_filename)
+            print(f"🔍 Debug: Will copy to: {filepath}")
             
             # Copy the default video file
+            print(f"🔍 Debug: Copying default video...")
             shutil.copy2(default_video_path, filepath)
+            print(f"🔍 Debug: Default video copied successfully")
             
             # Extract video metadata
+            print(f"🔍 Debug: Extracting metadata from copied video...")
             video_metadata = extract_video_metadata(filepath)
+            print(f"🔍 Debug: Metadata extracted: {video_metadata}")
             
             file_info = {
                 'filename': unique_filename,
@@ -109,13 +123,16 @@ def upload_video():
             }
         
         print(f"Debug: Upload - File info: {file_info}")
+        print(f"🔍 Debug: Storing session data...")
         store_session_data(session_id, file_info)
+        print(f"🔍 Debug: Session data stored")
         
         # Verify storage
         stored_data = get_session_data(session_id)
         print(f"Debug: Upload - Stored data keys: {list(stored_data.keys()) if stored_data else 'None'}")
         
         message = 'Default video loaded successfully' if file_info.get('is_default_video', False) else 'Video uploaded successfully'
+        print(f"🔍 Debug: Upload completed successfully")
         
         return jsonify({
             'success': True,
