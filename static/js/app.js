@@ -1089,16 +1089,16 @@ class VideoDetective {
 
     // Streaming functionality
     toggleStreamingInterface() {
-        const interface = document.getElementById('streamingInterface');
+        const streamingInterface = document.getElementById('streamingInterface');
         const toggleBtn = document.querySelector('.toggle-btn');
         
-        if (interface && toggleBtn) {
-            if (interface.classList.contains('hidden')) {
-                interface.classList.remove('hidden');
+        if (streamingInterface && toggleBtn) {
+            if (streamingInterface.classList.contains('hidden')) {
+                streamingInterface.classList.remove('hidden');
                 toggleBtn.innerHTML = '<i class="fas fa-lock"></i> Hide Streaming Interface';
                 this.connectWebSocket();
             } else {
-                interface.classList.add('hidden');
+                streamingInterface.classList.add('hidden');
                 toggleBtn.innerHTML = '<i class="fas fa-rocket"></i> Enable Streaming Interface';
                 this.disconnectWebSocket();
             }
@@ -1578,5 +1578,10 @@ window.startStream = () => window.videoDetective.startStream();
 window.stopStream = () => window.videoDetective.stopStream();
 window.refreshSessions = () => window.videoDetective.refreshSessions();
 window.cleanupSessions = () => window.videoDetective.cleanupSessions();
+
+// Add missing global function mappings
+window.resetUpload = () => window.videoDetective.resetUpload();
+window.analyzeVideo = () => window.videoDetective.analyzeVideo();
+window.sendMessage = () => window.videoDetective.sendMessage();
 
 console.log('🚀 AI Video Detective Pro is ready!');
