@@ -125,6 +125,10 @@ def upload_video():
         })
         
     except Exception as e:
+        import traceback
+        print(f"❌ Upload error: {e}")
+        print(f"❌ Upload error traceback:")
+        traceback.print_exc()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @main_bp.route('/analyze', methods=['POST'])
