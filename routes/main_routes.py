@@ -155,9 +155,10 @@ def analyze_video():
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': 'Video file not found'})
         
-        # Perform analysis using model manager
-        from services.model_manager import model_manager
+        # Analyze video using AI service
+        from services.ai_service import ai_service
         import asyncio
+        
         try:
             # Get or create event loop
             try:
@@ -166,11 +167,16 @@ def analyze_video():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # Run the async function
-            analysis_result = loop.run_until_complete(model_manager.analyze_video(video_path, analysis_type, user_focus))
+            # Run the async analysis
+            analysis_result = loop.run_until_complete(ai_service.analyze_video_with_gemini(
+                video_path, analysis_type, user_focus, session_id
+            ))
+            
+            print(f"✅ Video analysis completed successfully")
+            
         except Exception as e:
-            print(f"Error in video analysis: {e}")
-            return jsonify({'success': False, 'error': f'Analysis failed: {str(e)}'})
+            print(f"❌ AI analysis failed: {e}")
+            return jsonify({'success': False, 'error': f'AI analysis failed: {str(e)}'})
         
         # Use stored video metadata from session instead of re-extracting
         stored_metadata = session_data.get('metadata')

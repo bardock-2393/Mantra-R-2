@@ -77,7 +77,7 @@ def chat():
                 
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
-                from services.model_manager import model_manager
+                from services.ai_service import ai_service
                 import asyncio
                 try:
                     # Get or create event loop
@@ -88,7 +88,7 @@ def chat():
                         asyncio.set_event_loop(loop)
                     
                     # Run the async function
-                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, enhanced_message, chat_list
                     ))
                 except Exception as e:
@@ -98,7 +98,7 @@ def chat():
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
-                from services.model_manager import model_manager
+                from services.ai_service import ai_service
                 import asyncio
                 try:
                     # Get or create event loop
@@ -109,7 +109,7 @@ def chat():
                         asyncio.set_event_loop(loop)
                     
                     # Run the async function
-                    ai_response = loop.run_until_complete(model_manager.generate_chat_response(
+                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, message, chat_list
                     ))
                 except Exception as e:

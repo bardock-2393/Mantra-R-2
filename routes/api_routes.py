@@ -32,81 +32,9 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'service': 'AI Video Detective API',
-        'version': '2.0.0',
-        'timestamp': time.time()
+        'timestamp': time.time(),
+        'service': 'AI Video Detective API'
     })
-
-@api_bp.route('/model-health')
-def model_health_check():
-    """Health check endpoint for AI models"""
-    try:
-        from services.model_manager import model_manager
-        import asyncio
-        
-        # Get or create event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        # Run the async health check
-        health_status = loop.run_until_complete(model_manager.health_check())
-        
-        return jsonify({
-            'status': 'healthy',
-            'service': 'AI Model Health Check',
-            'timestamp': time.time(),
-            'models': health_status
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'service': 'AI Model Health Check',
-            'error': str(e),
-            'timestamp': time.time()
-        }), 500
-
-@api_bp.route('/model/switch', methods=['POST'])
-def switch_model():
-    """Switch between available AI models"""
-    try:
-        data = request.get_json()
-        model_name = data.get('model_name')
-        
-        if not model_name:
-            return jsonify({'success': False, 'error': 'Model name required'})
-        
-        # Import here to avoid circular imports
-        from services.model_manager import model_manager
-        
-        # Switch model
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        success = loop.run_until_complete(model_manager.switch_model(model_name))
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': f'Switched to {model_name}',
-                'current_model': model_name
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': f'Failed to switch to {model_name}'
-            })
-            
-    except Exception as e:
-        print(f"Model switch error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
 
 @api_bp.route('/session/status', methods=['GET'])
 def get_session_status():
