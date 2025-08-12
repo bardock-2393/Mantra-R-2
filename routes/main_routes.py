@@ -176,28 +176,51 @@ def analyze_video():
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': 'Video file not found'})
         
-        # Analyze video using AI service
-        from services.ai_service import ai_service
+        # Analyze video using 32B AI service
+        from services.qwen25vl_32b_service import qwen25vl_32b_service
         import asyncio
         
+        # Debug: Check 32B service status
+        print(f"🔍 32B Service Status: {qwen25vl_32b_service.is_ready()}")
+        print(f"🔍 32B Service Initialized: {qwen25vl_32b_service.is_initialized}")
+        print(f"🔍 32B Service Model: {qwen25vl_32b_service.model is not None if hasattr(qwen25vl_32b_service, 'model') else 'No model attribute'}")
+        
         try:
-            # Get or create event loop
+            # Check if 32B service is ready
+            if not qwen25vl_32b_service.is_ready():
+                print("🔄 32B service not ready, initializing...")
+                # Get or create event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                # Initialize the 32B service
+                loop.run_until_complete(qwen25vl_32b_service.initialize())
+                print("✅ 32B service initialized")
+                
+                # Check status again
+                print(f"🔍 After init - 32B Service Status: {qwen25vl_32b_service.is_ready()}")
+                print(f"🔍 After init - 32B Service Initialized: {qwen25vl_32b_service.is_initialized}")
+            
+            # Get or create event loop for analysis
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # Run the async analysis
-            analysis_result = loop.run_until_complete(ai_service.analyze_video_with_gemini(
-                video_path, analysis_type, user_focus, session_id
+            # Run the async analysis using 32B service
+            analysis_result = loop.run_until_complete(qwen25vl_32b_service.analyze(
+                video_path, analysis_type, user_focus
             ))
             
-            print(f"✅ Video analysis completed successfully")
+            print(f"✅ Video analysis completed successfully using 32B model")
             
         except Exception as e:
-            print(f"❌ AI analysis failed: {e}")
-            return jsonify({'success': False, 'error': f'AI analysis failed: {str(e)}'})
+            print(f"❌ 32B AI analysis failed: {e}")
+            return jsonify({'success': False, 'error': f'32B AI analysis failed: {str(e)}'})
         
         # Use stored video metadata from session instead of re-extracting
         stored_metadata = session_data.get('metadata')

@@ -77,27 +77,48 @@ def chat():
                 
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
-                from services.ai_service import ai_service
+                from services.qwen25vl_32b_service import qwen25vl_32b_service
+                
+                # Debug: Check service status
+                print(f"🔍 32B Service Status: {qwen25vl_32b_service.is_ready()}")
+                print(f"🔍 32B Service Initialized: {qwen25vl_32b_service.is_initialized}")
                 
                 try:
-                    # Call the synchronous method directly
-                    ai_response = ai_service.generate_chat_response(
-                        analysis_result, analysis_type, user_focus, enhanced_message, chat_list
+                    # Call the 32B model service using synchronous wrapper
+                    ai_response = qwen25vl_32b_service._generate_text_sync(
+                        f"Based on this video analysis: {analysis_result}\n\nUser question: {enhanced_message}\n\nPlease provide a detailed, helpful response.",
+                        max_new_tokens=1024
                     )
+                    print(f"✅ 32B model generated response successfully")
                 except Exception as e:
                     print(f"Error in chat response generation: {e}")
-                    ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
+                    # Try fallback to simple chat
+                    try:
+                        ai_response = qwen25vl_32b_service._generate_text_sync(
+                            f"Context: {analysis_result}\n\nUser: {enhanced_message}",
+                            max_new_tokens=1024
+                        )
+                        print(f"✅ Fallback chat worked")
+                    except Exception as fallback_error:
+                        print(f"Fallback chat also failed: {fallback_error}")
+                        ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
                 
             except Exception as e:
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
-                from services.ai_service import ai_service
+                from services.qwen25vl_32b_service import qwen25vl_32b_service
+                
+                # Debug: Check service status
+                print(f"🔍 Fallback - 32B Service Status: {qwen25vl_32b_service.is_ready()}")
+                print(f"🔍 Fallback - 32B Service Initialized: {qwen25vl_32b_service.is_initialized}")
                 
                 try:
-                    # Call the synchronous method directly
-                    ai_response = ai_service.generate_chat_response(
-                        analysis_result, analysis_type, user_focus, message, chat_list
+                    # Call the 32B model service using synchronous wrapper
+                    ai_response = qwen25vl_32b_service._generate_text_sync(
+                        f"Based on this video analysis: {analysis_result}\n\nUser question: {message}\n\nPlease provide a detailed, helpful response.",
+                        max_new_tokens=1024
                     )
+                    print(f"✅ Fallback - 32B model generated response successfully")
                 except Exception as e:
                     print(f"Error in fallback chat response generation: {e}")
                     ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
