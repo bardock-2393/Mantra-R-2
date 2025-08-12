@@ -134,12 +134,39 @@ class Qwen25VL32BService:
                 min_pixels = Config.QWEN25VL_32B_CONFIG['min_pixels']
                 max_pixels = Config.QWEN25VL_32B_CONFIG['max_pixels']
                 
-                self.processor = AutoProcessor.from_pretrained(
-                    Config.QWEN25VL_32B_MODEL_PATH,
-                    min_pixels=min_pixels,
-                    max_pixels=max_pixels,
-                    trust_remote_code=True
-                )
+                # Get HF token for authentication
+                hf_token = Config.QWEN25VL_32B_CONFIG.get('hf_token', '')
+                if not hf_token:
+                    # Try to get token directly from environment as fallback
+                    hf_token = os.getenv('HF_TOKEN', '')
+                    print(f"⚠️ No HF_TOKEN found in config, trying environment variable: {'Found' if hf_token else 'Not found'}")
+                
+                if hf_token:
+                    print(f"🔑 Using HF token: {hf_token[:10]}...{hf_token[-4:] if len(hf_token) > 14 else ''}")
+                else:
+                    print("⚠️ No HF_TOKEN available, trying without authentication")
+                
+                # Try loading with token first
+                try:
+                    self.processor = AutoProcessor.from_pretrained(
+                        Config.QWEN25VL_32B_MODEL_PATH,
+                        min_pixels=min_pixels,
+                        max_pixels=max_pixels,
+                        trust_remote_code=True,
+                        token=hf_token  # Add token for authentication
+                    )
+                except Exception as token_error:
+                    print(f"⚠️ Loading with token failed: {token_error}")
+                    if hf_token:
+                        print("🔄 Trying without token...")
+                        self.processor = AutoProcessor.from_pretrained(
+                            Config.QWEN25VL_32B_MODEL_PATH,
+                            min_pixels=min_pixels,
+                            max_pixels=max_pixels,
+                            trust_remote_code=True
+                        )
+                    else:
+                        raise token_error
                 
                 # Verify processor loaded successfully
                 if self.processor is None:
@@ -150,13 +177,32 @@ class Qwen25VL32BService:
                 print(f"❌ Processor loading failed: {e}")
                 print(f"   Model path: {Config.QWEN25VL_32B_MODEL_PATH}")
                 print(f"   Error type: {type(e).__name__}")
-                raise RuntimeError(f"Failed to load processor: {e}")
+                
+                # Try alternative model path if available
+                alternative_path = "Qwen/Qwen2.5-VL-32B-Instruct"
+                if Config.QWEN25VL_32B_MODEL_PATH != alternative_path:
+                    print(f"🔄 Trying alternative model path: {alternative_path}")
+                    try:
+                        self.processor = AutoProcessor.from_pretrained(
+                            alternative_path,
+                            min_pixels=min_pixels,
+                            max_pixels=max_pixels,
+                            trust_remote_code=True,
+                            token=hf_token
+                        )
+                        print(f"✅ Processor loaded successfully from alternative path")
+                    except Exception as alt_error:
+                        print(f"❌ Alternative path also failed: {alt_error}")
+                        raise RuntimeError(f"Failed to load processor from both paths: {e}")
+                else:
+                    raise RuntimeError(f"Failed to load processor: {e}")
             
             # Load tokenizer as fallback
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     Config.QWEN25VL_32B_MODEL_PATH,
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    token=hf_token  # Add token for authentication
                 )
                 print(f"✅ Tokenizer loaded successfully: {type(self.tokenizer).__name__}")
             except Exception as e:
@@ -172,7 +218,8 @@ class Qwen25VL32BService:
                     torch_dtype=torch.bfloat16,  # Use bfloat16 for 32B model
                     attn_implementation="sdpa",  # Use SDPA instead of flash attention
                     device_map="auto",
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    token=hf_token  # Add token for authentication
                 )
                 
                 # Verify model loaded successfully
@@ -184,7 +231,26 @@ class Qwen25VL32BService:
                 print(f"❌ Model loading failed: {e}")
                 print(f"   Model path: {Config.QWEN25VL_32B_MODEL_PATH}")
                 print(f"   Error type: {type(e).__name__}")
-                raise RuntimeError(f"Failed to load model: {e}")
+                
+                # Try alternative model path if available
+                alternative_path = "Qwen/Qwen2.5-VL-32B-Instruct"
+                if Config.QWEN25VL_32B_MODEL_PATH != alternative_path:
+                    print(f"🔄 Trying alternative model path: {alternative_path}")
+                    try:
+                        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                            alternative_path,
+                            torch_dtype=torch.bfloat16,
+                            attn_implementation="sdpa",
+                            device_map="auto",
+                            trust_remote_code=True,
+                            token=hf_token
+                        )
+                        print(f"✅ Model loaded successfully from alternative path")
+                    except Exception as alt_error:
+                        print(f"❌ Alternative path also failed: {alt_error}")
+                        raise RuntimeError(f"Failed to load model from both paths: {e}")
+                else:
+                    raise RuntimeError(f"Failed to load model: {e}")
             
             # Move to GPU
             print(f"🚀 Moving model to device: {self.device}")
