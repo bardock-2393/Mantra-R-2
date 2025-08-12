@@ -266,8 +266,27 @@ class VideoDetective {
                 })
             });
 
-            const result = await response.json();
-            console.log('📊 Analysis response:', result);
+            // Debug: Log response details before parsing
+            console.log('🔍 Response status:', response.status);
+            console.log('🔍 Response headers:', response.headers);
+            console.log('🔍 Response ok:', response.ok);
+            
+            // Get the raw response text first
+            const responseText = await response.text();
+            console.log('🔍 Raw response text:', responseText);
+            console.log('🔍 Response text length:', responseText.length);
+            console.log('🔍 Response text first 200 chars:', responseText.substring(0, 200));
+            
+            // Try to parse as JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('📊 Analysis response:', result);
+            } catch (jsonError) {
+                console.error('❌ JSON parsing failed:', jsonError);
+                console.error('❌ Raw response that failed to parse:', responseText);
+                throw new Error(`Invalid JSON response from server: ${jsonError.message}. Raw response: ${responseText.substring(0, 500)}`);
+            }
             
             this.hideLoadingModal();
 
