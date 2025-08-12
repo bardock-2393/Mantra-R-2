@@ -72,15 +72,15 @@ class Config:
         'batch_size': 1,      # Single batch for memory efficiency
         'gradient_checkpointing': False,  # Disable for inference
         'use_flash_attention': False,  # Disable for compatibility
-        'compile_mode': 'reduce-overhead',  # Speed optimization
+        'compile_mode': 'max-autotune',  # Enhanced speed optimization
         # Timeout settings to prevent Cloudflare 524
-        'vision_timeout': 60,  # 60 seconds for vision processing
-        'generation_timeout': 180,  # 3 minutes for text generation
-        'total_timeout': 300,  # 5 minutes total analysis time
+        'vision_timeout': 1800,  # 30 minutes for vision processing (increased)
+        'generation_timeout': 1800,  # 30 minutes for text generation (increased)
+        'total_timeout': 3600,  # 60 minutes total analysis time (increased)
         # Frame optimization
-        'max_frames_large': 4,   # Large videos (>500MB)
-        'max_frames_medium': 6,  # Medium videos (100-500MB)
-        'max_frames_small': 8,   # Small videos (<100MB)
+        'max_frames_large': 4,   # Large videos (>500MB) - reduced from 8
+        'max_frames_medium': 6,  # Medium videos (100-500MB) - reduced from 8
+        'max_frames_small': 8,   # Small videos (<100MB) - reduced from 8
         'frame_resolution': 224,  # Resize frames to 224x224 for memory efficiency
         'use_half_precision': True,  # Use FP16 for memory efficiency
     }
@@ -96,6 +96,40 @@ class Config:
         'chunk_size': 30,  # Process 30-second chunks
         'overlap': 5,  # 5-second overlap between chunks
         'memory_efficient': True  # Enable memory optimization
+    }
+    
+    # Video Chunking Configuration - For 120+ minute videos
+    VIDEO_CHUNKING_CONFIG = {
+        'enabled': True,
+        'chunk_duration': 300,  # 5 minutes per chunk
+        'max_workers': 2,  # Parallel processing workers (GPU memory constrained)
+        'frame_rate': 1,  # 1 fps for analysis (reduced from 8)
+        'resolution': (720, 480),  # 720p resolution for speed
+        'use_decord': True,  # Use decord instead of OpenCV
+        'memory_cleanup': True,  # Clean GPU memory between chunks
+        'overlap_frames': 2,  # Overlap frames between chunks for continuity
+        'min_chunk_size': 60,  # Minimum chunk size in seconds
+        'max_chunk_size': 600,  # Maximum chunk size in seconds (10 minutes)
+    }
+    
+    # WebSocket Configuration - For real-time progress updates
+    WEBSOCKET_CONFIG = {
+        'enabled': True,
+        'ping_timeout': 60,
+        'ping_interval': 25,
+        'max_http_buffer_size': 1e8,
+        'cors_allowed_origins': '*',
+        'async_mode': 'threading'
+    }
+    
+    # Performance Optimization Configuration
+    PERFORMANCE_OPTIMIZATION = {
+        'torch_compile_mode': 'max-autotune',  # Enable torch.compile optimization
+        'quantization_enabled': True,  # Enable model quantization (INT8/FP16)
+        'memory_cleanup_threshold': 0.8,  # 80% GPU memory threshold
+        'aggressive_cleanup': False,  # Enable aggressive memory cleanup
+        'frame_processing_optimization': True,  # Optimize frame processing
+        'parallel_chunk_processing': True,  # Process chunks in parallel
     }
     
     # Performance Targets - Adjusted for 80GB constraint

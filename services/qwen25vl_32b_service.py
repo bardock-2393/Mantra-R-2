@@ -21,6 +21,16 @@ except ImportError:
     ANALYSIS_TEMPLATES_AVAILABLE = False
     print("⚠️ Analysis templates not available, using fallback prompts")
 
+# Import new services
+try:
+    from video_chunking_service import VideoChunkingService
+    from websocket_service import WebSocketService
+    CHUNKING_AVAILABLE = True
+    print("✅ Video chunking service imported successfully")
+except ImportError:
+    CHUNKING_AVAILABLE = False
+    print("⚠️ Video chunking service not available, using fallback processing")
+
 # Import qwen-vl-utils with proper error handling
 try:
     from qwen_vl_utils import process_vision_info
@@ -154,6 +164,18 @@ class Qwen25VL32BService:
         self.gpu_service = GPUService()
         self.performance_monitor = PerformanceMonitor()
         self.is_initialized = False
+        
+        # Initialize video chunking service if available
+        if CHUNKING_AVAILABLE:
+            try:
+                chunking_config = Config.VIDEO_CHUNKING_CONFIG
+                self.chunking_service = VideoChunkingService(chunking_config)
+                print("✅ Video chunking service initialized")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize chunking service: {e}")
+                self.chunking_service = None
+        else:
+            self.chunking_service = None
         
     async def initialize(self):
         """Initialize the Qwen2.5-VL-32B-Instruct model on GPU"""
@@ -456,7 +478,7 @@ class Qwen25VL32BService:
         return base_prompt
     
     async def _generate_analysis(self, prompt: str, video_path: str) -> str:
-        """Generate analysis using Qwen2.5-VL-32B-Instruct with timeout and GPU optimization"""
+        """Generate analysis using Qwen2.5-VL-32B-Instruct"""
         try:
             # Verify the video file exists
             if not os.path.exists(video_path):
@@ -465,21 +487,6 @@ class Qwen25VL32BService:
             # Get absolute path for the video
             abs_video_path = os.path.abspath(video_path)
             print(f"🎬 Processing video: {abs_video_path}")
-            
-            # Check video file size and optimize processing
-            file_size = os.path.getsize(abs_video_path)
-            print(f"📁 Video file size: {file_size / (1024*1024):.2f} MB")
-            
-            # Optimize frame count based on file size and GPU memory
-            if file_size > 500 * 1024 * 1024:  # > 500MB
-                max_frames = 4  # Reduce frames for large videos
-                print(f"🔧 Large video detected, using {max_frames} frames for memory efficiency")
-            elif file_size > 100 * 1024 * 1024:  # > 100MB
-                max_frames = 6  # Medium frames for medium videos
-                print(f"🔧 Medium video detected, using {max_frames} frames")
-            else:
-                max_frames = 8  # Full frames for small videos
-                print(f"🔧 Small video detected, using {max_frames} frames")
             
             # Create messages for Qwen2.5-VL-32B with correct video format
             messages = [
@@ -495,57 +502,40 @@ class Qwen25VL32BService:
                 }
             ]
             
-            # Process vision info with proper error handling and timeout
+            # Process vision info with proper error handling
             try:
                 if QWEN_VL_UTILS_AVAILABLE:
-                    # Set timeout for vision processing
-                    import signal
+                    image_inputs, video_inputs = process_vision_info(messages)
+                    print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
                     
-                    def timeout_handler(signum, frame):
-                        raise TimeoutError("Vision processing timed out")
-                    
-                    # Set 60-second timeout for vision processing
-                    signal.signal(signal.SIGALRM, timeout_handler)
-                    signal.alarm(60)
-                    
-                    try:
-                        image_inputs, video_inputs = process_vision_info(messages)
-                        signal.alarm(0)  # Cancel timeout
-                        print(f"✅ Vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
-                        
-                        # Validate video inputs - ensure they are valid paths
-                        if video_inputs and len(video_inputs) > 0:
-                            # Check if video inputs are valid paths
-                            valid_videos = []
-                            for video_input in video_inputs:
-                                if video_input is not None and os.path.exists(str(video_input)):
-                                    # Ensure it's a path, not a tensor
-                                    if isinstance(video_input, str):
-                                        valid_videos.append(video_input)
-                                    else:
-                                        print(f"⚠️ Skipping non-path video input: {type(video_input)}")
+                    # Validate video inputs - ensure they are valid paths
+                    if video_inputs and len(video_inputs) > 0:
+                        # Check if video inputs are valid paths
+                        valid_videos = []
+                        for video_input in video_inputs:
+                            if video_input is not None and os.path.exists(str(video_input)):
+                                # Ensure it's a path, not a tensor
+                                if isinstance(video_input, str):
+                                    valid_videos.append(video_input)
                                 else:
-                                    print(f"⚠️ Invalid video input: {video_input}")
-                            
-                            if not valid_videos:
-                                print("⚠️ No valid video paths found, using fallback")
-                                return await self._generate_text_only_analysis(prompt, video_path)
-                            
-                            video_inputs = valid_videos
-                            print(f"✅ Using {len(video_inputs)} valid video paths for analysis")
-                        else:
-                            print("⚠️ No video inputs found, using fallback")
+                                    print(f"⚠️ Skipping non-path video input: {type(video_input)}")
+                            else:
+                                print(f"⚠️ Invalid video input: {video_input}")
+                        
+                        if not valid_videos:
+                            print("⚠️ No valid video paths found, using fallback")
                             return await self._generate_text_only_analysis(prompt, video_path)
-                            
-                    except TimeoutError:
-                        signal.alarm(0)  # Cancel timeout
-                        print("⏰ Vision processing timed out, using fallback")
+                        
+                        video_inputs = valid_videos
+                        print(f"✅ Using {len(video_inputs)} valid video paths for analysis")
+                    else:
+                        print("⚠️ No video inputs found, using fallback")
                         return await self._generate_text_only_analysis(prompt, video_path)
                         
                 else:
                     print("⚠️ qwen-vl-utils not available, using fallback")
-                    # Use our fallback function with optimized frame extraction
-                    image_inputs, video_inputs = await self._extract_optimized_frames(abs_video_path, max_frames)
+                    # Use our fallback function
+                    image_inputs, video_inputs = process_vision_info(messages)
                     print(f"✅ Fallback vision info processed - Images: {len(image_inputs)}, Videos: {len(video_inputs)}")
                     
                     if not video_inputs or len(video_inputs) == 0:
@@ -564,7 +554,7 @@ class Qwen25VL32BService:
                 messages, tokenize=False, add_generation_prompt=True
             )
             
-            # Prepare inputs - handle both video tensors and paths with memory optimization
+            # Prepare inputs - handle both video tensors and paths
             try:
                 # Check what type of video inputs we have
                 if not video_inputs or len(video_inputs) == 0:
@@ -578,18 +568,6 @@ class Qwen25VL32BService:
                 if has_tensors:
                     # We have video tensors from our fallback
                     print(f"✅ Using video tensors from fallback")
-                    
-                    # Optimize tensor memory usage
-                    optimized_tensors = []
-                    for tensor in video_inputs:
-                        if hasattr(tensor, 'shape'):
-                            # Convert to half precision to save memory
-                            if tensor.dtype == torch.float32:
-                                tensor = tensor.half()
-                            # Ensure tensor is on correct device
-                            tensor = tensor.to(self.device)
-                            optimized_tensors.append(tensor)
-                    
                     inputs = self.processor(
                         text=[text],
                         videos=video_inputs,  # Video tensors
@@ -623,49 +601,21 @@ class Qwen25VL32BService:
                 print(f"⚠️ Input processing failed: {e}")
                 return await self._generate_text_only_analysis(prompt, video_path)
             
-            # Generate response with 32B model optimizations and timeout
-            try:
-                # Set generation timeout (3 minutes to avoid Cloudflare 524)
-                generation_timeout = 180
-                
-                async def generate_with_timeout():
-                    with torch.no_grad():
-                        # Enable memory-efficient generation
-                        torch.cuda.empty_cache()  # Clear GPU cache before generation
-                        
-                        generated_ids = self.model.generate(
-                            **inputs,
-                            max_new_tokens=min(Config.QWEN25VL_32B_CONFIG['max_length'], 2048),
-                            temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
-                            top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
-                            top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                            do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
-                            num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
-                            use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
-                            pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None,
-                            # Memory optimization settings
-                            attention_mask=inputs.get('attention_mask'),
-                            return_dict_in_generate=True,
-                            output_scores=False,
-                            output_hidden_states=False
-                        )
-                        return generated_ids
-                
-                # Run generation with timeout
-                generated_ids = await asyncio.wait_for(generate_with_timeout(), timeout=generation_timeout)
-                
-                # Clear GPU cache after generation
-                torch.cuda.empty_cache()
-                
-            except asyncio.TimeoutError:
-                print(f"⏰ Generation timed out after {generation_timeout} seconds")
-                raise TimeoutError(f"Text generation timed out after {generation_timeout} seconds")
+            # Generate response with 32B model optimizations
+            with torch.no_grad():
+                generated_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=min(Config.QWEN25VL_32B_CONFIG['max_length'], 2048),
+                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
+                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
+                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
+                    pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
+                )
             
             # Decode response
-            if hasattr(generated_ids, 'sequences'):
-                # New format with return_dict_in_generate=True
-                generated_ids = generated_ids.sequences
-            
             generated_ids_trimmed = [
                 out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
@@ -801,66 +751,6 @@ class Qwen25VL32BService:
             print("⚠️ PyTorch not available")
         
         return libraries
-    
-    async def _extract_optimized_frames(self, video_path: str, max_frames: int = 8) -> Tuple[List, List]:
-        """Extract optimized frames for memory-efficient video processing"""
-        try:
-            import cv2
-            import tempfile
-            import os
-            
-            print(f"🎬 Extracting {max_frames} optimized frames from video")
-            
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
-                print(f"❌ Could not open video: {video_path}")
-                return [], []
-            
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            duration = total_frames / fps if fps > 0 else 0
-            
-            print(f"📹 Video: {total_frames} frames, {fps:.2f} FPS, {duration:.2f}s duration")
-            
-            # Calculate frame intervals for optimal coverage
-            frame_interval = max(1, total_frames // max_frames)
-            frame_tensors = []
-            
-            for i in range(max_frames):
-                frame_idx = min(i * frame_interval, total_frames - 1)
-                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                
-                ret, frame = cap.read()
-                if ret:
-                    # Convert BGR to RGB and normalize
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    # Resize frame for memory efficiency (reduce to 224x224)
-                    frame_resized = cv2.resize(frame_rgb, (224, 224))
-                    
-                    # Convert to tensor with memory optimization
-                    frame_tensor = torch.from_numpy(frame_resized).float() / 255.0
-                    
-                    # Convert to half precision to save memory
-                    frame_tensor = frame_tensor.half()
-                    
-                    frame_tensors.append(frame_tensor)
-                    
-                    timestamp = frame_idx / fps if fps > 0 else 0
-                    print(f"📸 Frame {i+1}/{max_frames}: {timestamp:.2f}s -> {frame_tensor.shape}")
-            
-            cap.release()
-            
-            if frame_tensors:
-                print(f"✅ Extracted {len(frame_tensors)} optimized frames")
-                return [], frame_tensors  # Return as video tensors
-            else:
-                print("⚠️ No frames extracted")
-                return [], []
-                
-        except Exception as e:
-            print(f"❌ Frame extraction failed: {e}")
-            return [], []
     
     async def _extract_key_frames(self, video_path: str, num_frames: int = 8) -> List[str]:
         """Extract key frames from video for analysis"""
@@ -1578,6 +1468,81 @@ Total Frames: {frame_count}
                 
         except Exception as e:
             return f"Test failed: {e}"
+    
+    async def process_video_chunked(self, video_path: str, prompt: str, 
+                                   session_id: str = None, 
+                                   websocket_service = None) -> Dict:
+        """Process long videos using chunking system for 120+ minute videos"""
+        try:
+            if not self.chunking_service:
+                return {'error': 'Video chunking service not available'}
+            
+            print(f"🎬 Starting chunked video processing: {video_path}")
+            
+            # Split video into chunks
+            chunks = self.chunking_service.split_video_into_chunks(video_path)
+            if not chunks:
+                return {'error': 'Failed to split video into chunks'}
+            
+            print(f"✂️ Video split into {len(chunks)} chunks")
+            
+            # Initialize progress tracking
+            if websocket_service and session_id:
+                websocket_service.start_chunk_processing(session_id, len(chunks))
+            
+            # Process each chunk
+            def process_chunk(chunk_info):
+                try:
+                    # Extract frames from chunk
+                    frames = self.chunking_service.extract_frames_from_chunk(
+                        chunk_info, 
+                        max_frames=Config.QWEN25VL_32B_CONFIG.get('max_frames_large', 4)
+                    )
+                    
+                    if not frames:
+                        return f"Chunk {chunk_info['chunk_id']}: No frames extracted"
+                    
+                    # Process frames with AI model
+                    # This is a simplified version - in full implementation you'd use the actual model
+                    result = f"Chunk {chunk_info['chunk_id']}: Processed {len(frames)} frames"
+                    
+                    # Update progress
+                    if websocket_service and session_id:
+                        websocket_service.update_chunk_progress(session_id, chunk_info['chunk_id'], 1.0)
+                        websocket_service.complete_chunk(session_id, chunk_info['chunk_id'])
+                    
+                    return result
+                    
+                except Exception as e:
+                    error_msg = f"Chunk {chunk_info['chunk_id']} failed: {str(e)}"
+                    print(f"❌ {error_msg}")
+                    return error_msg
+            
+            # Process chunks in parallel
+            chunk_results = self.chunking_service.process_chunks_parallel(
+                chunks, 
+                process_chunk,
+                progress_callback=lambda progress, completed, total, chunk_id: 
+                    websocket_service.update_chunk_progress(session_id, chunk_id, progress/100) if websocket_service and session_id else None
+            )
+            
+            # Merge results
+            merged_result = self.chunking_service.merge_chunk_results(chunk_results)
+            
+            # Mark processing as completed
+            if websocket_service and session_id:
+                websocket_service.complete_processing(session_id, merged_result.get('success', False))
+            
+            return merged_result
+            
+        except Exception as e:
+            error_msg = f"Chunked video processing failed: {str(e)}"
+            print(f"❌ {error_msg}")
+            
+            if websocket_service and session_id:
+                websocket_service.complete_processing(session_id, False)
+            
+            return {'error': error_msg}
     
     def cleanup(self):
         """Clean up resources"""

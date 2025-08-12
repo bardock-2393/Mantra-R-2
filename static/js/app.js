@@ -1,512 +1,992 @@
-// Video Analysis App - Enhanced with Progress Tracking and Timeout Handling
-// Prevents Cloudflare 524 errors by implementing async analysis flow
+// AI Video Detective - Professional JavaScript Application
 
-class VideoAnalyzer {
+class VideoDetective {
     constructor() {
-        this.currentSession = null;
-        this.progressInterval = null;
-        this.analysisTimeout = null;
-        this.maxAnalysisTime = 300000; // 5 minutes in milliseconds
-        this.progressCheckInterval = 2000; // Check progress every 2 seconds
-        this.initializeEventListeners();
+        this.currentFile = null;
+        this.analysisComplete = false;
+        this.isTyping = false;
+        this.init();
     }
 
-    initializeEventListeners() {
-        // File upload handling
-        const fileInput = document.getElementById('videoFile');
-        if (fileInput) {
-            fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-        }
+    init() {
+        console.log('🚀 Initializing AI Video Detective Pro...');
+        this.setupEventListeners();
+        this.setupAutoResize();
+        this.checkSessionStatus();
+        this.setupPageCleanup();
+        this.showDemoVideoPreview();
+        // Model selection functionality removed - always using 32B model
+        console.log('✅ AI Video Detective Pro initialized successfully!');
+    }
 
-        // Analysis form handling
-        const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
-            analysisForm.addEventListener('submit', (e) => this.handleAnalysisSubmit(e));
-        }
+    setupEventListeners() {
+        // File upload
+        const videoFile = document.getElementById('videoFile');
+        const uploadArea = document.getElementById('uploadArea');
 
-        // Analysis type selection
-        const analysisTypeSelect = document.getElementById('analysisType');
-        if (analysisTypeSelect) {
-            analysisTypeSelect.addEventListener('change', (e) => this.handleAnalysisTypeChange(e));
-        }
+        videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // Focus input handling
-        const focusInput = document.getElementById('userFocus');
-        if (focusInput) {
-            focusInput.addEventListener('input', (e) => this.handleFocusInput(e));
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFile(files[0]);
+            }
+        });
+
+        uploadArea.addEventListener('click', (e) => {
+            // Don't open file dialog if clicking on other interactive elements
+            if (e.target.closest('.upload-buttons') || 
+                e.target.closest('.upload-features')) {
+                return;
+            }
+            videoFile.click();
+        });
+
+        // Chat functionality
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+        
+        sendBtn.addEventListener('click', () => this.sendMessage());
+    }
+
+    setupAutoResize() {
+        const chatInput = document.getElementById('chatInput');
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        });
+    }
+
+    setupPageCleanup() {
+        // Clean up old uploads when page loads
+        this.cleanupOldUploads();
+        
+        // Clean up when user navigates away or refreshes
+        window.addEventListener('beforeunload', () => {
+            this.cleanupOldUploads();
+        });
+        
+        // Clean up when user goes back to upload screen
+        window.addEventListener('popstate', () => {
+            this.cleanupOldUploads();
+        });
+    }
+
+    async cleanupOldUploads() {
+        try {
+            const response = await fetch('/api/cleanup-uploads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                console.log('🧹 Old uploads cleaned up');
+            }
+        } catch (error) {
+            console.log('Cleanup request failed (normal on page unload)');
         }
     }
 
     handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) {
-            this.displayFileInfo(file);
-            this.enableAnalysisForm();
+            this.handleFile(file);
         }
     }
 
-    displayFileInfo(file) {
+    handleFile(file) {
+        if (!this.isValidVideoFile(file)) {
+            this.showError('Please select a valid video file (MP4, AVI, MOV, WebM, MKV)');
+            return;
+        }
+
+        if (file.size > 500 * 1024 * 1024) { // 500MB limit
+            this.showError('File size must be less than 500MB');
+            return;
+        }
+
+        this.currentFile = file;
+        this.showFileInfo(file);
+        this.showVideoPreview(file);
+    }
+
+    isValidVideoFile(file) {
+        const validTypes = ['video/mp4', 'video/avi', 'video/quicktime', 'video/webm', 'video/x-matroska'];
+        return validTypes.includes(file.type);
+    }
+
+    showFileInfo(file) {
         const fileInfo = document.getElementById('fileInfo');
-        if (fileInfo) {
-            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-            fileInfo.innerHTML = `
-                <div class="alert alert-info">
-                    <strong>Selected File:</strong> ${file.name}<br>
-                    <strong>Size:</strong> ${sizeMB} MB<br>
-                    <strong>Type:</strong> ${file.type || 'Unknown'}
-                </div>
-            `;
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        fileName.textContent = file.name;
+        fileSize.textContent = this.formatFileSize(file.size);
+        fileInfo.style.display = 'block';
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    showVideoPreview(file) {
+        const videoPreview = document.getElementById('videoPreview');
+        const previewVideo = document.getElementById('previewVideo');
+        
+        // Create object URL for video preview
+        const videoUrl = URL.createObjectURL(file);
+        previewVideo.src = videoUrl;
+        
+        // Show the preview section
+        videoPreview.style.display = 'block';
+        
+        // Scroll to preview
+        videoPreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        console.log('🎬 Video preview shown for:', file.name);
+    }
+
+    async uploadSelectedVideo() {
+        // Hide the preview
+        const videoPreview = document.getElementById('videoPreview');
+        videoPreview.style.display = 'none';
+        
+        // Check if this is a demo video preview
+        const previewVideo = document.getElementById('previewVideo');
+        if (previewVideo && previewVideo.src && previewVideo.src.includes('/demo-video')) {
+            // This is a demo video, upload it
+            await this.uploadDemoVideo();
+        } else if (this.currentFile) {
+            // This is a regular uploaded file
+            await this.uploadFile(this.currentFile);
+        } else {
+            // If no file is selected but we're in demo mode, upload demo video
+            await this.uploadDemoVideo();
         }
     }
 
-    enableAnalysisForm() {
-        const analysisForm = document.getElementById('analysisForm');
-        const submitBtn = document.getElementById('submitAnalysis');
-        if (analysisForm && submitBtn) {
-            analysisForm.style.display = 'block';
-            submitBtn.disabled = false;
-        }
-    }
-
-    handleAnalysisTypeChange(event) {
-        const selectedType = event.target.value;
-        const focusInput = document.getElementById('userFocus');
-        
-        if (focusInput) {
-            // Set default focus based on analysis type
-            const defaultFocuses = {
-                'general': 'Analyze this video comprehensively',
-                'behavioral': 'Focus on behavior patterns and actions',
-                'technical': 'Provide technical analysis of content',
-                'narrative': 'Analyze storytelling and narrative structure',
-                'forensic': 'Conduct forensic analysis for evidence',
-                'commercial': 'Analyze from marketing perspective',
-                'comprehensive_analysis': 'Provide comprehensive multi-dimensional analysis',
-                'safety_investigation': 'Conduct thorough safety analysis',
-                'creative_review': 'Provide creative and aesthetic analysis'
-            };
-            
-            focusInput.value = defaultFocuses[selectedType] || 'Analyze this video comprehensively';
-        }
-    }
-
-    handleFocusInput(event) {
-        // Real-time character count and validation
-        const maxLength = 500;
-        const currentLength = event.target.value.length;
-        const charCount = document.getElementById('charCount');
-        
-        if (charCount) {
-            charCount.textContent = `${currentLength}/${maxLength}`;
-            
-            if (currentLength > maxLength * 0.9) {
-                charCount.style.color = currentLength > maxLength ? 'red' : 'orange';
-            } else {
-                charCount.style.color = 'inherit';
-            }
-        }
-    }
-
-    async handleAnalysisSubmit(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(event.target);
-        const analysisType = formData.get('analysisType');
-        const userFocus = formData.get('userFocus');
-        
-        // Validate inputs
-        if (!analysisType || !userFocus.trim()) {
-            this.showError('Please select an analysis type and provide a focus area.');
-            return;
-        }
-        
-        // Check if file is selected
-        const fileInput = document.getElementById('videoFile');
-        if (!fileInput.files[0]) {
-            this.showError('Please select a video file first.');
-            return;
-        }
-        
-        // Start analysis process
-        await this.startAnalysis(analysisType, userFocus);
-    }
-
-    async startAnalysis(analysisType, userFocus) {
-        try {
-            // Show loading state
-            this.showLoadingState();
-            
-            // First, upload the video if not already uploaded
-            const uploadResult = await this.uploadVideo();
-            if (!uploadResult.success) {
-                throw new Error(uploadResult.error || 'Video upload failed');
-            }
-            
-            // Start analysis with progress tracking
-            const analysisResult = await this.startVideoAnalysis(analysisType, userFocus);
-            
-            if (analysisResult.success) {
-                // Analysis started successfully, begin progress tracking
-                this.currentSession = analysisResult.session_id;
-                this.startProgressTracking();
-                
-                // Show progress UI
-                this.showProgressUI();
-                
-                // Set overall timeout
-                this.analysisTimeout = setTimeout(() => {
-                    this.handleAnalysisTimeout();
-                }, this.maxAnalysisTime);
-                
-            } else {
-                throw new Error(analysisResult.error || 'Failed to start analysis');
-            }
-            
-        } catch (error) {
-            console.error('Analysis start error:', error);
-            this.showError(`Failed to start analysis: ${error.message}`);
-            this.hideLoadingState();
-        }
-    }
-
-    async uploadVideo() {
-        const fileInput = document.getElementById('videoFile');
-        const file = fileInput.files[0];
-        
-        if (!file) {
-            throw new Error('No video file selected');
-        }
-        
+    async uploadFile(file) {
         const formData = new FormData();
         formData.append('video', file);
-        
+
         try {
+            this.showProgress();
+
             const response = await fetch('/upload', {
                 method: 'POST',
                 body: formData
             });
-            
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-            }
-            
+
             const result = await response.json();
-            return result;
-            
+
+            if (result.success) {
+                this.hideProgress();
+                this.showFileInfo(file, result.filename, result.file_size);
+                this.showCleanupButton();
+                this.analyzeVideo();
+            } else {
+                this.hideProgress();
+                this.showError(result.error || 'Upload failed');
+            }
         } catch (error) {
-            console.error('Upload error:', error);
-            throw new Error(`Video upload failed: ${error.message}`);
+            this.hideProgress();
+            this.showError('Upload failed: ' + error.message);
         }
     }
 
-    async startVideoAnalysis(analysisType, userFocus) {
+    showProgress() {
+        const progress = document.getElementById('uploadProgress');
+        const progressFill = progress.querySelector('.progress-fill');
+        
+        progress.style.display = 'block';
+        progressFill.style.width = '0%';
+        
+        // Simulate progress
+        let width = 0;
+        const interval = setInterval(() => {
+            if (width >= 90) {
+                clearInterval(interval);
+            } else {
+                width += Math.random() * 10;
+                progressFill.style.width = width + '%';
+            }
+        }, 200);
+    }
+
+    hideProgress() {
+        const progress = document.getElementById('uploadProgress');
+        const progressFill = progress.querySelector('.progress-fill');
+        
+        progressFill.style.width = '100%';
+        setTimeout(() => {
+            progress.style.display = 'none';
+        }, 500);
+    }
+
+    async analyzeVideo() {
         try {
+            console.log('🔍 Starting video analysis...');
+            this.showLoadingModal('Analyzing Video');
+
             const response = await fetch('/analyze', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    analysis_type: analysisType,
-                    user_focus: userFocus
+                    analysis_type: 'comprehensive_analysis',
+                    user_focus: 'Analyze this video comprehensively for all important events and observations'
                 })
             });
+
+            // Debug: Log response details before parsing
+            console.log('🔍 Response status:', response.status);
+            console.log('🔍 Response headers:', response.headers);
+            console.log('🔍 Response ok:', response.ok);
             
-            if (!response.ok) {
-                throw new Error(`Analysis request failed: ${response.status} ${response.statusText}`);
+            // Get the raw response text first
+            const responseText = await response.text();
+            console.log('🔍 Raw response text:', responseText);
+            console.log('🔍 Response text length:', responseText.length);
+            console.log('🔍 Response text first 200 chars:', responseText.substring(0, 200));
+            
+            // Try to parse as JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('📊 Analysis response:', result);
+            } catch (jsonError) {
+                console.error('❌ JSON parsing failed:', jsonError);
+                console.error('❌ Raw response that failed to parse:', responseText);
+                throw new Error(`Invalid JSON response from server: ${jsonError.message}. Raw response: ${responseText.substring(0, 500)}`);
             }
             
-            const result = await response.json();
-            return result;
-            
-        } catch (error) {
-            console.error('Analysis request error:', error);
-            throw new Error(`Failed to start analysis: ${error.message}`);
-        }
-    }
+            this.hideLoadingModal();
 
-    startProgressTracking() {
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-        }
-        
-        this.progressInterval = setInterval(async () => {
-            await this.checkProgress();
-        }, this.progressCheckInterval);
-    }
-
-    async checkProgress() {
-        if (!this.currentSession) return;
-        
-        try {
-            const response = await fetch(`/api/analysis-progress/${this.currentSession}`);
-            
-            if (!response.ok) {
-                throw new Error(`Progress check failed: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
             if (result.success) {
-                // Update progress UI
-                this.updateProgressUI(result.progress);
+                console.log('✅ Analysis successful, showing chat interface...');
+                this.analysisComplete = true;
+                this.showChatInterface();
                 
-                // Check if analysis is complete
-                if (result.completed) {
-                    this.handleAnalysisComplete(result);
+                // Show analysis completion message with evidence if available
+                let completionMessage = '🎯 **Video Analysis Setup Complete!**\n\nYour video has been successfully uploaded and processed. Here\'s what I\'ve prepared:';
+                
+                // DISABLED: Visual Evidence feature
+                // No evidence text will be displayed
+                
+                completionMessage += '\n\n**Current Status**: Video is ready for AI analysis!\n\n**Next Steps**: Ask me anything about the video content. I can provide:\n- Basic video information and metadata\n- Technical specifications and details\n- Analysis setup guidance\n- Help with video processing questions\n\n**For Full AI Analysis**: The server needs the Qwen2.5-VL-32B model loaded to provide detailed content analysis, object recognition, and behavioral insights.';
+                
+                // Add completion message with typing effect
+                this.addChatMessageWithTyping('ai', completionMessage);
+                
+                // DISABLED: Evidence display
+                // No evidence will be shown
+            } else {
+                console.error('❌ Analysis failed:', result.error);
+                this.showError(result.error || 'Analysis failed');
+            }
+        } catch (error) {
+            console.error('❌ Analysis error:', error);
+            this.hideLoadingModal();
+            this.showError('Analysis failed: ' + error.message);
+        }
+    }
+
+    // DISABLED: Evidence display function
+    /*
+    displayEvidence(evidence, title = 'Visual Evidence') {
+        const chatMessages = document.getElementById('chatMessages');
+        
+        // Create evidence container
+        const evidenceContainer = document.createElement('div');
+        evidenceContainer.className = 'screenshot-evidence';
+        
+        // Add header
+        const header = document.createElement('h4');
+        header.innerHTML = `📸 <strong>${title}</strong>`;
+        evidenceContainer.appendChild(header);
+        
+        // Create evidence grid
+        const grid = document.createElement('div');
+        grid.className = 'evidence-grid';
+        
+        evidence.forEach(item => {
+            const evidenceItem = document.createElement('div');
+            evidenceItem.className = 'evidence-item';
+            
+            if (item.type === 'video_clip') {
+                // Create video element
+                const video = document.createElement('video');
+                video.src = item.url;
+                video.controls = true;
+                video.preload = 'metadata';
+                
+                // Create timestamp label for video
+                const timestamp = document.createElement('div');
+                timestamp.className = 'timestamp';
+                timestamp.innerHTML = `<strong>${this.formatTimestamp(item.start_time)} - ${this.formatTimestamp(item.end_time)}</strong>`;
+                
+                evidenceItem.appendChild(video);
+                evidenceItem.appendChild(timestamp);
+            } else {
+                // Create image for screenshot
+                const img = document.createElement('img');
+                img.src = item.url;
+                img.alt = `Screenshot at ${item.timestamp}s`;
+                img.loading = 'lazy';
+                
+                // Add click event to open modal
+                img.addEventListener('click', () => {
+                    this.openEvidenceModal(item);
+                });
+                
+                // Create timestamp label for screenshot
+                const timestamp = document.createElement('div');
+                timestamp.className = 'timestamp';
+                timestamp.innerHTML = `<strong>${this.formatTimestamp(item.timestamp)}</strong>`;
+                
+                evidenceItem.appendChild(img);
+                evidenceItem.appendChild(timestamp);
+            }
+            
+            grid.appendChild(evidenceItem);
+        });
+        
+        evidenceContainer.appendChild(grid);
+        
+        // Add to chat messages with animation
+        evidenceContainer.style.opacity = '0';
+        evidenceContainer.style.transform = 'translateY(20px)';
+        chatMessages.appendChild(evidenceContainer);
+        
+        // Animate in
+        setTimeout(() => {
+            evidenceContainer.style.transition = 'all 0.3s ease';
+            evidenceContainer.style.opacity = '1';
+            evidenceContainer.style.transform = 'translateY(0)';
+        }, 100);
+        
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    */
+
+    openEvidenceModal(evidence) {
+        const modal = document.getElementById('evidenceModal');
+        const modalImage = document.getElementById('evidenceModalImage');
+        const modalInfo = document.getElementById('evidenceModalInfo');
+        
+        modalImage.src = evidence.url;
+        
+        if (evidence.type === 'video_clip') {
+            modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.start_time)} - ${this.formatTimestamp(evidence.end_time)}`;
+        } else {
+            modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.timestamp)}`;
+        }
+        
+        modal.style.display = 'flex';
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeEvidenceModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeEvidenceModal();
+            }
+        });
+    }
+
+    closeEvidenceModal() {
+        const modal = document.getElementById('evidenceModal');
+        modal.style.display = 'none';
+    }
+
+    formatTimestamp(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    showChatInterface() {
+        console.log('💬 Showing chat interface...');
+        
+        const uploadSection = document.getElementById('uploadSection');
+        const chatInterface = document.getElementById('chatInterface');
+        
+        // Hide upload section with animation
+        uploadSection.style.transition = 'all 0.3s ease';
+        uploadSection.style.opacity = '0';
+        uploadSection.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            uploadSection.style.display = 'none';
+            
+            // Show chat interface
+            chatInterface.style.display = 'flex';
+            chatInterface.style.opacity = '0';
+            chatInterface.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                chatInterface.style.transition = 'all 0.3s ease';
+                chatInterface.style.opacity = '1';
+                chatInterface.style.transform = 'translateY(0)';
+            }, 50);
+        }, 300);
+        
+        // Enable chat input
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
+        
+        console.log('✅ Chat interface should now be visible');
+    }
+
+    async sendMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+
+        if (!message || this.isTyping) return;
+
+        // Add user message
+        this.addChatMessage('user', message);
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        
+        // Disable input while processing
+        chatInput.disabled = true;
+        const sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+
+        // Show typing indicator
+        this.showTypingIndicator();
+
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            });
+
+            const result = await response.json();
+
+            // Hide typing indicator
+            this.hideTypingIndicator();
+
+            if (result.success) {
+                // Add AI message with typing effect
+                this.addChatMessageWithTyping('ai', result.response);
+                
+                // Display additional evidence if available (after message appears)
+                if (result.additional_screenshots && result.additional_screenshots.length > 0) {
+                    setTimeout(() => {
+                        this.displayEvidence(result.additional_screenshots, 'Additional Evidence');
+                    }, 800); // Wait for fade-in effect to complete + buffer
                 }
             } else {
-                throw new Error(result.error || 'Progress check failed');
+                this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
             }
-            
         } catch (error) {
-            console.error('Progress check error:', error);
-            this.showError(`Progress check failed: ${error.message}`);
+            this.hideTypingIndicator();
+            this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
         }
+        
+        // Re-enable input
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
     }
 
-    updateProgressUI(progress) {
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        const progressStatus = document.getElementById('progressStatus');
+    showTypingIndicator() {
+        this.isTyping = true;
+        const typingIndicator = document.getElementById('typingIndicator');
+        typingIndicator.style.display = 'block';
         
-        if (progressBar && progressText && progressStatus) {
-            progressBar.value = progress.progress;
-            progressText.textContent = `${progress.progress}%`;
-            progressStatus.textContent = progress.message;
-            
-            // Update progress bar color based on status
-            if (progress.status === 'error' || progress.status === 'timeout') {
-                progressBar.className = 'progress-bar bg-danger';
-            } else if (progress.status === 'completed' || progress.status === 'completed_fallback') {
-                progressBar.className = 'progress-bar bg-success';
-            } else {
-                progressBar.className = 'progress-bar bg-primary';
-            }
-        }
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    handleAnalysisComplete(result) {
-        // Clear intervals and timeouts
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = null;
-        }
-        
-        if (this.analysisTimeout) {
-            clearTimeout(this.analysisTimeout);
-            this.analysisTimeout = null;
-        }
-        
-        // Hide progress UI
-        this.hideProgressUI();
-        
-        // Show results
-        if (result.results && result.results.success) {
-            this.displayAnalysisResults(result.results);
-        } else {
-            this.showError(result.error || 'Analysis failed');
-        }
-        
-        // Reset state
-        this.currentSession = null;
-        this.hideLoadingState();
+    hideTypingIndicator() {
+        this.isTyping = false;
+        const typingIndicator = document.getElementById('typingIndicator');
+        typingIndicator.style.display = 'none';
     }
 
-    handleAnalysisTimeout() {
-        console.warn('Analysis timed out');
+    addChatMessage(type, message) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${type}-message`;
+
+        const icon = type === 'user' ? 'fas fa-user' : 'fas fa-robot';
         
-        // Clear progress tracking
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = null;
+        // Enhanced message formatting for AI responses
+        let formattedMessage = message;
+        if (type === 'ai') {
+            formattedMessage = this.formatAIResponse(message);
         }
-        
-        // Hide progress UI
-        this.hideProgressUI();
-        
-        // Show timeout error
-        this.showError('Analysis timed out. The video may be too long or complex. Please try with a shorter video or contact support.');
-        
-        // Reset state
-        this.currentSession = null;
-        this.hideLoadingState();
+
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <div class="message-avatar">
+                <i class="${icon}"></i>
+                </div>
+                <div class="message-text"></div>
+            </div>
+        `;
+
+        // Set the formatted content safely
+        const messageTextElement = messageDiv.querySelector('.message-text');
+        messageTextElement.innerHTML = formattedMessage;
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    showProgressUI() {
-        const progressSection = document.getElementById('progressSection');
-        if (progressSection) {
-            progressSection.style.display = 'block';
-        }
+    addChatMessageWithTyping(type, message) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${type}-message`;
+
+        const icon = type === 'user' ? 'fas fa-user' : 'fas fa-robot';
         
-        // Hide other sections
-        this.hideResultsSection();
-        this.hideErrorSection();
+        // Enhanced message formatting for AI responses
+        let formattedMessage = this.formatAIResponse(message);
+
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <div class="message-avatar">
+                    <i class="${icon}"></i>
+                </div>
+                <div class="message-text"></div>
+                </div>
+            `;
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Show message with fade-in effect
+        const messageText = messageDiv.querySelector('.message-text');
+        this.showMessageWithEffect(messageText, formattedMessage);
     }
 
-    hideProgressUI() {
-        const progressSection = document.getElementById('progressSection');
-        if (progressSection) {
-            progressSection.style.display = 'none';
-        }
+    showMessageWithEffect(element, text) {
+        // Start with opacity 0 and add fade-in effect
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(10px)';
+        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        
+        // Set the content immediately
+        element.innerHTML = text;
+        
+        // Trigger the fade-in animation
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 50);
     }
 
-    displayAnalysisResults(results) {
-        const resultsSection = document.getElementById('resultsSection');
-        if (!resultsSection) return;
-        
-        // Display analysis text
-        const analysisText = document.getElementById('analysisText');
-        if (analysisText) {
-            analysisText.innerHTML = this.formatAnalysisText(results.analysis);
-        }
-        
-        // Display timestamps
-        const timestampsList = document.getElementById('timestampsList');
-        if (timestampsList && results.timestamps) {
-            timestampsList.innerHTML = results.timestamps.map(timestamp => 
-                `<li class="list-group-item">${timestamp}</li>`
-            ).join('');
-        }
-        
-        // Display video duration
-        const durationInfo = document.getElementById('durationInfo');
-        if (durationInfo && results.video_duration) {
-            const minutes = Math.floor(results.video_duration / 60);
-            const seconds = Math.floor(results.video_duration % 60);
-            durationInfo.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
-        
-        // Show results section
-        resultsSection.style.display = 'block';
-        
-        // Hide other sections
-        this.hideProgressUI();
-        this.hideErrorSection();
-    }
-
-    formatAnalysisText(text) {
-        // Convert markdown-like formatting to HTML
-        return text
+    formatAIResponse(message) {
+        // Convert markdown-style formatting to HTML
+        return message
+            // Bold text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Italic text
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n\n/g, '</p><p>')
+            // Headers
+            .replace(/^### (.*$)/gim, '<h4 style="margin: 15px 0 8px 0; color: #1a1a1a; font-weight: 600;">$1</h4>')
+            .replace(/^## (.*$)/gim, '<h3 style="margin: 20px 0 10px 0; color: #1a1a1a; font-weight: 600;">$1</h3>')
+            .replace(/^# (.*$)/gim, '<h2 style="margin: 25px 0 15px 0; color: #1a1a1a; font-weight: 600;">$1</h2>')
+            // Bullet points
+            .replace(/^\* (.*$)/gim, '<li>$1</li>')
+            .replace(/^- (.*$)/gim, '<li>$1</li>')
+            // Numbered lists
+            .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
+            // Wrap lists in ul/ol tags
+            .replace(/(<li>.*<\/li>)/gs, '<ul style="margin: 12px 0; padding-left: 24px;">$1</ul>')
+            // Line breaks
             .replace(/\n/g, '<br>')
-            .replace(/^/, '<p>')
-            .replace(/$/, '</p>');
+            // Timestamps with special styling
+            .replace(/(\d{2}:\d{2}-\d{2}:\d{2})/g, '<span style="background: #f3f4f6; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: 600; color: #374151; border: 1px solid #e5e7eb;">$1</span>')
+            // Single timestamps
+            .replace(/(\d{2}:\d{2})/g, '<span style="background: #f3f4f6; padding: 4px 8px; border-radius: 6px; font-family: monospace; color: #374151;">$1</span>');
     }
 
-    showLoadingState() {
-        const submitBtn = document.getElementById('submitAnalysis');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting...';
-        }
+    showLoadingModal(message) {
+        const modal = document.getElementById('loadingModal');
+        const loadingMessage = document.getElementById('loadingMessage');
+        
+        loadingMessage.textContent = message;
+        modal.style.display = 'flex';
+        
+        // Animate loading steps
+        this.animateLoadingSteps();
     }
 
-    hideLoadingState() {
-        const submitBtn = document.getElementById('submitAnalysis');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Analyze Video';
-        }
+    animateLoadingSteps() {
+        const steps = document.querySelectorAll('.loading-steps .step');
+        let currentStep = 0;
+        
+        const interval = setInterval(() => {
+            steps.forEach((step, index) => {
+                if (index <= currentStep) {
+                    step.classList.add('active');
+                } else {
+                    step.classList.remove('active');
+                }
+            });
+            
+            currentStep++;
+            if (currentStep >= steps.length) {
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+
+    hideLoadingModal() {
+        const modal = document.getElementById('loadingModal');
+        modal.style.display = 'none';
     }
 
     showError(message) {
-        const errorSection = document.getElementById('errorSection');
-        const errorText = document.getElementById('errorText');
+        // Create a professional error notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            font-weight: 500;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease;
+        `;
+        notification.textContent = message;
         
-        if (errorSection && errorText) {
-            errorText.textContent = message;
-            errorSection.style.display = 'block';
+        document.body.appendChild(notification);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 5000);
+    }
+
+    async cleanupSession() {
+        try {
+            const response = await fetch('/session/cleanup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
             
-            // Hide other sections
-            this.hideProgressUI();
-            this.hideResultsSection();
-        }
-        
-        console.error('Error:', message);
-    }
-
-    hideErrorSection() {
-        const errorSection = document.getElementById('errorSection');
-        if (errorSection) {
-            errorSection.style.display = 'none';
+            if (result.success) {
+                this.resetUpload();
+                this.hideCleanupButton();
+                this.showSuccess('Session cleaned up successfully! All files and data have been removed.');
+            } else {
+                this.showError('Failed to cleanup session: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Cleanup error:', error);
+            this.showError('Error cleaning up session: ' + error.message);
         }
     }
 
-    hideResultsSection() {
-        const resultsSection = document.getElementById('resultsSection');
-        if (resultsSection) {
-            resultsSection.style.display = 'none';
+    showSuccess(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            font-weight: 500;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
+    }
+
+    async checkSessionStatus() {
+        try {
+            const response = await fetch('/api/session/status');
+            const result = await response.json();
+            
+            if (result.active) {
+                if (result.video_uploaded || result.evidence_count > 0) {
+                    this.showCleanupButton();
+                } else {
+                    this.hideCleanupButton();
+                }
+                console.log('📊 Session status:', result);
+            } else {
+                this.hideCleanupButton();
+            }
+        } catch (error) {
+            console.error('Session status check error:', error);
         }
     }
 
-    // Utility method to reset the form
-    resetForm() {
-        const form = document.getElementById('analysisForm');
-        if (form) {
-            form.reset();
+    showCleanupButton() {
+        const floatingCleanup = document.getElementById('floatingCleanup');
+        if (floatingCleanup) {
+            floatingCleanup.style.display = 'block';
         }
-        
-        // Clear file selection
-        const fileInput = document.getElementById('videoFile');
-        if (fileInput) {
-            fileInput.value = '';
+    }
+
+    hideCleanupButton() {
+        const floatingCleanup = document.getElementById('floatingCleanup');
+        if (floatingCleanup) {
+            floatingCleanup.style.display = 'none';
         }
+    }
+
+
+
+    showDemoVideoPreview() {
+        try {
+            console.log('🎬 Showing demo video preview...');
+            
+            // Show video preview with demo video URL
+            const videoPreview = document.getElementById('videoPreview');
+            const previewVideo = document.getElementById('previewVideo');
+            
+            // Set the demo video source
+            previewVideo.src = '/demo-video';
+            
+            // Show the preview section
+            videoPreview.style.display = 'block';
+            
+            // Update preview header for demo video
+            const previewHeader = videoPreview.querySelector('.preview-header h3');
+            if (previewHeader) {
+                previewHeader.textContent = 'Demo Video Preview';
+            }
+            
+            const previewDescription = videoPreview.querySelector('.preview-header p');
+            if (previewDescription) {
+                previewDescription.textContent = 'Preview the BMW M4 demo video before using it for analysis';
+            }
+            
+            console.log('🎬 Demo video preview shown');
+        } catch (error) {
+            console.error('Failed to show demo video preview:', error);
+        }
+    }
+
+    async uploadDemoVideo() {
+        try {
+            console.log('🎬 Uploading demo video...');
+            this.showProgress();
+            
+            // Upload demo video (no actual file, just trigger the server to use default)
+            const formData = new FormData();
+            // Don't append any file - this will trigger the server to use default video
+            
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.hideProgress();
+                this.showCleanupButton();
+                
+                // Create a mock file object for the demo video and show file info
+                const demoFile = {
+                    name: 'BMW M4 - Ultimate Racetrack - BMW Canada (720p, h264).mp4',
+                    size: 0,
+                    type: 'video/mp4'
+                };
+                this.showFileInfo(demoFile);
+                
+                // Update file info with actual data from server
+                if (result.filename) {
+                    const fileInfo = document.getElementById('fileInfo');
+                    const fileName = fileInfo.querySelector('.file-name');
+                    if (fileName) {
+                        fileName.textContent = result.filename;
+                    }
+                }
+                
+                // Show success message
+                this.showSuccess('Demo video loaded successfully! 🎬');
+                
+                // Start analysis
+                this.analyzeVideo();
+            } else {
+                this.hideProgress();
+                this.showError(result.error || 'Failed to load demo video');
+            }
+        } catch (error) {
+            this.hideProgress();
+            this.showError('Failed to load demo video: ' + error.message);
+        }
+    }
+
+    resetUpload() {
+        // Clear current file
+        const videoFile = document.getElementById('videoFile');
+        videoFile.value = '';
         
-        // Hide all sections
-        this.hideProgressUI();
-        this.hideResultsSection();
-        this.hideErrorSection();
-        
-        // Reset file info
+        // Hide file info
         const fileInfo = document.getElementById('fileInfo');
-        if (fileInfo) {
-            fileInfo.innerHTML = '';
+        fileInfo.style.display = 'none';
+        
+        // Hide video preview and clean up object URL
+        const videoPreview = document.getElementById('videoPreview');
+        const previewVideo = document.getElementById('previewVideo');
+        if (videoPreview) {
+            videoPreview.style.display = 'none';
+        }
+        if (previewVideo && previewVideo.src) {
+            if (previewVideo.src.includes('/demo-video')) {
+                // For demo video, just clear the src
+                previewVideo.src = '';
+            } else {
+                // For uploaded videos, revoke the object URL
+                URL.revokeObjectURL(previewVideo.src);
+                previewVideo.src = '';
+            }
         }
         
-        // Hide analysis form
-        const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
-            analysisForm.style.display = 'none';
-        }
+        // Clear current file reference
+        this.currentFile = null;
         
-        // Reset state
-        this.currentSession = null;
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = null;
-        }
-        if (this.analysisTimeout) {
-            clearTimeout(this.analysisTimeout);
-            this.analysisTimeout = null;
-        }
+        // Show upload section with animation
+        const uploadSection = document.getElementById('uploadSection');
+        const chatInterface = document.getElementById('chatInterface');
+        
+        chatInterface.style.transition = 'all 0.3s ease';
+        chatInterface.style.opacity = '0';
+        chatInterface.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            chatInterface.style.display = 'none';
+            
+            uploadSection.style.display = 'block';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                uploadSection.style.transition = 'all 0.3s ease';
+                uploadSection.style.opacity = '1';
+                uploadSection.style.transform = 'translateY(0)';
+            }, 50);
+        }, 300);
+        
+        // Clear chat messages
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        
+        // Disable chat input
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        chatInput.style.height = 'auto';
+        
+        // Reset analysis state
+        this.analysisComplete = false;
+        
+        // Clean up old uploads when returning to home screen
+        this.cleanupOldUploads();
+        
+        console.log('🔄 Upload interface reset');
     }
+    
+    // Model selection functionality removed - always using 32B model
 }
 
-// Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.videoAnalyzer = new VideoAnalyzer();
-    
-    // Add reset button functionality
-    const resetBtn = document.getElementById('resetBtn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-            window.videoAnalyzer.resetForm();
-        });
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
     }
     
-    // Add character count display
-    const focusInput = document.getElementById('userFocus');
-    if (focusInput) {
-        const charCount = document.createElement('small');
-        charCount.id = 'charCount';
-        charCount.className = 'text-muted';
-        charCount.textContent = '0/500';
-        focusInput.parentNode.appendChild(charCount);
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
     }
-});
+`;
+document.head.appendChild(style);
 
-// Export for global access
-window.VideoAnalyzer = VideoAnalyzer;
+// Initialize the application
+window.videoDetective = new VideoDetective();
+window.closeEvidenceModal = () => window.videoDetective.closeEvidenceModal();
+window.cleanupSession = () => window.videoDetective.cleanupSession();
+window.uploadSelectedVideo = () => window.videoDetective.uploadSelectedVideo();
+
+console.log('🚀 AI Video Detective Pro is ready!');

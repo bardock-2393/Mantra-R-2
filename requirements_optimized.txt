@@ -1,0 +1,45 @@
+# Enhanced Requirements for AI Video Detective with Video Chunking and WebSocket Support
+# Optimized for 120+ minute video processing with GPU acceleration
+
+# Core Flask and WebSocket
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+python-socketio==5.8.0
+python-engineio==4.7.1
+
+# Video Processing - Optimized for long videos
+decord==0.6.0  # Fast video decoding (replaces OpenCV for video)
+opencv-python==4.8.1.78  # Fallback for image processing
+Pillow==10.0.1  # Image processing
+
+# AI and Machine Learning
+torch>=2.0.0  # PyTorch with CUDA support
+torchvision>=0.15.0
+transformers>=4.35.0  # Hugging Face transformers
+accelerate>=0.24.0  # Model acceleration
+bitsandbytes>=0.41.0  # Model quantization
+
+# Performance Monitoring
+psutil==5.9.6  # System and process monitoring
+nvidia-ml-py==12.535.133  # NVIDIA GPU monitoring (optional)
+
+# Video Analysis
+ffmpeg-python==0.2.0  # Video manipulation
+scikit-learn==1.3.0  # For color analysis and clustering
+
+# Utilities
+python-dotenv==1.0.0  # Environment variable management
+requests==2.31.0  # HTTP requests
+numpy>=1.24.0  # Numerical computing
+scipy>=1.11.0  # Scientific computing
+
+# Development and Testing
+pytest==7.4.2  # Testing framework
+pytest-asyncio==0.21.1  # Async testing support
+
+# Optional: GPU Monitoring (if nvidia-ml-py fails)
+# pynvml==11.5.0  # Alternative NVIDIA monitoring
+
+# Performance Optimization
+# Note: These versions are optimized for PyTorch 2.0+ and CUDA 11.8+
+# Adjust based on your CUDA version and GPU capabilities
