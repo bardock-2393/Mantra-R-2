@@ -216,7 +216,7 @@ class Qwen25VL32BService:
                     Config.QWEN25VL_32B_MODEL_PATH,
                     torch_dtype=torch.bfloat16,  # Use bfloat16 for 32B model
                     attn_implementation="sdpa",  # Use SDPA instead of flash attention
-                    device_map="auto",
+                    device_map="auto",  # Let accelerate handle device mapping
                     trust_remote_code=True,
                     token=hf_token  # Add token for authentication
                 )
@@ -251,9 +251,9 @@ class Qwen25VL32BService:
                 else:
                     raise RuntimeError(f"Failed to load model: {e}")
             
-            # Move to GPU
-            print(f"🚀 Moving model to device: {self.device}")
-            self.model.to(self.device)
+            # Don't manually move to device when using device_map="auto"
+            # The model is already properly placed by accelerate
+            print(f"🚀 Model device mapping handled by accelerate")
             
             # Enable torch.compile for massive speed improvement
             try:
@@ -297,7 +297,11 @@ class Qwen25VL32BService:
                 padding=True,
                 return_tensors="pt"
             )
-            inputs = inputs.to(self.device)
+            
+            # Move inputs to the same device as the model (let accelerate handle this)
+            # Get the device from the model's first parameter
+            model_device = next(self.model.parameters()).device
+            inputs = inputs.to(model_device)
             
             # Generate warmup response
             with torch.no_grad():
@@ -312,6 +316,27 @@ class Qwen25VL32BService:
         except Exception as e:
             print(f"⚠️ Warning: Model warmup failed: {e}")
     
+    async def analyze(self, video_path: str, analysis_type: str, user_focus: str) -> str:
+        """Analyze video using Qwen2.5-VL-32B-Instruct - main analysis method"""
+        try:
+            if not self.is_initialized:
+                raise RuntimeError("Qwen2.5-VL-32B service not initialized")
+            
+            print(f"🎬 Starting video analysis: {video_path}")
+            print(f"   Analysis type: {analysis_type}")
+            print(f"   User focus: {user_focus}")
+            
+            # Use the existing analyze_video method
+            result = await self.analyze_video(video_path, analysis_type, user_focus)
+            
+            print(f"✅ Video analysis completed successfully")
+            return result
+            
+        except Exception as e:
+            print(f"❌ Video analysis failed: {e}")
+            # Return a fallback response
+            return f"Video analysis failed. Error: {str(e)}. Please try again or contact support."
+
     async def analyze_video(self, video_path: str, analysis_type: str, user_focus: str) -> str:
         """Analyze video using local GPU-powered Qwen2.5-VL-32B-Instruct"""
         try:
@@ -454,7 +479,11 @@ class Qwen25VL32BService:
                     padding=True,
                     return_tensors="pt"
                 )
-                inputs = inputs.to(self.device)
+                
+                # Move inputs to the same device as the model (let accelerate handle this)
+                model_device = next(self.model.parameters()).device
+                inputs = inputs.to(model_device)
+                
                 print(f"✅ Inputs prepared successfully - Text: {len(text)}, Videos: {len(video_inputs) if video_inputs else 0}")
             except Exception as e:
                 print(f"⚠️ Input processing failed: {e}")
@@ -496,6 +525,88 @@ class Qwen25VL32BService:
                 print(f"❌ Fallback analysis also failed: {fallback_error}")
                 raise RuntimeError(f"Analysis generation failed: {e}")
     
+    async def _generate_text(self, prompt: str, max_new_tokens: int = 1024) -> str:
+        """Generate text response using Qwen2.5-VL-32B-Instruct"""
+        try:
+            if not self.is_initialized:
+                raise RuntimeError("Qwen2.5-VL-32B service not initialized")
+            
+            print(f"📝 Generating text response: {prompt[:100]}...")
+            
+            # Create messages for text generation
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt}
+                    ]
+                }
+            ]
+            
+            # Apply chat template
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            
+            # Prepare inputs
+            inputs = self.processor(
+                text=[text],
+                padding=True,
+                return_tensors="pt"
+            )
+            
+            # Move inputs to the same device as the model
+            model_device = next(self.model.parameters()).device
+            inputs = inputs.to(model_device)
+            
+            # Generate response
+            with torch.no_grad():
+                generated_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=min(max_new_tokens, Config.QWEN25VL_32B_CONFIG['max_length']),
+                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
+                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
+                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
+                    pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
+                )
+            
+            # Decode response
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+            
+            output_text = self.processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )
+            
+            result = output_text[0] if output_text else "Text generation failed"
+            print("✅ Text generation completed")
+            return result
+            
+        except Exception as e:
+            print(f"❌ Text generation failed: {e}")
+            return f"Text generation failed. Error: {str(e)}"
+    
+    def _generate_text_sync(self, prompt: str, max_new_tokens: int = 1024) -> str:
+        """Synchronous wrapper for text generation"""
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self._generate_text(prompt, max_new_tokens))
+        except RuntimeError:
+            # Create new event loop if none exists
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(self._generate_text(prompt, max_new_tokens))
+            finally:
+                loop.close()
+
     async def _generate_text_only_analysis(self, prompt: str, video_path: str) -> str:
         """Fallback text-only analysis when video processing fails"""
         try:
@@ -541,7 +652,10 @@ Please provide a detailed, helpful analysis.
                 padding=True,
                 return_tensors="pt"
             )
-            inputs = inputs.to(self.device)
+            
+            # Move inputs to the same device as the model
+            model_device = next(self.model.parameters()).device
+            inputs = inputs.to(model_device)
             
             # Generate response
             with torch.no_grad():
@@ -576,6 +690,30 @@ Please provide a detailed, helpful analysis.
             print(f"❌ Fallback analysis failed: {e}")
             return f"Video analysis failed. Error: {str(e)}"
     
+    async def chat(self, message: str, context: str = "") -> str:
+        """Handle chat messages using Qwen2.5-VL-32B-Instruct"""
+        try:
+            if not self.is_initialized:
+                raise RuntimeError("Qwen2.5-VL-32B service not initialized")
+            
+            print(f"💬 Processing chat message: {message[:100]}...")
+            
+            # Build the full prompt with context
+            if context:
+                full_prompt = f"Context: {context}\n\nUser: {message}"
+            else:
+                full_prompt = message
+            
+            # Use the text generation method
+            response = await self._generate_text(full_prompt, max_new_tokens=1024)
+            
+            print(f"✅ Chat response generated")
+            return response
+            
+        except Exception as e:
+            print(f"❌ Chat failed: {e}")
+            return f"Chat failed. Error: {str(e)}. Please try again."
+
     async def generate_chat_response(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
         """Generate chat response using Qwen2.5-VL-32B-Instruct with the same prompt system as the old project"""
         try:
@@ -606,7 +744,10 @@ Please provide a detailed, helpful analysis.
                 padding=True,
                 return_tensors="pt"
             )
-            inputs = inputs.to(self.device)
+            
+            # Move inputs to the same device as the model
+            model_device = next(self.model.parameters()).device
+            inputs = inputs.to(model_device)
             
             # Generate response
             with torch.no_grad():
@@ -760,6 +901,10 @@ Total Frames: {frame_count}
             print(f"⚠️ Warning: Could not extract video summary: {e}")
             return f"Video file: {os.path.basename(video_path)}"
     
+    def is_ready(self) -> bool:
+        """Check if the service is ready to use"""
+        return self.is_initialized and self.model is not None and self.processor is not None
+
     def get_status(self) -> Dict:
         """Get service status"""
         return {
