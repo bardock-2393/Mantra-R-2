@@ -1,4 +1,4 @@
-// AI Video Detective - Professional JavaScript Application
+// AI Video Detective - Modern Professional JavaScript Application
 
 class VideoDetective {
     constructor() {
@@ -12,9 +12,9 @@ class VideoDetective {
         console.log('🚀 Initializing AI Video Detective Pro...');
         this.setupEventListeners();
         this.setupAutoResize();
+        this.setupNavigation();
         this.checkSessionStatus();
         this.setupPageCleanup();
-        this.showDemoVideoPreview();
         this.initializeModelSelection();
         console.log('✅ AI Video Detective Pro initialized successfully!');
     }
@@ -24,57 +24,86 @@ class VideoDetective {
         const videoFile = document.getElementById('videoFile');
         const uploadArea = document.getElementById('uploadArea');
 
-        videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
+        if (videoFile && uploadArea) {
+            videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
 
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFile(files[0]);
-            }
-        });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.handleFile(files[0]);
+                }
+            });
 
-        uploadArea.addEventListener('click', (e) => {
-            // Don't open file dialog if clicking on model selection or other interactive elements
-            if (e.target.closest('.model-selection') || 
-                e.target.closest('.upload-buttons') || 
-                e.target.closest('.upload-features')) {
-                return;
-            }
-            videoFile.click();
-        });
+            uploadArea.addEventListener('click', (e) => {
+                // Don't open file dialog if clicking on model selection or other interactive elements
+                if (e.target.closest('.model-selection') || 
+                    e.target.closest('.upload-buttons') || 
+                    e.target.closest('.upload-features')) {
+                    return;
+                }
+                videoFile.click();
+            });
+        }
 
         // Chat functionality
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
+        if (chatInput && sendBtn) {
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            sendBtn.addEventListener('click', () => this.sendMessage());
+        }
+    }
+
+    setupNavigation() {
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const sections = document.querySelectorAll('.section');
+
+        navButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetSection = button.getAttribute('data-section');
+                
+                // Update active nav button
+                navButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Show target section
+                sections.forEach(section => {
+                    section.classList.remove('active');
+                    if (section.id === targetSection) {
+                        section.classList.add('active');
+                    }
+                });
+            });
         });
-        
-        sendBtn.addEventListener('click', () => this.sendMessage());
     }
 
     setupAutoResize() {
         const chatInput = document.getElementById('chatInput');
-        chatInput.addEventListener('input', () => {
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-        });
+        if (chatInput) {
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+            });
+        }
     }
 
     setupPageCleanup() {
@@ -143,9 +172,11 @@ class VideoDetective {
         const fileName = document.getElementById('fileName');
         const fileSize = document.getElementById('fileSize');
         
-        fileName.textContent = file.name;
-        fileSize.textContent = this.formatFileSize(file.size);
-        fileInfo.style.display = 'block';
+        if (fileInfo && fileName && fileSize) {
+            fileName.textContent = file.name;
+            fileSize.textContent = this.formatFileSize(file.size);
+            fileInfo.style.display = 'block';
+        }
     }
 
     formatFileSize(bytes) {
@@ -160,23 +191,27 @@ class VideoDetective {
         const videoPreview = document.getElementById('videoPreview');
         const previewVideo = document.getElementById('previewVideo');
         
-        // Create object URL for video preview
-        const videoUrl = URL.createObjectURL(file);
-        previewVideo.src = videoUrl;
-        
-        // Show the preview section
-        videoPreview.style.display = 'block';
-        
-        // Scroll to preview
-        videoPreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        console.log('🎬 Video preview shown for:', file.name);
+        if (videoPreview && previewVideo) {
+            // Create object URL for video preview
+            const videoUrl = URL.createObjectURL(file);
+            previewVideo.src = videoUrl;
+            
+            // Show the preview section
+            videoPreview.style.display = 'block';
+            
+            // Scroll to preview
+            videoPreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            console.log('🎬 Video preview shown for:', file.name);
+        }
     }
 
     async uploadSelectedVideo() {
         // Hide the preview
         const videoPreview = document.getElementById('videoPreview');
-        videoPreview.style.display = 'none';
+        if (videoPreview) {
+            videoPreview.style.display = 'none';
+        }
         
         // Check if this is a demo video preview
         const previewVideo = document.getElementById('previewVideo');
@@ -223,31 +258,37 @@ class VideoDetective {
 
     showProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        const progressFill = progress ? progress.querySelector('.progress-fill') : null;
         
-        progress.style.display = 'block';
-        progressFill.style.width = '0%';
-        
-        // Simulate progress
-        let width = 0;
-        const interval = setInterval(() => {
-            if (width >= 90) {
-                clearInterval(interval);
-            } else {
-                width += Math.random() * 10;
-                progressFill.style.width = width + '%';
-            }
-        }, 200);
+        if (progress && progressFill) {
+            progress.style.display = 'block';
+            progressFill.style.width = '0%';
+            
+            // Simulate progress
+            let width = 0;
+            const interval = setInterval(() => {
+                if (width >= 90) {
+                    clearInterval(interval);
+                } else {
+                    width += Math.random() * 10;
+                    progressFill.style.width = width + '%';
+                }
+            }, 200);
+        }
     }
 
     hideProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        const progressFill = progress ? progress.querySelector('.progress-fill') : null;
         
-        progressFill.style.width = '100%';
-        setTimeout(() => {
-            progress.style.display = 'none';
-        }, 500);
+        if (progressFill) {
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                if (progress) {
+                    progress.style.display = 'none';
+                }
+            }, 500);
+        }
     }
 
     async analyzeVideo() {
@@ -318,6 +359,8 @@ class VideoDetective {
 
     displayEvidence(evidence, title = 'Visual Evidence') {
         const chatMessages = document.getElementById('chatMessages');
+        
+        if (!chatMessages) return;
         
         // Create evidence container
         const evidenceContainer = document.createElement('div');
@@ -396,34 +439,38 @@ class VideoDetective {
         const modalImage = document.getElementById('evidenceModalImage');
         const modalInfo = document.getElementById('evidenceModalInfo');
         
-        modalImage.src = evidence.url;
-        
-        if (evidence.type === 'video_clip') {
-            modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.start_time)} - ${this.formatTimestamp(evidence.end_time)}`;
-        } else {
-            modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.timestamp)}`;
+        if (modal && modalImage && modalInfo) {
+            modalImage.src = evidence.url;
+            
+            if (evidence.type === 'video_clip') {
+                modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.start_time)} - ${this.formatTimestamp(evidence.end_time)}`;
+            } else {
+                modalInfo.textContent = `Timestamp: ${this.formatTimestamp(evidence.timestamp)}`;
+            }
+            
+            modal.style.display = 'flex';
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeEvidenceModal();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.closeEvidenceModal();
+                }
+            });
         }
-        
-        modal.style.display = 'flex';
-        
-        // Close modal when clicking outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                this.closeEvidenceModal();
-            }
-        });
-        
-        // Close modal with Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeEvidenceModal();
-            }
-        });
     }
 
     closeEvidenceModal() {
         const modal = document.getElementById('evidenceModal');
-        modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
 
     formatTimestamp(seconds) {
@@ -435,55 +482,69 @@ class VideoDetective {
     showChatInterface() {
         console.log('💬 Showing chat interface...');
         
-        const uploadSection = document.getElementById('uploadSection');
-        const chatInterface = document.getElementById('chatInterface');
+        const uploadSection = document.getElementById('upload');
+        const chatInterface = document.getElementById('chat');
         
         // Hide upload section with animation
-        uploadSection.style.transition = 'all 0.3s ease';
-        uploadSection.style.opacity = '0';
-        uploadSection.style.transform = 'translateY(-20px)';
-        
-        setTimeout(() => {
-            uploadSection.style.display = 'none';
-            
-            // Show chat interface
-            chatInterface.style.display = 'flex';
-            chatInterface.style.opacity = '0';
-            chatInterface.style.transform = 'translateY(20px)';
+        if (uploadSection) {
+            uploadSection.style.transition = 'all 0.3s ease';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
             
             setTimeout(() => {
-                chatInterface.style.transition = 'all 0.3s ease';
-                chatInterface.style.opacity = '1';
-                chatInterface.style.transform = 'translateY(0)';
-            }, 50);
-        }, 300);
+                uploadSection.style.display = 'none';
+                
+                // Show chat interface
+                if (chatInterface) {
+                    chatInterface.style.display = 'block';
+                    chatInterface.style.opacity = '0';
+                    chatInterface.style.transform = 'translateY(20px)';
+                    
+                    setTimeout(() => {
+                        chatInterface.style.transition = 'all 0.3s ease';
+                        chatInterface.style.opacity = '1';
+                        chatInterface.style.transform = 'translateY(0)';
+                    }, 50);
+                }
+            }, 300);
+        }
         
         // Enable chat input
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
         
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
-        chatInput.focus();
+        if (chatInput) {
+            chatInput.disabled = false;
+        }
+        if (sendBtn) {
+            sendBtn.disabled = false;
+        }
+        if (chatInput) {
+            chatInput.focus();
+        }
         
         console.log('✅ Chat interface should now be visible');
     }
 
     async sendMessage() {
         const chatInput = document.getElementById('chatInput');
-        const message = chatInput.value.trim();
+        const message = chatInput ? chatInput.value.trim() : '';
 
         if (!message || this.isTyping) return;
 
         // Add user message
         this.addChatMessage('user', message);
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
+        if (chatInput) {
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+        }
         
         // Disable input while processing
-        chatInput.disabled = true;
         const sendBtn = document.getElementById('sendBtn');
-        sendBtn.disabled = true;
+        if (chatInput && sendBtn) {
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+        }
 
         // Show typing indicator
         this.showTypingIndicator();
@@ -521,30 +582,44 @@ class VideoDetective {
         }
         
         // Re-enable input
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
-        chatInput.focus();
+        if (chatInput) {
+            chatInput.disabled = false;
+        }
+        if (sendBtn) {
+            sendBtn.disabled = false;
+        }
+        if (chatInput) {
+            chatInput.focus();
+        }
     }
 
     showTypingIndicator() {
         this.isTyping = true;
         const typingIndicator = document.getElementById('typingIndicator');
-        typingIndicator.style.display = 'block';
+        if (typingIndicator) {
+            typingIndicator.style.display = 'block';
+        }
         
         const chatMessages = document.getElementById('chatMessages');
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatMessages) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     hideTypingIndicator() {
         this.isTyping = false;
         const typingIndicator = document.getElementById('typingIndicator');
-        typingIndicator.style.display = 'none';
+        if (typingIndicator) {
+            typingIndicator.style.display = 'none';
+        }
     }
 
     addChatMessage(type, message) {
         const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        
         const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${type}-message`;
+        messageDiv.className = `message ${type}`;
 
         const icon = type === 'user' ? 'fas fa-user' : 'fas fa-robot';
         
@@ -573,8 +648,10 @@ class VideoDetective {
 
     addChatMessageWithTyping(type, message) {
         const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        
         const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${type}-message`;
+        messageDiv.className = `message ${type}`;
 
         const icon = type === 'user' ? 'fas fa-user' : 'fas fa-robot';
         
@@ -600,18 +677,20 @@ class VideoDetective {
 
     showMessageWithEffect(element, text) {
         // Start with opacity 0 and add fade-in effect
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(10px)';
-        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        
-        // Set the content immediately
-        element.innerHTML = text;
-        
-        // Trigger the fade-in animation
-        setTimeout(() => {
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, 50);
+        if (element) {
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(10px)';
+            element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            
+            // Set the content immediately
+            element.innerHTML = text;
+            
+            // Trigger the fade-in animation
+            setTimeout(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            }, 50);
+        }
     }
 
     formatAIResponse(message) {
@@ -644,11 +723,13 @@ class VideoDetective {
         const modal = document.getElementById('loadingModal');
         const loadingMessage = document.getElementById('loadingMessage');
         
-        loadingMessage.textContent = message;
-        modal.style.display = 'flex';
-        
-        // Animate loading steps
-        this.animateLoadingSteps();
+        if (modal && loadingMessage) {
+            loadingMessage.textContent = message;
+            modal.style.display = 'flex';
+            
+            // Animate loading steps
+            this.animateLoadingSteps();
+        }
     }
 
     animateLoadingSteps() {
@@ -673,7 +754,9 @@ class VideoDetective {
 
     hideLoadingModal() {
         const modal = document.getElementById('loadingModal');
-        modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
 
     showError(message) {
@@ -792,99 +875,18 @@ class VideoDetective {
         }
     }
 
-
-
-    showDemoVideoPreview() {
-        try {
-            console.log('🎬 Showing demo video preview...');
-            
-            // Show video preview with demo video URL
-            const videoPreview = document.getElementById('videoPreview');
-            const previewVideo = document.getElementById('previewVideo');
-            
-            // Set the demo video source
-            previewVideo.src = '/demo-video';
-            
-            // Show the preview section
-            videoPreview.style.display = 'block';
-            
-            // Update preview header for demo video
-            const previewHeader = videoPreview.querySelector('.preview-header h3');
-            if (previewHeader) {
-                previewHeader.textContent = 'Demo Video Preview';
-            }
-            
-            const previewDescription = videoPreview.querySelector('.preview-header p');
-            if (previewDescription) {
-                previewDescription.textContent = 'Preview the BMW M4 demo video before using it for analysis';
-            }
-            
-            console.log('🎬 Demo video preview shown');
-        } catch (error) {
-            console.error('Failed to show demo video preview:', error);
-        }
-    }
-
-    async uploadDemoVideo() {
-        try {
-            console.log('🎬 Uploading demo video...');
-            this.showProgress();
-            
-            // Upload demo video (no actual file, just trigger the server to use default)
-            const formData = new FormData();
-            // Don't append any file - this will trigger the server to use default video
-            
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.hideProgress();
-                this.showCleanupButton();
-                
-                // Create a mock file object for the demo video and show file info
-                const demoFile = {
-                    name: 'BMW M4 - Ultimate Racetrack - BMW Canada (720p, h264).mp4',
-                    size: 0,
-                    type: 'video/mp4'
-                };
-                this.showFileInfo(demoFile);
-                
-                // Update file info with actual data from server
-                if (result.filename) {
-                    const fileInfo = document.getElementById('fileInfo');
-                    const fileName = fileInfo.querySelector('.file-name');
-                    if (fileName) {
-                        fileName.textContent = result.filename;
-                    }
-                }
-                
-                // Show success message
-                this.showSuccess('Demo video loaded successfully! 🎬');
-                
-                // Start analysis
-                this.analyzeVideo();
-            } else {
-                this.hideProgress();
-                this.showError(result.error || 'Failed to load demo video');
-            }
-        } catch (error) {
-            this.hideProgress();
-            this.showError('Failed to load demo video: ' + error.message);
-        }
-    }
-
     resetUpload() {
         // Clear current file
         const videoFile = document.getElementById('videoFile');
-        videoFile.value = '';
+        if (videoFile) {
+            videoFile.value = '';
+        }
         
         // Hide file info
         const fileInfo = document.getElementById('fileInfo');
-        fileInfo.style.display = 'none';
+        if (fileInfo) {
+            fileInfo.style.display = 'none';
+        }
         
         // Hide video preview and clean up object URL
         const videoPreview = document.getElementById('videoPreview');
@@ -907,37 +909,49 @@ class VideoDetective {
         this.currentFile = null;
         
         // Show upload section with animation
-        const uploadSection = document.getElementById('uploadSection');
-        const chatInterface = document.getElementById('chatInterface');
+        const uploadSection = document.getElementById('upload');
+        const chatInterface = document.getElementById('chat');
         
-        chatInterface.style.transition = 'all 0.3s ease';
-        chatInterface.style.opacity = '0';
-        chatInterface.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            chatInterface.style.display = 'none';
-            
-            uploadSection.style.display = 'block';
-            uploadSection.style.opacity = '0';
-            uploadSection.style.transform = 'translateY(-20px)';
+        if (chatInterface) {
+            chatInterface.style.transition = 'all 0.3s ease';
+            chatInterface.style.opacity = '0';
+            chatInterface.style.transform = 'translateY(20px)';
             
             setTimeout(() => {
-                uploadSection.style.transition = 'all 0.3s ease';
-                uploadSection.style.opacity = '1';
-                uploadSection.style.transform = 'translateY(0)';
-            }, 50);
-        }, 300);
+                chatInterface.style.display = 'none';
+                
+                if (uploadSection) {
+                    uploadSection.style.display = 'block';
+                    uploadSection.style.opacity = '0';
+                    uploadSection.style.transform = 'translateY(-20px)';
+                    
+                    setTimeout(() => {
+                        uploadSection.style.transition = 'all 0.3s ease';
+                        uploadSection.style.opacity = '1';
+                        uploadSection.style.transform = 'translateY(0)';
+                    }, 50);
+                }
+            }, 300);
+        }
         
         // Clear chat messages
         const chatMessages = document.getElementById('chatMessages');
-        chatMessages.innerHTML = '';
+        if (chatMessages) {
+            chatMessages.innerHTML = '';
+        }
         
         // Disable chat input
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
-        chatInput.disabled = true;
-        sendBtn.disabled = true;
-        chatInput.style.height = 'auto';
+        if (chatInput) {
+            chatInput.disabled = true;
+        }
+        if (sendBtn) {
+            sendBtn.disabled = true;
+        }
+        if (chatInput) {
+            chatInput.style.height = 'auto';
+        }
         
         // Reset analysis state
         this.analysisComplete = false;
@@ -1069,7 +1083,397 @@ class VideoDetective {
         }
         
         // Re-enable select
-        modelSelect.disabled = false;
+        if (modelSelect) {
+            modelSelect.disabled = false;
+        }
+    }
+
+    // Streaming functionality
+    toggleStreamingInterface() {
+        const interface = document.getElementById('streamingInterface');
+        const toggleBtn = document.querySelector('.toggle-btn');
+        
+        if (interface && toggleBtn) {
+            if (interface.classList.contains('hidden')) {
+                interface.classList.remove('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-lock"></i> Hide Streaming Interface';
+                this.connectWebSocket();
+            } else {
+                interface.classList.add('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-rocket"></i> Enable Streaming Interface';
+                this.disconnectWebSocket();
+            }
+        }
+    }
+    
+    connectWebSocket() {
+        try {
+            // For now, we'll use polling instead of WebSocket
+            // In a real implementation, you'd connect to a WebSocket server
+            this.updateConnectionStatus('connected');
+            this.startStatusPolling();
+        } catch (error) {
+            console.error('WebSocket connection failed:', error);
+            this.updateConnectionStatus('disconnected');
+        }
+    }
+    
+    disconnectWebSocket() {
+        this.updateConnectionStatus('disconnected');
+        this.stopStatusPolling();
+    }
+    
+    updateConnectionStatus(status) {
+        const statusElement = document.getElementById('connectionStatus');
+        if (statusElement) {
+            if (status === 'connected') {
+                statusElement.className = 'connection-status connected';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> WebSocket Connected';
+            } else {
+                statusElement.className = 'connection-status disconnected';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> WebSocket Disconnected';
+            }
+        }
+    }
+    
+    startStatusPolling() {
+        if (this.statusPollingInterval) return;
+        
+        this.statusPollingInterval = setInterval(() => {
+            if (this.currentStreamId && this.isStreaming) {
+                this.updateStreamStatus();
+                this.updateStreamEvents();
+            }
+        }, 2000); // Poll every 2 seconds
+    }
+    
+    stopStatusPolling() {
+        if (this.statusPollingInterval) {
+            clearInterval(this.statusPollingInterval);
+            this.statusPollingInterval = null;
+        }
+    }
+    
+    async startStream() {
+        const streamId = document.getElementById('streamId')?.value;
+        const videoSource = document.getElementById('videoSource')?.value;
+        
+        if (!streamId || !videoSource) {
+            alert('Please enter both Stream ID and Video Source');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/stream/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    stream_id: streamId,
+                    video_source: videoSource,
+                    config: {
+                        fps_target: 30,
+                        event_detection: true,
+                        ai_analysis_enabled: true,
+                        analysis_interval: 1
+                    }
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.currentStreamId = streamId;
+                this.isStreaming = true;
+                
+                // Update UI
+                const startBtn = document.querySelector('.stream-controls button:first-of-type');
+                if (startBtn) {
+                    startBtn.textContent = '⏸️ Pause Stream';
+                    startBtn.onclick = () => this.pauseStream();
+                }
+                
+                // Start video display if it's a camera
+                if (videoSource === '0' || videoSource === '1') {
+                    this.startCameraDisplay(parseInt(videoSource));
+                }
+                
+                alert(`Stream started successfully: ${streamId}`);
+                
+                // Start status updates
+                this.updateStreamStatus();
+                this.updateStreamEvents();
+                
+            } else {
+                alert(`Failed to start stream: ${result.error}`);
+            }
+            
+        } catch (error) {
+            console.error('Stream start failed:', error);
+            alert('Failed to start stream. Check console for details.');
+        }
+    }
+    
+    async stopStream() {
+        if (!this.currentStreamId) {
+            alert('No active stream to stop');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/stream/stop/${this.currentStreamId}`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Reset UI
+                const startBtn = document.querySelector('.stream-controls button:first-of-type');
+                if (startBtn) {
+                    startBtn.textContent = 'Start Stream';
+                    startBtn.onclick = () => this.startStream();
+                }
+                
+                // Stop camera display
+                this.stopCameraDisplay();
+                
+                // Reset variables
+                this.currentStreamId = null;
+                this.isStreaming = false;
+                
+                // Reset metrics
+                this.resetStreamMetrics();
+                
+                alert('Stream stopped successfully');
+                
+            } else {
+                alert(`Failed to stop stream: ${result.error}`);
+            }
+            
+        } catch (error) {
+            console.error('Stream stop failed:', error);
+            alert('Failed to stop stream. Check console for details.');
+        }
+    }
+    
+    pauseStream() {
+        // For now, just stop the stream
+        this.stopStream();
+    }
+    
+    async updateStreamStatus() {
+        if (!this.currentStreamId) return;
+        
+        try {
+            const response = await fetch(`/api/stream/status/${this.currentStreamId}`);
+            const result = await response.json();
+            
+            if (result.success && result.status) {
+                const status = result.status;
+                const metrics = status.metrics || {};
+                
+                // Update UI metrics
+                const currentFps = document.getElementById('currentFps');
+                const targetFps = document.getElementById('targetFps');
+                const currentLatency = document.getElementById('currentLatency');
+                const eventsCount = document.getElementById('eventsCount');
+                const aiAnalysisCount = document.getElementById('aiAnalysisCount');
+                
+                if (currentFps) currentFps.textContent = metrics.fps_current?.toFixed(1) || '0.0';
+                if (targetFps) targetFps.textContent = metrics.fps_target || '30';
+                if (currentLatency) currentLatency.textContent = `${metrics.latency_ms?.toFixed(1) || '0'}ms`;
+                if (eventsCount) eventsCount.textContent = status.event_count || '0';
+                if (aiAnalysisCount) aiAnalysisCount.textContent = status.ai_analysis_count || '0';
+            }
+            
+        } catch (error) {
+            console.error('Failed to update stream status:', error);
+        }
+    }
+    
+    async updateStreamEvents() {
+        if (!this.currentStreamId) return;
+        
+        try {
+            const response = await fetch(`/api/stream/events/${this.currentStreamId}`);
+            const result = await response.json();
+            
+            if (result.success && result.events) {
+                this.displayStreamEvents(result.events);
+            }
+            
+        } catch (error) {
+            console.error('Failed to update stream events:', error);
+        }
+    }
+    
+    displayStreamEvents(events) {
+        const eventsList = document.getElementById('streamEventsList');
+        if (!eventsList) return;
+        
+        if (!events || events.length === 0) {
+            eventsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">No events detected yet.</p>';
+            return;
+        }
+        
+        // Sort events by timestamp (newest first)
+        const sortedEvents = events.sort((a, b) => b.timestamp - a.timestamp);
+        
+        // Display last 10 events
+        const recentEvents = sortedEvents.slice(0, 10);
+        
+        eventsList.innerHTML = recentEvents.map(event => {
+            const eventTime = new Date(event.timestamp * 1000).toLocaleTimeString();
+            const isAIAnalysis = event.event_type === 'ai_analysis';
+            
+            return `
+                <div class="event-item ${isAIAnalysis ? 'ai-analysis' : ''}">
+                    <div class="event-header">
+                        <span class="event-type">${event.event_type.toUpperCase()}</span>
+                        <span class="event-time">${eventTime}</span>
+                    </div>
+                    <div class="event-content">
+                        Confidence: ${(event.confidence * 100).toFixed(1)}%
+                        ${event.metadata ? `<br>Details: ${JSON.stringify(event.metadata)}` : ''}
+                        ${event.ai_analysis ? `<div class="ai-analysis-content">🧠 AI Analysis: ${event.ai_analysis}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    resetStreamMetrics() {
+        const currentFps = document.getElementById('currentFps');
+        const targetFps = document.getElementById('targetFps');
+        const currentLatency = document.getElementById('currentLatency');
+        const eventsCount = document.getElementById('eventsCount');
+        const aiAnalysisCount = document.getElementById('aiAnalysisCount');
+        const streamEventsList = document.getElementById('streamEventsList');
+        
+        if (currentFps) currentFps.textContent = '0.0';
+        if (targetFps) targetFps.textContent = '30';
+        if (currentLatency) currentLatency.textContent = '0ms';
+        if (eventsCount) eventsCount.textContent = '0';
+        if (aiAnalysisCount) aiAnalysisCount.textContent = '0';
+        if (streamEventsList) {
+            streamEventsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">No events detected yet. Start a stream to see live analysis.</p>';
+        }
+    }
+    
+    startCameraDisplay(cameraIndex) {
+        try {
+            const video = document.getElementById('streamVideo');
+            if (!video) return;
+            
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        deviceId: cameraIndex ? { exact: cameraIndex } : undefined 
+                    } 
+                })
+                .then(stream => {
+                    this.cameraStream = stream;
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(error => {
+                    console.error('Camera access failed:', error);
+                    // Fallback to file input for video files
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = 'video/*';
+                    fileInput.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const url = URL.createObjectURL(file);
+                            video.src = url;
+                            video.play();
+                        }
+                    };
+                    fileInput.click();
+                });
+            }
+        } catch (error) {
+            console.error('Camera display failed:', error);
+        }
+    }
+    
+    stopCameraDisplay() {
+        if (this.cameraStream) {
+            this.cameraStream.getTracks().forEach(track => track.stop());
+            this.cameraStream = null;
+        }
+        
+        const video = document.getElementById('streamVideo');
+        if (video) {
+            video.src = '';
+            video.srcObject = null;
+        }
+    }
+
+    // Session management
+    async refreshSessions() {
+        try {
+            const sessionsList = document.getElementById('sessionsList');
+            if (sessionsList) {
+                sessionsList.innerHTML = '<p>Refreshing sessions...</p>';
+                
+                const response = await fetch('/api/sessions');
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.displaySessions(result.sessions);
+                } else {
+                    sessionsList.innerHTML = '<p>Failed to load sessions</p>';
+                }
+            }
+        } catch (error) {
+            console.error('Failed to refresh sessions:', error);
+            const sessionsList = document.getElementById('sessionsList');
+            if (sessionsList) {
+                sessionsList.innerHTML = '<p>Error loading sessions</p>';
+            }
+        }
+    }
+    
+    async cleanupSessions() {
+        try {
+            const response = await fetch('/api/sessions/cleanup', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showSuccess('Sessions cleaned up successfully');
+                this.refreshSessions();
+            } else {
+                this.showError('Failed to cleanup sessions: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Failed to cleanup sessions:', error);
+            this.showError('Error cleaning up sessions');
+        }
+    }
+    
+    displaySessions(sessions) {
+        const sessionsList = document.getElementById('sessionsList');
+        if (!sessionsList) return;
+        
+        if (!sessions || sessions.length === 0) {
+            sessionsList.innerHTML = '<p>No sessions found</p>';
+            return;
+        }
+        
+        const sessionsHtml = sessions.map(session => `
+            <div class="session-item">
+                <h4>${session.name || 'Unnamed Session'}</h4>
+                <p>Created: ${new Date(session.created_at).toLocaleString()}</p>
+                <p>Status: ${session.status}</p>
+            </div>
+        `).join('');
+        
+        sessionsList.innerHTML = sessionsHtml;
     }
 }
 
@@ -1105,5 +1509,10 @@ window.videoDetective = new VideoDetective();
 window.closeEvidenceModal = () => window.videoDetective.closeEvidenceModal();
 window.cleanupSession = () => window.videoDetective.cleanupSession();
 window.uploadSelectedVideo = () => window.videoDetective.uploadSelectedVideo();
+window.toggleStreamingInterface = () => window.videoDetective.toggleStreamingInterface();
+window.startStream = () => window.videoDetective.startStream();
+window.stopStream = () => window.videoDetective.stopStream();
+window.refreshSessions = () => window.videoDetective.refreshSessions();
+window.cleanupSessions = () => window.videoDetective.cleanupSessions();
 
 console.log('🚀 AI Video Detective Pro is ready!');

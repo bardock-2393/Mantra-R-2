@@ -3,665 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Detective - 7B Model Only</title>
+    <title>AI Video Detective - GPU-Powered Local AI Video Analysis</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        .streaming-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin: 20px 0;
-            color: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        
-        .stream-controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .stream-controls input {
-            padding: 12px 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            min-width: 200px;
-        }
-        
-        .stream-controls button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .stream-controls button:first-of-type {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .stream-controls button:last-of-type {
-            background: #f44336;
-            color: white;
-        }
-        
-        .stream-controls button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .stream-status {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .status-card {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        
-        .status-card h4 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            opacity: 0.9;
-        }
-        
-        .status-card .value {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-        }
-        
-        .stream-video {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .stream-video video {
-            max-width: 100%;
-            border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
-        
-        .stream-events {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .event-item {
-            background: rgba(255,255,255,0.1);
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border-left: 4px solid #4CAF50;
-        }
-        
-        .event-item.ai-analysis {
-            border-left-color: #2196F3;
-        }
-        
-        .event-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        
-        .event-type {
-            font-weight: bold;
-            color: #FFD700;
-        }
-        
-        .event-time {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-        
-        .event-content {
-            font-size: 14px;
-            line-height: 1.4;
-        }
-        
-        .ai-analysis-content {
-            background: rgba(33, 150, 243, 0.2);
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 8px;
-            font-style: italic;
-        }
-        
-        .streaming-toggle {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .toggle-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .toggle-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-        }
-        
-        .streaming-section.hidden {
-            display: none;
-        }
-        
-        .connection-status {
-            text-align: center;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-        
-        .connection-status.connected {
-            background: rgba(76, 175, 80, 0.2);
-            color: #4CAF50;
-        }
-        
-        .connection-status.disconnected {
-            background: rgba(244, 67, 54, 0.2);
-            color: #f44336;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <header class="header">
-            <h1>🕵️ AI Video Detective</h1>
-            <p>GPU-Powered Local AI Video Analysis (7B Model Only)</p>
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-search"></i>
+                    <h1>AI Video Detective</h1>
+                </div>
+                <p class="subtitle">GPU-Powered Local AI Video Analysis (7B Model Only)</p>
+            </div>
         </header>
 
+        <!-- Navigation -->
         <nav class="nav">
-            <button class="nav-btn active" onclick="showSection('upload')">📁 Upload & Analyze</button>
-            <button class="nav-btn" onclick="showSection('chat')">💬 AI Chat</button>
-            <button class="nav-btn" onclick="showSection('streaming')">🎬 Real-Time Streaming</button>
-            <button class="nav-btn" onclick="showSection('sessions')">📊 Sessions</button>
+            <button class="nav-btn active" data-section="upload">
+                <i class="fas fa-folder"></i>
+                Upload & Analyze
+            </button>
+            <button class="nav-btn" data-section="chat">
+                <i class="fas fa-comments"></i>
+                AI Chat
+            </button>
+            <button class="nav-btn" data-section="streaming">
+                <i class="fas fa-video"></i>
+                Real-Time Streaming
+            </button>
+            <button class="nav-btn" data-section="sessions">
+                <i class="fas fa-chart-bar"></i>
+                Sessions
+            </button>
         </nav>
 
-        <!-- Upload & Analyze Section -->
-        <section id="upload" class="section active">
-            <h2>📁 Upload & Analyze Video</h2>
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-content">
-                    <div class="upload-icon">📹</div>
-                    <h3>Drop your video here</h3>
-                    <p>or click to browse</p>
-                    <input type="file" id="videoFile" accept="video/*" style="display: none;">
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload & Analyze Section -->
+            <section id="upload" class="section active">
+                <div class="section-header">
+                    <h2><i class="fas fa-folder"></i> Upload & Analyze Video</h2>
                 </div>
-            </div>
-            
-            <div class="analysis-options" style="display: none;">
-                <h3>Analysis Options</h3>
-                <div class="option-group">
-                    <label>Analysis Type:</label>
-                    <select id="analysisType">
-                        <option value="content">Content Analysis</option>
-                        <option value="objects">Object Detection</option>
-                        <option value="actions">Action Recognition</option>
-                        <option value="scenes">Scene Analysis</option>
-                        <option value="narrative">Narrative Analysis</option>
-                    </select>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <h3>Drop your video here</h3>
+                        <p>or click to browse</p>
+                        <input type="file" id="videoFile" accept="video/*" style="display: none;">
+                    </div>
                 </div>
-                <div class="option-group">
-                    <label>Focus Area:</label>
-                    <input type="text" id="userFocus" placeholder="What should I focus on? (optional)">
-                </div>
-                <button class="analyze-btn" onclick="analyzeVideo()">🔍 Analyze Video</button>
-            </div>
-            
-            <div class="analysis-result" style="display: none;">
-                <h3>Analysis Result</h3>
-                <div id="analysisContent"></div>
-            </div>
-        </section>
 
-        <!-- AI Chat Section -->
-        <section id="chat" class="section">
-            <h2>💬 AI Chat</h2>
-            <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">
-                    <div class="message ai">
-                        <div class="message-content">
-                            Hello! I'm your AI video analysis assistant. I can help you understand video content, answer questions, and provide insights. What would you like to know?
+                <!-- Model Selection -->
+                <div class="model-selection">
+                    <label class="model-label">
+                        <i class="fas fa-brain"></i>
+                        AI Model Selection
+                    </label>
+                    <select id="modelSelect" class="model-select">
+                        <option value="minicpm">MiniCPM - Fast & Efficient</option>
+                        <option value="qwen25vl">Qwen2.5-VL - Advanced Multimodal</option>
+                        <option value="qwen25vl_32b">Qwen2.5-VL 32B - High Performance</option>
+                    </select>
+                    <div class="model-info" id="modelInfo">
+                        <small>Select an AI model for video analysis</small>
+                    </div>
+                </div>
+
+                <!-- File Info -->
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-card">
+                        <div class="file-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div class="file-details">
+                            <div class="file-name" id="fileName"></div>
+                            <div class="file-size" id="fileSize"></div>
+                        </div>
+                        <button class="file-remove" onclick="resetUpload()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video Preview -->
+                <div class="video-preview" id="videoPreview" style="display: none;">
+                    <div class="preview-container">
+                        <div class="preview-header">
+                            <h3>Video Preview</h3>
+                            <p>Review your video before analysis</p>
+                        </div>
+                        <div class="video-container">
+                            <video id="previewVideo" controls preload="metadata"></video>
+                        </div>
+                        <div class="preview-actions">
+                            <button class="preview-btn primary" onclick="uploadSelectedVideo()">
+                                <i class="fas fa-play"></i>
+                                Start Analysis
+                            </button>
+                            <button class="preview-btn secondary" onclick="resetUpload()">
+                                <i class="fas fa-undo"></i>
+                                Choose Different Video
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div class="chat-input">
-                    <input type="text" id="chatInput" placeholder="Ask me about the video...">
-                    <button onclick="sendMessage()">Send</button>
+
+                <!-- Upload Progress -->
+                <div class="upload-progress" id="uploadProgress" style="display: none;">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="progress-text">Uploading video...</div>
+                    </div>
+                </div>
+
+                <!-- Analysis Options -->
+                <div class="analysis-options" id="analysisOptions" style="display: none;">
+                    <h3>Analysis Options</h3>
+                    <div class="option-group">
+                        <label>Analysis Type:</label>
+                        <select id="analysisType">
+                            <option value="content">Content Analysis</option>
+                            <option value="objects">Object Detection</option>
+                            <option value="actions">Action Recognition</option>
+                            <option value="scenes">Scene Analysis</option>
+                            <option value="narrative">Narrative Analysis</option>
+                        </select>
+                    </div>
+                    <div class="option-group">
+                        <label>Focus Area:</label>
+                        <input type="text" id="userFocus" placeholder="What should I focus on? (optional)">
+                    </div>
+                    <button class="analyze-btn" onclick="analyzeVideo()">
+                        <i class="fas fa-search"></i>
+                        Analyze Video
+                    </button>
+                </div>
+            </section>
+
+            <!-- AI Chat Section -->
+            <section id="chat" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-comments"></i> AI Chat</h2>
+                </div>
+                
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai">
+                            <div class="message-content">
+                                <div class="message-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div class="message-text">
+                                    Hello! I'm your AI video analysis assistant. I can help you understand video content, answer questions, and provide insights. What would you like to know?
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Typing Indicator -->
+                    <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                        <div class="typing-content">
+                            <div class="typing-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <div class="chat-input-wrapper">
+                            <div class="input-container">
+                                <textarea 
+                                    id="chatInput" 
+                                    class="chat-input" 
+                                    placeholder="Ask me about the video..."
+                                    disabled
+                                ></textarea>
+                                <button id="sendBtn" class="send-button" onclick="sendMessage()" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                            <div class="input-footer">
+                                <div class="input-hint">Press Enter to send, Shift+Enter for new line</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Real-Time Streaming Section -->
+            <section id="streaming" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-video"></i> Real-Time Video Streaming</h2>
+                </div>
+                
+                <p class="section-description">
+                    Stream video in real-time with live 7B model analysis. Analyze live feeds, camera streams, or video files with instant AI insights.
+                </p>
+                
+                <div class="streaming-toggle">
+                    <button class="toggle-btn" onclick="toggleStreamingInterface()">
+                        <i class="fas fa-rocket"></i>
+                        Enable Streaming Interface
+                    </button>
+                </div>
+                
+                <div class="streaming-section hidden" id="streamingInterface">
+                    <h3><i class="fas fa-video"></i> Real-Time Video Streaming</h3>
+                    
+                    <div class="connection-status disconnected" id="connectionStatus">
+                        <i class="fas fa-circle"></i>
+                        WebSocket Disconnected
+                    </div>
+                    
+                    <div class="stream-controls">
+                        <input type="text" id="streamId" placeholder="Stream ID (e.g., camera1)" value="camera1">
+                        <input type="text" id="videoSource" placeholder="Video Source (0 for camera, file path, or URL)" value="0">
+                        <button onclick="startStream()">Start Stream</button>
+                        <button onclick="stopStream()">Stop Stream</button>
+                    </div>
+                    
+                    <div class="stream-status">
+                        <div class="status-card">
+                            <h4>Current FPS</h4>
+                            <div class="value" id="currentFps">0.0</div>
+                        </div>
+                        <div class="status-card">
+                            <h4>Target FPS</h4>
+                            <div class="value" id="targetFps">30</div>
+                        </div>
+                        <div class="status-card">
+                            <h4>Latency</h4>
+                            <div class="value" id="currentLatency">0ms</div>
+                        </div>
+                        <div class="status-card">
+                            <h4>Events Detected</h4>
+                            <div class="value" id="eventsCount">0</div>
+                        </div>
+                        <div class="status-card">
+                            <h4>AI Analyses</h4>
+                            <div class="value" id="aiAnalysisCount">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stream-video">
+                        <video id="streamVideo" autoplay muted></video>
+                    </div>
+                    
+                    <div class="stream-events">
+                        <h4><i class="fas fa-chart-bar"></i> Live Events & AI Analysis</h4>
+                        <div id="streamEventsList">
+                            <p style="text-align: center; opacity: 0.7;">No events detected yet. Start a stream to see live analysis.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sessions Section -->
+            <section id="sessions" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-bar"></i> Analysis Sessions</h2>
+                </div>
+                
+                <div class="sessions-container">
+                    <div class="session-controls">
+                        <button onclick="refreshSessions()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                        <button onclick="cleanupSessions()">
+                            <i class="fas fa-broom"></i>
+                            Cleanup
+                        </button>
+                    </div>
+                    <div class="sessions-list" id="sessionsList">
+                        <p>Loading sessions...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="loading-modal" id="loadingModal" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+            </div>
+            <div class="loading-text">
+                <h3 id="loadingMessage">Processing...</h3>
+                <p>Please wait while we analyze your video</p>
+            </div>
+            <div class="loading-steps">
+                <div class="step active">
+                    <i class="fas fa-upload"></i>
+                    <span>Upload</span>
+                </div>
+                <div class="step">
+                    <i class="fas fa-cog"></i>
+                    <span>Processing</span>
+                </div>
+                <div class="step">
+                    <i class="fas fa-brain"></i>
+                    <span>AI Analysis</span>
+                </div>
+                <div class="step">
+                    <i class="fas fa-check"></i>
+                    <span>Complete</span>
                 </div>
             </div>
-        </section>
+        </div>
+    </div>
 
-        <!-- Real-Time Streaming Section -->
-        <section id="streaming" class="section">
-            <h2>🎬 Real-Time Video Streaming</h2>
-            <p class="section-description">
-                Stream video in real-time with live 7B model analysis. Analyze live feeds, camera streams, or video files with instant AI insights.
-            </p>
-            
-            <div class="streaming-toggle">
-                <button class="toggle-btn" onclick="toggleStreamingInterface()">
-                    🚀 Enable Streaming Interface
+    <!-- Evidence Modal -->
+    <div class="evidence-modal" id="evidenceModal" style="display: none;">
+        <div class="evidence-content">
+            <div class="evidence-header">
+                <h3>Visual Evidence</h3>
+                <button class="close-btn" onclick="closeEvidenceModal()">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
-            
-            <div class="streaming-section hidden" id="streamingInterface">
-                <h3>🎬 Real-Time Video Streaming</h3>
-                
-                <div class="connection-status disconnected" id="connectionStatus">
-                    🔴 WebSocket Disconnected
-                </div>
-                
-                <div class="stream-controls">
-                    <input type="text" id="streamId" placeholder="Stream ID (e.g., camera1)" value="camera1">
-                    <input type="text" id="videoSource" placeholder="Video Source (0 for camera, file path, or URL)" value="0">
-                    <button onclick="startStream()">Start Stream</button>
-                    <button onclick="stopStream()">Stop Stream</button>
-                </div>
-                
-                <div class="stream-status">
-                    <div class="status-card">
-                        <h4>Current FPS</h4>
-                        <div class="value" id="currentFps">0.0</div>
-                    </div>
-                    <div class="status-card">
-                        <h4>Target FPS</h4>
-                        <div class="value" id="targetFps">30</div>
-                    </div>
-                    <div class="status-card">
-                        <h4>Latency</h4>
-                        <div class="value" id="currentLatency">0ms</div>
-                    </div>
-                    <div class="status-card">
-                        <h4>Events Detected</h4>
-                        <div class="value" id="eventsCount">0</div>
-                    </div>
-                    <div class="status-card">
-                        <h4>AI Analyses</h4>
-                        <div class="value" id="aiAnalysisCount">0</div>
-                    </div>
-                </div>
-                
-                <div class="stream-video">
-                    <video id="streamVideo" autoplay muted></video>
-                </div>
-                
-                <div class="stream-events">
-                    <h4>📊 Live Events & AI Analysis</h4>
-                    <div id="streamEventsList">
-                        <p style="text-align: center; opacity: 0.7;">No events detected yet. Start a stream to see live analysis.</p>
-                    </div>
-                </div>
+            <div class="evidence-body">
+                <img id="evidenceModalImage" src="" alt="Evidence">
+                <div class="evidence-info" id="evidenceModalInfo"></div>
             </div>
-        </section>
+        </div>
+    </div>
 
-        <!-- Sessions Section -->
-        <section id="sessions" class="section">
-            <h2>📊 Analysis Sessions</h2>
-            <div class="sessions-container">
-                <div class="session-controls">
-                    <button onclick="refreshSessions()">🔄 Refresh</button>
-                    <button onclick="cleanupSessions()">🧹 Cleanup</button>
-                </div>
-                <div class="sessions-list" id="sessionsList">
-                    <p>Loading sessions...</p>
-                </div>
-            </div>
-        </section>
+    <!-- Floating Cleanup Button -->
+    <div class="floating-cleanup" id="floatingCleanup" style="display: none;">
+        <button class="cleanup-btn" onclick="cleanupSession()">
+            <i class="fas fa-broom"></i>
+            Cleanup Session
+        </button>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script>
-        // Streaming functionality
-        let ws = null;
-        let currentStreamId = null;
-        let isStreaming = false;
-        
-        function toggleStreamingInterface() {
-            const interface = document.getElementById('streamingInterface');
-            const toggleBtn = document.querySelector('.toggle-btn');
-            
-            if (interface.classList.contains('hidden')) {
-                interface.classList.remove('hidden');
-                toggleBtn.textContent = '🔒 Hide Streaming Interface';
-                connectWebSocket();
-            } else {
-                interface.classList.add('hidden');
-                toggleBtn.textContent = '🚀 Enable Streaming Interface';
-                disconnectWebSocket();
-            }
-        }
-        
-        function connectWebSocket() {
-            try {
-                // For now, we'll use polling instead of WebSocket
-                // In a real implementation, you'd connect to a WebSocket server
-                updateConnectionStatus('connected');
-                startStatusPolling();
-            } catch (error) {
-                console.error('WebSocket connection failed:', error);
-                updateConnectionStatus('disconnected');
-            }
-        }
-        
-        function disconnectWebSocket() {
-            if (ws) {
-                ws.close();
-                ws = null;
-            }
-            updateConnectionStatus('disconnected');
-            stopStatusPolling();
-        }
-        
-        function updateConnectionStatus(status) {
-            const statusElement = document.getElementById('connectionStatus');
-            if (status === 'connected') {
-                statusElement.className = 'connection-status connected';
-                statusElement.textContent = '🟢 WebSocket Connected';
-            } else {
-                statusElement.className = 'connection-status disconnected';
-                statusElement.textContent = '🔴 WebSocket Disconnected';
-            }
-        }
-        
-        let statusPollingInterval = null;
-        
-        function startStatusPolling() {
-            if (statusPollingInterval) return;
-            
-            statusPollingInterval = setInterval(() => {
-                if (currentStreamId && isStreaming) {
-                    updateStreamStatus();
-                    updateStreamEvents();
-                }
-            }, 2000); // Poll every 2 seconds
-        }
-        
-        function stopStatusPolling() {
-            if (statusPollingInterval) {
-                clearInterval(statusPollingInterval);
-                statusPollingInterval = null;
-            }
-        }
-        
-        async function startStream() {
-            const streamId = document.getElementById('streamId').value;
-            const videoSource = document.getElementById('videoSource').value;
-            
-            if (!streamId || !videoSource) {
-                alert('Please enter both Stream ID and Video Source');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/stream/start', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        stream_id: streamId,
-                        video_source: videoSource,
-                        config: {
-                            fps_target: 30,
-                            event_detection: true,
-                            ai_analysis_enabled: true,
-                            analysis_interval: 1
-                        }
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    currentStreamId = streamId;
-                    isStreaming = true;
-                    
-                    // Update UI
-                    document.querySelector('.stream-controls button:first-of-type').textContent = '⏸️ Pause Stream';
-                    document.querySelector('.stream-controls button:first-of-type').onclick = pauseStream;
-                    
-                    // Start video display if it's a camera
-                    if (videoSource === '0' || videoSource === '1') {
-                        startCameraDisplay(parseInt(videoSource));
-                    }
-                    
-                    alert(`Stream started successfully: ${streamId}`);
-                    
-                    // Start status updates
-                    updateStreamStatus();
-                    updateStreamEvents();
-                    
-                } else {
-                    alert(`Failed to start stream: ${result.error}`);
-                }
-                
-            } catch (error) {
-                console.error('Stream start failed:', error);
-                alert('Failed to start stream. Check console for details.');
-            }
-        }
-        
-        async function stopStream() {
-            if (!currentStreamId) {
-                alert('No active stream to stop');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/stream/stop/${currentStreamId}`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Reset UI
-                    document.querySelector('.stream-controls button:first-of-type').textContent = 'Start Stream';
-                    document.querySelector('.stream-controls button:first-of-type').onclick = startStream;
-                    
-                    // Stop camera display
-                    stopCameraDisplay();
-                    
-                    // Reset variables
-                    currentStreamId = null;
-                    isStreaming = false;
-                    
-                    // Reset metrics
-                    resetStreamMetrics();
-                    
-                    alert('Stream stopped successfully');
-                    
-                } else {
-                    alert(`Failed to stop stream: ${result.error}`);
-                }
-                
-            } catch (error) {
-                console.error('Stream stop failed:', error);
-                alert('Failed to stop stream. Check console for details.');
-            }
-        }
-        
-        function pauseStream() {
-            // For now, just stop the stream
-            stopStream();
-        }
-        
-        async function updateStreamStatus() {
-            if (!currentStreamId) return;
-            
-            try {
-                const response = await fetch(`/api/stream/status/${currentStreamId}`);
-                const result = await response.json();
-                
-                if (result.success && result.status) {
-                    const status = result.status;
-                    const metrics = status.metrics || {};
-                    
-                    // Update UI metrics
-                    document.getElementById('currentFps').textContent = metrics.fps_current?.toFixed(1) || '0.0';
-                    document.getElementById('targetFps').textContent = metrics.fps_target || '30';
-                    document.getElementById('currentLatency').textContent = `${metrics.latency_ms?.toFixed(1) || '0'}ms`;
-                    document.getElementById('eventsCount').textContent = status.event_count || '0';
-                    document.getElementById('aiAnalysisCount').textContent = status.ai_analysis_count || '0';
-                }
-                
-            } catch (error) {
-                console.error('Failed to update stream status:', error);
-            }
-        }
-        
-        async function updateStreamEvents() {
-            if (!currentStreamId) return;
-            
-            try {
-                const response = await fetch(`/api/stream/events/${currentStreamId}`);
-                const result = await response.json();
-                
-                if (result.success && result.events) {
-                    displayStreamEvents(result.events);
-                }
-                
-            } catch (error) {
-                console.error('Failed to update stream events:', error);
-            }
-        }
-        
-        function displayStreamEvents(events) {
-            const eventsList = document.getElementById('streamEventsList');
-            
-            if (!events || events.length === 0) {
-                eventsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">No events detected yet.</p>';
-                return;
-            }
-            
-            // Sort events by timestamp (newest first)
-            const sortedEvents = events.sort((a, b) => b.timestamp - a.timestamp);
-            
-            // Display last 10 events
-            const recentEvents = sortedEvents.slice(0, 10);
-            
-            eventsList.innerHTML = recentEvents.map(event => {
-                const eventTime = new Date(event.timestamp * 1000).toLocaleTimeString();
-                const isAIAnalysis = event.event_type === 'ai_analysis';
-                
-                return `
-                    <div class="event-item ${isAIAnalysis ? 'ai-analysis' : ''}">
-                        <div class="event-header">
-                            <span class="event-type">${event.event_type.toUpperCase()}</span>
-                            <span class="event-time">${eventTime}</span>
-                        </div>
-                        <div class="event-content">
-                            Confidence: ${(event.confidence * 100).toFixed(1)}%
-                            ${event.metadata ? `<br>Details: ${JSON.stringify(event.metadata)}` : ''}
-                            ${event.ai_analysis ? `<div class="ai-analysis-content">🧠 AI Analysis: ${event.ai_analysis}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        function resetStreamMetrics() {
-            document.getElementById('currentFps').textContent = '0.0';
-            document.getElementById('targetFps').textContent = '30';
-            document.getElementById('currentLatency').textContent = '0ms';
-            document.getElementById('eventsCount').textContent = '0';
-            document.getElementById('aiAnalysisCount').textContent = '0';
-            document.getElementById('streamEventsList').innerHTML = '<p style="text-align: center; opacity: 0.7;">No events detected yet. Start a stream to see live analysis.</p>';
-        }
-        
-        let cameraStream = null;
-        
-        function startCameraDisplay(cameraIndex) {
-            try {
-                const video = document.getElementById('streamVideo');
-                
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            deviceId: cameraIndex ? { exact: cameraIndex } : undefined 
-                        } 
-                    })
-                    .then(stream => {
-                        cameraStream = stream;
-                        video.srcObject = stream;
-                        video.play();
-                    })
-                    .catch(error => {
-                        console.error('Camera access failed:', error);
-                        // Fallback to file input for video files
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.accept = 'video/*';
-                        fileInput.onchange = (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                                const url = URL.createObjectURL(file);
-                                video.src = url;
-                                video.play();
-                            }
-                        };
-                        fileInput.click();
-                    });
-                }
-            } catch (error) {
-                console.error('Camera display failed:', error);
-            }
-        }
-        
-        function stopCameraDisplay() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            
-            const video = document.getElementById('streamVideo');
-            video.src = '';
-            video.srcObject = null;
-        }
-        
-        // Initialize streaming interface
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set default values
-            document.getElementById('targetFps').textContent = '30';
-            
-            // Add keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 's') {
-                    e.preventDefault();
-                    if (isStreaming) {
-                        stopStream();
-                    } else {
-                        startStream();
-                    }
-                }
-            });
-        });
-    </script>
 </body>
 </html> 

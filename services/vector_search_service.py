@@ -72,6 +72,29 @@ class VectorSearchService:
         except Exception as e:
             print(f"❌ Failed to initialize Faiss index: {e}")
     
+    async def initialize(self):
+        """Initialize the vector search service (async compatibility)"""
+        try:
+            print("💾 Initializing Vector Search Service...")
+            
+            # Ensure embeddings directory exists
+            self._ensure_embeddings_directory()
+            
+            # Initialize model and index
+            self._initialize_model()
+            self._initialize_faiss_index()
+            
+            if self.model and self.faiss_index:
+                print("✅ Vector Search Service initialized successfully")
+                return True
+            else:
+                print("⚠️ Vector Search Service initialized with limited functionality")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Vector Search Service initialization failed: {e}")
+            return False
+    
     def _get_embedding_file_path(self, session_id: str) -> str:
         """Get the file path for session embeddings"""
         return os.path.join(self.embeddings_dir, f"embeddings_{session_id}.pkl")

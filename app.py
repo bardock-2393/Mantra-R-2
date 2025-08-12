@@ -15,6 +15,7 @@ from services.session_service import cleanup_expired_sessions, cleanup_old_uploa
 from services.gpu_service import GPUService
 from services.performance_service import PerformanceMonitor
 from services.ai_service import ai_service
+from services.hybrid_analysis_service import HybridAnalysisService
 
 def create_app():
     """Create and configure the Flask application for Round 2 - 7B Model Only"""
@@ -49,12 +50,17 @@ async def initialize_gpu_services():
         print("🤖 Initializing Qwen2.5-VL-7B model...")
         await ai_service.initialize()
         
+        # Initialize hybrid analysis service (DeepStream + 7B + Vector Search)
+        print("🔗 Initializing Hybrid Analysis Service...")
+        hybrid_service = HybridAnalysisService()
+        await hybrid_service.initialize()
+        
         print("✅ GPU services initialized successfully for 7B model")
-        return gpu_service, performance_monitor
+        return gpu_service, performance_monitor, hybrid_service
         
     except Exception as e:
         print(f"❌ Failed to initialize GPU services: {e}")
-        return None, None
+        return None, None, None
 
 def start_cleanup_thread():
     """Start background cleanup thread"""
@@ -83,7 +89,7 @@ async def main():
     cleanup_expired_sessions()
     
     # Initialize GPU services for Round 2
-    gpu_service, performance_monitor = await initialize_gpu_services()
+    gpu_service, performance_monitor, hybrid_service = await initialize_gpu_services()
     
     # Start background cleanup thread
     cleanup_thread = start_cleanup_thread()
@@ -94,10 +100,16 @@ async def main():
     print(f"🤖 GPU Processing: {'Enabled' if Config.GPU_CONFIG['enabled'] else 'Disabled'}")
     print(f"🎯 Performance targets: <{Config.PERFORMANCE_TARGETS['latency_target']}ms latency, {Config.PERFORMANCE_TARGETS['fps_target']}fps")
     print(f"🧠 AI Model: Qwen2.5-VL-7B (Local GPU)")
+    print(f"🔍 DeepStream: {'Enabled' if hybrid_service and hybrid_service.is_initialized else 'Disabled'}")
+    print(f"💾 Vector Search: {'Enabled' if hybrid_service and hybrid_service.vector_service else 'Disabled'}")
     
     if gpu_service:
         print(f"🖥️  GPU Device: {Config.GPU_CONFIG['device']}")
         print(f"💾 GPU Memory: {Config.GPU_CONFIG['memory_limit'] // (1024**3)}GB")
+    
+    if hybrid_service and hybrid_service.is_initialized:
+        print("✅ Hybrid Analysis System: DeepStream + 7B Model + Vector Search")
+        print("🚀 Ready for high-performance video analysis!")
     
     return app
 
