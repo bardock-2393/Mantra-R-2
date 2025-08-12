@@ -81,7 +81,7 @@ class Qwen25VL32BService:
             
             # Generate analysis prompt
             if ANALYSIS_TEMPLATES_AVAILABLE:
-                analysis_prompt = generate_analysis_prompt(analysis_type, user_focus, video_duration)
+                analysis_prompt = generate_analysis_prompt(analysis_type, user_focus)
             else:
                 analysis_prompt = self._generate_fallback_prompt(analysis_type, user_focus, video_duration)
             

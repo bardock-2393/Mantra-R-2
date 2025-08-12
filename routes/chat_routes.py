@@ -78,19 +78,12 @@ def chat():
                 # Generate contextual AI response based on video analysis and relevant content
                 enhanced_message = f"{message}\n\n{context_info}" if context_info else message
                 from services.ai_service import ai_service
-                import asyncio
+                
                 try:
-                    # Get or create event loop
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    
-                    # Run the async function
-                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
+                    # Call the synchronous method directly
+                    ai_response = ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, enhanced_message, chat_list
-                    ))
+                    )
                 except Exception as e:
                     print(f"Error in chat response generation: {e}")
                     ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
@@ -99,19 +92,12 @@ def chat():
                 print(f"⚠️ Vector search failed, falling back to basic response: {e}")
                 # Fallback to basic response
                 from services.ai_service import ai_service
-                import asyncio
+                
                 try:
-                    # Get or create event loop
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    
-                    # Run the async function
-                    ai_response = loop.run_until_complete(ai_service.generate_chat_response(
+                    # Call the synchronous method directly
+                    ai_response = ai_service.generate_chat_response(
                         analysis_result, analysis_type, user_focus, message, chat_list
-                    ))
+                    )
                 except Exception as e:
                     print(f"Error in fallback chat response generation: {e}")
                     ai_response = f"I apologize, but I encountered an error while generating a response: {str(e)}"
