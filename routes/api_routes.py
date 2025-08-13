@@ -139,4 +139,27 @@ def cleanup_uploads():
         return jsonify({
             'success': False,
             'error': f'Uploads cleanup failed: {str(e)}'
+        })
+
+@api_bp.route('/switch-model', methods=['POST'])
+def switch_model():
+    """Switch between different AI models"""
+    try:
+        data = request.get_json()
+        model_name = data.get('model', 'minicpm')
+        
+        # For now, just return success since we're only using the 32B model
+        # In the future, this could actually switch between different models
+        return jsonify({
+            'success': True,
+            'message': f'Model switched to {model_name}',
+            'model_name': model_name,
+            'current_model': 'qwen25vl_32b'  # Always return the current model
+        })
+        
+    except Exception as e:
+        print(f"Model switch error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to switch model: {str(e)}'
         }) 

@@ -5,7 +5,7 @@ class VideoDetective {
         this.currentFile = null;
         this.analysisComplete = false;
         this.isTyping = false;
-        this.fileUploaded = false;
+        this.fileUploaded = false; // Add missing property
         this.init();
     }
 
@@ -296,6 +296,10 @@ class VideoDetective {
             console.log('🔍 Response headers:', response.headers);
             console.log('🔍 Response ok:', response.ok);
             
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             // Get the raw response text first
             const responseText = await response.text();
             console.log('🔍 Raw response text:', responseText);
@@ -477,8 +481,111 @@ class VideoDetective {
     }
 
     async analyzeVideo() {
-        // This method is now called startAnalysis
-        await this.startAnalysis();
+        try {
+            console.log('🔍 Starting video analysis...');
+            this.showLoadingModal('Analyzing Video');
+
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    analysis_type: 'comprehensive_analysis',
+                    user_focus: 'Analyze this video comprehensively for all important events and observations'
+                })
+            });
+
+            // Debug: Log response details before parsing
+            console.log('🔍 Response status:', response.status);
+            console.log('🔍 Response headers:', response.headers);
+            console.log('🔍 Response ok:', response.ok);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // Get the raw response text first
+            const responseText = await response.text();
+            console.log('🔍 Raw response text:', responseText);
+            console.log('🔍 Response text length:', responseText.length);
+            console.log('🔍 Response text first 200 chars:', responseText.substring(0, 200));
+            
+            // Try to parse as JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('📊 Analysis response:', result);
+            } catch (jsonError) {
+                console.error('❌ JSON parsing failed:', jsonError);
+                console.error('❌ Raw response that failed to parse:', responseText);
+                throw new Error(`Invalid JSON response from server: ${jsonError.message}. Raw response: ${responseText.substring(0, 500)}`);
+            }
+            
+            this.hideLoadingModal();
+
+            if (result.success) {
+                console.log('✅ Analysis successful, showing chat interface...');
+                this.analysisComplete = true;
+                this.showChatInterface();
+                
+                // Show analysis completion message with evidence if available
+                let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
+                
+                if (result.evidence && result.evidence.length > 0) {
+                    const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
+                    const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
+                    
+                    let evidenceText = '';
+                    if (screenshotCount > 0 && videoCount > 0) {
+                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
+                    } else if (screenshotCount > 0) {
+                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
+                    } else if (videoCount > 0) {
+                        evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
+                    }
+                    completionMessage += `\n\n${evidenceText}`;
+                }
+                
+                completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
+                
+                // Add completion message with typing effect
+                this.addChatMessageWithTyping('ai', completionMessage);
+                
+                // Display evidence if available (after message appears)
+                if (result.evidence && result.evidence.length > 0) {
+                    setTimeout(() => {
+                        this.displayEvidence(result.evidence);
+                    }, 800); // Wait for fade-in effect to complete + buffer
+                }
+            } else {
+                console.error('❌ Analysis failed:', result.error);
+                let errorMessage = result.error || 'Analysis failed';
+                
+                // Provide more specific error messages
+                if (errorMessage.includes('No video uploaded')) {
+                    errorMessage = 'No video found. Please upload a video first, then try analysis again.';
+                } else if (errorMessage.includes('session')) {
+                    errorMessage = 'Session error. Please refresh the page and try again.';
+                }
+                
+                this.showError(errorMessage);
+            }
+        } catch (error) {
+            console.error('❌ Analysis error:', error);
+            this.hideLoadingModal();
+            
+            let errorMessage = error.message;
+            
+            // Provide more specific error messages
+            if (errorMessage.includes('JSON')) {
+                errorMessage = 'Server response error. Please try again or contact support.';
+            } else if (errorMessage.includes('fetch')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            }
+            
+            this.showError('Analysis failed: ' + errorMessage);
+        }
     }
 
     displayEvidence(evidence, title = 'Visual Evidence') {
@@ -1279,6 +1386,54 @@ class VideoDetective {
         // Re-enable select
         modelSelect.disabled = false;
     }
+
+    // Add missing functions that are called from HTML
+    minimizeChat() {
+        console.log('📱 Minimizing chat interface...');
+        const chatInterface = document.getElementById('chatInterface');
+        const uploadSection = document.getElementById('uploadSection');
+        
+        if (chatInterface && uploadSection) {
+            // Hide chat interface
+            chatInterface.style.transition = 'all 0.3s ease';
+            chatInterface.style.opacity = '0';
+            chatInterface.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                chatInterface.style.display = 'none';
+                
+                // Show upload section
+                uploadSection.style.display = 'block';
+                uploadSection.style.opacity = '0';
+                uploadSection.style.transform = 'translateY(-20px)';
+                
+                setTimeout(() => {
+                    uploadSection.style.transition = 'all 0.3s ease';
+                    uploadSection.style.opacity = '1';
+                    uploadSection.style.transform = 'translateY(0)';
+                }, 50);
+            }, 300);
+        }
+    }
+
+    testUpload() {
+        console.log('🧪 Testing upload functionality...');
+        // Create a test file object
+        const testFile = new File(['test'], 'test.mp4', { type: 'video/mp4' });
+        this.currentFile = testFile;
+        this.showFileInfo(testFile);
+        this.showSuccess('Test file loaded successfully! You can now test the analysis.');
+    }
+
+    resetUpload() {
+        console.log('🔄 Resetting upload...');
+        this.resetUpload();
+    }
+
+    cleanupOldUploads() {
+        console.log('🧹 Cleaning up old uploads...');
+        this.cleanupOldUploads();
+    }
 }
 
 // Add CSS animations
@@ -1310,33 +1465,14 @@ document.head.appendChild(style);
 
 // Initialize the application
 window.videoDetective = new VideoDetective();
-
-// Global functions for HTML onclick handlers
 window.closeEvidenceModal = () => window.videoDetective.closeEvidenceModal();
 window.cleanupSession = () => window.videoDetective.cleanupSession();
 window.uploadSelectedVideo = () => window.videoDetective.uploadSelectedVideo();
 window.uploadDemoVideo = () => window.videoDetective.uploadDemoVideo();
 window.startAnalysis = () => window.videoDetective.startAnalysis();
-window.resetUpload = () => window.videoDetective.resetUpload();
 window.minimizeChat = () => window.videoDetective.minimizeChat();
+window.testUpload = () => window.videoDetective.testUpload();
+window.resetUpload = () => window.videoDetective.resetUpload();
 window.cleanupOldUploads = () => window.videoDetective.cleanupOldUploads();
-
-// Debug function to test upload
-window.testUpload = () => {
-    console.log('🧪 Testing upload functionality...');
-    console.log('📁 Current file:', window.videoDetective.currentFile);
-    console.log('📤 File uploaded flag:', window.videoDetective.fileUploaded);
-    console.log('🔍 Video file input:', document.getElementById('videoFile'));
-    console.log('📤 Upload area:', document.getElementById('uploadArea'));
-    
-    // Test file input click
-    const fileInput = document.getElementById('videoFile');
-    if (fileInput) {
-        console.log('🖱️ Clicking file input...');
-        fileInput.click();
-    } else {
-        console.error('❌ File input not found!');
-    }
-};
 
 console.log('🚀 AI Video Detective Pro is ready!');
