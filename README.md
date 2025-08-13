@@ -224,9 +224,10 @@ Open your browser and visit: `http://localhost:5000`
 #### **System Requirements**
 - **Operating System**: Windows 10+, macOS 10.14+, or Ubuntu 18.04+
 - **Python**: 3.8 or higher
-- **Memory**: 2GB+ RAM (4GB+ recommended)
-- **Storage**: 1GB+ free space
-- **Network**: Stable internet connection for API calls
+- **Memory**: 8GB+ RAM (16GB+ recommended for optimal performance)
+- **GPU**: NVIDIA GPU with 8GB+ VRAM (16GB+ recommended for optimal performance)
+- **Storage**: 5GB+ free space (for model weights and video processing)
+- **Network**: Stable internet connection for initial model download
 
 #### **Dependencies Installation**
 
