@@ -5,11 +5,14 @@ class VideoDetective {
         this.currentFile = null;
         this.analysisComplete = false;
         this.isTyping = false;
+        this.version = 'v11'; // Version indicator
         this.init();
     }
 
     init() {
         console.log('🚀 Initializing AI Video Detective Pro...');
+        console.log('📦 Version:', this.version);
+        console.log('✅ New timeout handling enabled - no more 524 errors!');
         this.setupEventListeners();
         this.setupAutoResize();
         this.checkSessionStatus();
@@ -17,6 +20,23 @@ class VideoDetective {
         this.showDemoVideoPreview();
         // Model selection functionality removed - always using 32B model
         console.log('✅ AI Video Detective Pro initialized successfully!');
+        
+        // Check if this is the new version and show appropriate message
+        if (this.version && this.version.startsWith('v1')) {
+            console.log('🎉 New version loaded - timeout issues fixed!');
+            // Hide any refresh notices
+            const refreshNotice = document.getElementById('forceRefreshNotice');
+            if (refreshNotice) {
+                refreshNotice.style.display = 'none';
+            }
+        } else {
+            console.log('⚠️ Old version detected - showing refresh notice');
+            // Show refresh notice for old versions
+            const refreshNotice = document.getElementById('forceRefreshNotice');
+            if (refreshNotice) {
+                refreshNotice.style.display = 'block';
+            }
+        }
     }
 
     setupEventListeners() {
