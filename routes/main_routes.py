@@ -130,6 +130,8 @@ def upload_video():
         # Verify storage
         stored_data = get_session_data(session_id)
         print(f"Debug: Upload - Stored data keys: {list(stored_data.keys()) if stored_data else 'None'}")
+        print(f"Debug: Upload - Session ID being used: {session_id}")
+        print(f"Debug: Upload - Flask session keys: {list(session.keys())}")
         
         message = 'Default video loaded successfully' if file_info.get('is_default_video', False) else 'Video uploaded successfully'
         print(f"🔍 Debug: Upload completed successfully")
@@ -157,15 +159,16 @@ def analyze_video():
         user_focus = data.get('user_focus', 'Analyze this video comprehensively')
         
         session_id = session.get('session_id')
-        print(f"Debug: Session ID: {session_id}")
+        print(f"Debug: Analyze - Session ID: {session_id}")
+        print(f"Debug: Analyze - Flask session keys: {list(session.keys())}")
         
         if not session_id:
             return jsonify({'success': False, 'error': 'No session found'})
         
         # Get session data
         session_data = get_session_data(session_id)
-        print(f"Debug: Session data keys: {list(session_data.keys()) if session_data else 'None'}")
-        print(f"Debug: Session data: {session_data}")
+        print(f"Debug: Analyze - Session data keys: {list(session_data.keys()) if session_data else 'None'}")
+        print(f"Debug: Analyze - Session data: {session_data}")
         
         if not session_data or 'filepath' not in session_data:
             return jsonify({'success': False, 'error': 'No video uploaded'})

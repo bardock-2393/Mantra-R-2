@@ -198,7 +198,7 @@ class VideoDetective {
         }
     }
 
-    handleAnalysisSubmit() {
+    async handleAnalysisSubmit() {
         console.log('🚀 Starting comprehensive video analysis...');
         
         // Check if we have a current file
@@ -216,10 +216,25 @@ class VideoDetective {
         // Show progress section
         this.showProgressSection();
         
-        // Start the comprehensive analysis
-        console.log('🚀 About to call startAnalysis() function...');
-        this.startAnalysis();
-        console.log('🚀 startAnalysis() function called');
+        // FIRST: Upload the video file
+        console.log('📤 Uploading video file before analysis...');
+        try {
+            await this.uploadFile(this.currentFile);
+            console.log('✅ Video uploaded successfully, now starting analysis...');
+            
+            // SECOND: Start the analysis
+            console.log('🚀 About to call startAnalysis() function...');
+            this.startAnalysis();
+            console.log('🚀 startAnalysis() function called');
+        } catch (error) {
+            console.error('❌ Upload failed:', error);
+            this.showError('Failed to upload video: ' + error.message);
+            
+            // Show analysis form again on error
+            if (analysisForm) {
+                analysisForm.style.display = 'block';
+            }
+        }
     }
 
     resetAnalysis() {
@@ -266,7 +281,13 @@ class VideoDetective {
             // Show progress section
             this.showProgressSection();
             
+            // Verify we have a current file
+            if (!this.currentFile) {
+                throw new Error('No video file available for analysis');
+            }
+            
             console.log('🔍 About to call /analyze API...');
+            console.log('🔍 Current file:', this.currentFile.name, this.currentFile.size);
             
             // Call the analyze API
             const response = await fetch('/analyze', {
@@ -396,9 +417,8 @@ class VideoDetective {
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
-                // Show analysis form after successful upload
-                this.showAnalysisForm();
-                console.log('✅ Upload successful, analysis form shown');
+                // Don't show analysis form here since it's called from analysis flow
+                console.log('✅ Upload successful, ready for analysis');
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
