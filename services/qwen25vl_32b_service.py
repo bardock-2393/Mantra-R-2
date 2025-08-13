@@ -226,12 +226,12 @@ class Qwen25VL32BService:
                     print(f"⚠️ Loading with token failed: {token_error}")
                     if hf_token:
                         print("🔄 Trying without token...")
-                        self.processor = AutoProcessor.from_pretrained(
-                            Config.QWEN25VL_32B_MODEL_PATH,
-                            min_pixels=min_pixels,
-                            max_pixels=max_pixels,
-                            trust_remote_code=True
-                        )
+                self.processor = AutoProcessor.from_pretrained(
+                    Config.QWEN25VL_32B_MODEL_PATH,
+                    min_pixels=min_pixels,
+                    max_pixels=max_pixels,
+                    trust_remote_code=True
+                )
                     else:
                         raise token_error
                 
@@ -262,7 +262,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load processor from both paths: {e}")
                 else:
-                    raise RuntimeError(f"Failed to load processor: {e}")
+                raise RuntimeError(f"Failed to load processor: {e}")
             
             # Load tokenizer as fallback
             try:
@@ -321,7 +321,7 @@ class Qwen25VL32BService:
                         print(f"❌ Alternative path also failed: {alt_error}")
                         raise RuntimeError(f"Failed to load model from both paths: {e}")
                 else:
-                    raise RuntimeError(f"Failed to load model: {e}")
+                raise RuntimeError(f"Failed to load model: {e}")
             
             # Don't manually move to device when using device_map="auto"
             # The model is already properly placed by accelerate
@@ -516,7 +516,7 @@ class Qwen25VL32BService:
                             if video_input is not None and os.path.exists(str(video_input)):
                                 # Ensure it's a path, not a tensor
                                 if isinstance(video_input, str):
-                                    valid_videos.append(video_input)
+                                valid_videos.append(video_input)
                                 else:
                                     print(f"⚠️ Skipping non-path video input: {type(video_input)}")
                             else:
@@ -540,7 +540,7 @@ class Qwen25VL32BService:
                     
                     if not video_inputs or len(video_inputs) == 0:
                         print("⚠️ No video inputs from fallback, using text-only analysis")
-                        return await self._generate_text_only_analysis(prompt, video_path)
+                    return await self._generate_text_only_analysis(prompt, video_path)
                     
                     print(f"✅ Using {len(video_inputs)} video inputs from fallback")
                     
@@ -568,12 +568,12 @@ class Qwen25VL32BService:
                 if has_tensors:
                     # We have video tensors from our fallback
                     print(f"✅ Using video tensors from fallback")
-                    inputs = self.processor(
-                        text=[text],
+                inputs = self.processor(
+                    text=[text],
                         videos=video_inputs,  # Video tensors
-                        padding=True,
-                        return_tensors="pt"
-                    )
+                    padding=True,
+                    return_tensors="pt"
+                )
                 elif has_paths:
                     # We have video paths, ensure they exist
                     valid_paths = [os.path.abspath(v) for v in video_inputs if v and os.path.exists(str(v))]
@@ -768,13 +768,13 @@ class Qwen25VL32BService:
             import tempfile
             import os
             
-            cap = cv2.VideoCapture(video_path)
+                cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 print(f"❌ Could not open video: {video_path}")
                 return []
             
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
+                    fps = cap.get(cv2.CAP_PROP_FPS)
             duration = total_frames / fps if fps > 0 else 0
             
             print(f"📹 Video: {total_frames} frames, {fps:.2f} FPS, {duration:.2f}s duration")
@@ -787,8 +787,8 @@ class Qwen25VL32BService:
                 frame_idx = min(i * frame_interval, total_frames - 1)
                 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
                 
-                ret, frame = cap.read()
-                if ret:
+                        ret, frame = cap.read()
+                        if ret:
                     # Save frame to temporary file
                     timestamp = frame_idx / fps if fps > 0 else 0
                     frame_filename = f"frame_{i:02d}_{timestamp:05.2f}s.jpg"
@@ -808,11 +808,11 @@ class Qwen25VL32BService:
             if frame_paths:
                 print(f"✅ Extracted {len(frame_paths)} key frames")
                 return frame_paths
-            else:
+                else:
                 print("⚠️ No frames extracted")
                 return []
-                
-        except Exception as e:
+                    
+            except Exception as e:
             print(f"❌ Frame extraction failed: {e}")
             return []
     
@@ -877,7 +877,7 @@ class Qwen25VL32BService:
                                     color_names.append("Magenta")
                                 elif r < 100 and g > 200 and b > 200:
                                     color_names.append("Cyan")
-                                else:
+                else:
                                     color_names.append(f"RGB({r},{g},{b})")
                             
                             dominant_colors_str = ", ".join(color_names)

@@ -16,36 +16,7 @@ class VideoDetective {
         this.setupPageCleanup();
         this.showDemoVideoPreview();
         this.initializeModelSelection();
-        
-        // Debug: Check if upload button is visible
-        setTimeout(() => {
-            this.debugUploadButton();
-        }, 1000);
-        
         console.log('✅ AI Video Detective Pro initialized successfully!');
-    }
-
-    debugUploadButton() {
-        console.log('🔍 Debugging upload button visibility...');
-        const uploadButtons = document.querySelector('.upload-buttons');
-        const button = document.querySelector('.upload-buttons .btn');
-        const uploadArea = document.getElementById('uploadArea');
-        
-        console.log('Upload buttons container:', uploadButtons);
-        console.log('Upload button:', button);
-        console.log('Upload area:', uploadArea);
-        
-        if (button) {
-            console.log('Button text:', button.textContent);
-            console.log('Button visible:', button.offsetParent !== null);
-            console.log('Button display:', window.getComputedStyle(button).display);
-            console.log('Button visibility:', window.getComputedStyle(button).visibility);
-        }
-        
-        if (uploadButtons) {
-            console.log('Upload buttons container display:', window.getComputedStyle(uploadButtons).display);
-            console.log('Upload buttons container visibility:', window.getComputedStyle(uploadButtons).visibility);
-        }
     }
 
     setupEventListeners() {
@@ -83,21 +54,6 @@ class VideoDetective {
             }
             videoFile.click();
         });
-
-        // Analysis form
-        const analysisFormElement = document.getElementById('analysisFormElement');
-        const resetBtn = document.getElementById('resetBtn');
-        
-        if (analysisFormElement) {
-            analysisFormElement.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.analyzeVideo();
-            });
-        }
-        
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.resetUpload());
-        }
 
         // Chat functionality
         const chatInput = document.getElementById('chatInput');
@@ -175,6 +131,7 @@ class VideoDetective {
         this.currentFile = file;
         this.showFileInfo(file);
         this.showVideoPreview(file);
+        this.showAnalysisForm();
     }
 
     isValidVideoFile(file) {
@@ -217,68 +174,10 @@ class VideoDetective {
         console.log('🎬 Video preview shown for:', file.name);
     }
 
-    async uploadSelectedVideo() {
-        // Hide the preview
-        const videoPreview = document.getElementById('videoPreview');
-        videoPreview.style.display = 'none';
-        
-        // Check if this is a demo video preview
-        const previewVideo = document.getElementById('previewVideo');
-        if (previewVideo && previewVideo.src && previewVideo.src.includes('/demo-video')) {
-            // This is a demo video, upload it
-            await this.uploadDemoVideo();
-        } else if (this.currentFile) {
-            // This is a regular uploaded file
-            await this.uploadFile(this.currentFile);
-        } else {
-            // If no file is selected but we're in demo mode, upload demo video
-            await this.uploadDemoVideo();
-        }
-    }
-
-    async uploadFile(file) {
-        const formData = new FormData();
-        formData.append('video', file);
-
-        try {
-            this.showProgress();
-
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.hideProgress();
-                this.showFileInfo(file, result.filename, result.file_size);
-                this.showCleanupButton();
-                
-                // Show success message
-                this.showSuccess(result.message || 'Video uploaded successfully!');
-                
-                // Auto-start analysis after upload
-                setTimeout(() => {
-                    this.analyzeVideo();
-                }, 1000);
-            } else {
-                this.hideProgress();
-                this.showError(result.error || 'Upload failed');
-            }
-        } catch (error) {
-            this.hideProgress();
-            this.showError('Upload failed: ' + error.message);
-        }
-    }
-
     showAnalysisForm() {
         const analysisForm = document.getElementById('analysisForm');
         if (analysisForm) {
             analysisForm.style.display = 'block';
-            analysisForm.classList.add('show');
-            
-            // Scroll to analysis form
             analysisForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
@@ -287,49 +186,15 @@ class VideoDetective {
         const analysisForm = document.getElementById('analysisForm');
         if (analysisForm) {
             analysisForm.style.display = 'none';
-            analysisForm.classList.remove('show');
         }
     }
 
-
-    showProgress() {
-        const progress = document.getElementById('uploadProgress');
-        if (progress) {
-            progress.style.display = 'block';
-            
-            // Simulate progress
-            let width = 0;
-            const progressBar = progress.querySelector('.progress-bar');
-            if (progressBar) {
-                const interval = setInterval(() => {
-                    if (width >= 90) {
-                        clearInterval(interval);
-                    } else {
-                        width += Math.random() * 10;
-                        progressBar.style.width = width + '%';
-                        progressBar.textContent = `Uploading... ${Math.round(width)}%`;
-                    }
-                }, 200);
-            }
+    async startAnalysis() {
+        if (!this.currentFile) {
+            this.showError('Please select a video file first');
+            return;
         }
-    }
 
-    hideProgress() {
-        const progress = document.getElementById('uploadProgress');
-        if (progress) {
-            const progressBar = progress.querySelector('.progress-bar');
-            if (progressBar) {
-                progressBar.style.width = '100%';
-                progressBar.textContent = 'Upload Complete!';
-            }
-            
-            setTimeout(() => {
-                progress.style.display = 'none';
-            }, 500);
-        }
-    }
-
-    async analyzeVideo() {
         try {
             console.log('🔍 Starting video analysis...');
             this.showLoadingModal('Analyzing Video');
@@ -412,6 +277,89 @@ class VideoDetective {
             this.hideLoadingModal();
             this.showError('Analysis failed: ' + error.message);
         }
+    }
+
+    async uploadSelectedVideo() {
+        // Hide the preview
+        const videoPreview = document.getElementById('videoPreview');
+        videoPreview.style.display = 'none';
+        
+        // Check if this is a demo video preview
+        const previewVideo = document.getElementById('previewVideo');
+        if (previewVideo && previewVideo.src && previewVideo.src.includes('/demo-video')) {
+            // This is a demo video, upload it
+            await this.uploadDemoVideo();
+        } else if (this.currentFile) {
+            // This is a regular uploaded file
+            await this.uploadFile(this.currentFile);
+        } else {
+            // If no file is selected but we're in demo mode, upload demo video
+            await this.uploadDemoVideo();
+        }
+    }
+
+    async uploadFile(file) {
+        const formData = new FormData();
+        formData.append('video', file);
+
+        try {
+            this.showProgress();
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.hideProgress();
+                this.showFileInfo(file, result.filename, result.file_size);
+                this.showCleanupButton();
+                // Don't auto-analyze, let user click the analysis button
+                this.showSuccess('Video uploaded successfully! Click "Start Analysis" to begin analysis.');
+            } else {
+                this.hideProgress();
+                this.showError(result.error || 'Upload failed');
+            }
+        } catch (error) {
+            this.hideProgress();
+            this.showError('Upload failed: ' + error.message);
+        }
+    }
+
+    showProgress() {
+        const progress = document.getElementById('uploadProgress');
+        const progressFill = progress.querySelector('.progress-fill');
+        
+        progress.style.display = 'block';
+        progressFill.style.width = '0%';
+        
+        // Simulate progress
+        let width = 0;
+        const interval = setInterval(() => {
+            if (width >= 90) {
+                clearInterval(interval);
+            } else {
+                width += Math.random() * 10;
+                progressFill.style.width = width + '%';
+            }
+        }, 200);
+    }
+
+    hideProgress() {
+        const progress = document.getElementById('uploadProgress');
+        const progressFill = progress.querySelector('.progress-fill');
+        
+        progressFill.style.width = '100%';
+        setTimeout(() => {
+            progress.style.display = 'none';
+        }, 500);
+    }
+
+    async analyzeVideo() {
+        // This method is now called startAnalysis
+        await this.startAnalysis();
     }
 
     displayEvidence(evidence, title = 'Visual Evidence') {
@@ -567,6 +515,35 @@ class VideoDetective {
         console.log('✅ Chat interface should now be visible');
     }
 
+    minimizeChat() {
+        console.log('📱 Minimizing chat interface...');
+        
+        const uploadSection = document.getElementById('uploadSection');
+        const chatInterface = document.getElementById('chatInterface');
+        
+        // Hide chat interface with animation
+        chatInterface.style.transition = 'all 0.3s ease';
+        chatInterface.style.opacity = '0';
+        chatInterface.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            chatInterface.style.display = 'none';
+            
+            // Show upload section
+            uploadSection.style.display = 'block';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                uploadSection.style.transition = 'all 0.3s ease';
+                uploadSection.style.opacity = '1';
+                uploadSection.style.transform = 'translateY(0)';
+            }, 50);
+        }, 300);
+        
+        console.log('✅ Upload interface should now be visible');
+    }
+
     async sendMessage() {
         const chatInput = document.getElementById('chatInput');
         const message = chatInput.value.trim();
@@ -677,7 +654,10 @@ class VideoDetective {
         const icon = type === 'user' ? 'fas fa-user' : 'fas fa-robot';
         
         // Enhanced message formatting for AI responses
-        let formattedMessage = this.formatAIResponse(message);
+        let formattedMessage = message;
+        if (type === 'ai') {
+            formattedMessage = this.formatAIResponse(message);
+        }
 
         messageDiv.innerHTML = `
             <div class="message-content">
@@ -890,8 +870,6 @@ class VideoDetective {
         }
     }
 
-
-
     showDemoVideoPreview() {
         try {
             console.log('🎬 Showing demo video preview...');
@@ -954,7 +932,7 @@ class VideoDetective {
                 // Update file info with actual data from server
                 if (result.filename) {
                     const fileInfo = document.getElementById('fileInfo');
-                    const fileName = fileInfo.querySelector('#fileName');
+                    const fileName = fileInfo.querySelector('.file-name');
                     if (fileName) {
                         fileName.textContent = result.filename;
                     }
@@ -963,10 +941,8 @@ class VideoDetective {
                 // Show success message
                 this.showSuccess('Demo video loaded successfully! 🎬');
                 
-                // Start analysis after a short delay
-                setTimeout(() => {
-                    this.analyzeVideo();
-                }, 1000);
+                // Show analysis form
+                this.showAnalysisForm();
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Failed to load demo video');
@@ -1205,8 +1181,15 @@ document.head.appendChild(style);
 
 // Initialize the application
 window.videoDetective = new VideoDetective();
+
+// Global functions for HTML onclick handlers
 window.closeEvidenceModal = () => window.videoDetective.closeEvidenceModal();
 window.cleanupSession = () => window.videoDetective.cleanupSession();
 window.uploadSelectedVideo = () => window.videoDetective.uploadSelectedVideo();
+window.uploadDemoVideo = () => window.videoDetective.uploadDemoVideo();
+window.startAnalysis = () => window.videoDetective.startAnalysis();
+window.resetUpload = () => window.videoDetective.resetUpload();
+window.minimizeChat = () => window.videoDetective.minimizeChat();
+window.cleanupOldUploads = () => window.videoDetective.cleanupOldUploads();
 
 console.log('🚀 AI Video Detective Pro is ready!');
