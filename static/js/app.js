@@ -217,7 +217,9 @@ class VideoDetective {
         this.showProgressSection();
         
         // Start the comprehensive analysis
+        console.log('🚀 About to call startAnalysis() function...');
         this.startAnalysis();
+        console.log('🚀 startAnalysis() function called');
     }
 
     resetAnalysis() {
@@ -257,10 +259,14 @@ class VideoDetective {
     async startAnalysis() {
         // Call the actual analyze API endpoint
         console.log('🔍 Starting comprehensive AI analysis via API...');
+        console.log('🔍 This is the REAL startAnalysis function, not a simulation!');
+        console.log('🔍 Function ID: REAL_START_ANALYSIS_V2');
         
         try {
             // Show progress section
             this.showProgressSection();
+            
+            console.log('🔍 About to call /analyze API...');
             
             // Call the analyze API
             const response = await fetch('/analyze', {
@@ -274,8 +280,11 @@ class VideoDetective {
                 })
             });
 
+            console.log('🔍 API response received:', response.status, response.ok);
+            
             // Parse response
             const result = await response.json();
+            console.log('🔍 API result parsed:', result);
             
             if (result.success) {
                 console.log('✅ Analysis successful, showing chat interface...');
