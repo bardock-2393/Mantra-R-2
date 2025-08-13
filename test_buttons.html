@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+        .success { background: #10b981; color: white; border: none; border-radius: 5px; }
+        .error { background: #ef4444; color: white; border: none; border-radius: 5px; }
+        .info { background: #3b82f6; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Button Functionality Test</h1>
+    
+    <button class="success" onclick="testStartAnalysis()">Test startAnalysis</button>
+    <button class="info" onclick="testUploadDemoVideo()">Test uploadDemoVideo</button>
+    <button class="error" onclick="testTestUpload()">Test testUpload</button>
+    <button class="info" onclick="testResetUpload()">Test resetUpload</button>
+    
+    <div id="output" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 100px;">
+        <p>Test output will appear here...</p>
+    </div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        function testStartAnalysis() {
+            log('Testing startAnalysis...');
+            if (typeof startAnalysis === 'function') {
+                log('✅ startAnalysis function is available');
+                try {
+                    startAnalysis();
+                    log('✅ startAnalysis called successfully');
+                } catch (error) {
+                    log('❌ Error calling startAnalysis: ' + error.message);
+                }
+            } else {
+                log('❌ startAnalysis function is NOT available');
+            }
+        }
+
+        function testUploadDemoVideo() {
+            log('Testing uploadDemoVideo...');
+            if (typeof uploadDemoVideo === 'function') {
+                log('✅ uploadDemoVideo function is available');
+                try {
+                    uploadDemoVideo();
+                    log('✅ uploadDemoVideo called successfully');
+                } catch (error) {
+                    log('❌ Error calling uploadDemoVideo: ' + error.message);
+                }
+            } else {
+                log('❌ uploadDemoVideo function is NOT available');
+            }
+        }
+
+        function testTestUpload() {
+            log('Testing testUpload...');
+            if (typeof testUpload === 'function') {
+                log('✅ testUpload function is available');
+                try {
+                    testUpload();
+                    log('✅ testUpload called successfully');
+                } catch (error) {
+                    log('❌ Error calling testUpload: ' + error.message);
+                }
+            } else {
+                log('❌ testUpload function is NOT available');
+            }
+        }
+
+        function testResetUpload() {
+            log('Testing resetUpload...');
+            if (typeof resetUpload === 'function') {
+                log('✅ resetUpload function is available');
+                try {
+                    resetUpload();
+                    log('✅ resetUpload called successfully');
+                } catch (error) {
+                    log('❌ Error calling resetUpload: ' + error.message);
+                }
+            } else {
+                log('❌ resetUpload function is NOT available');
+            }
+        }
+
+        // Check function availability on page load
+        window.addEventListener('load', function() {
+            log('Page loaded, checking function availability...');
+            log('startAnalysis: ' + (typeof startAnalysis === 'function' ? '✅ Available' : '❌ Not available'));
+            log('uploadDemoVideo: ' + (typeof uploadDemoVideo === 'function' ? '✅ Available' : '❌ Not available'));
+            log('testUpload: ' + (typeof testUpload === 'function' ? '✅ Available' : '❌ Not available'));
+            log('resetUpload: ' + (typeof resetUpload === 'function' ? '✅ Available' : '❌ Not available'));
+        });
+    </script>
+</body>
+</html>

@@ -1498,6 +1498,14 @@ document.head.appendChild(style);
 
 // Initialize the application
 window.videoDetective = new VideoDetective();
+
+// Test if functions are available
+console.log('🔍 Testing global function availability...');
+console.log('window.startAnalysis:', typeof window.startAnalysis);
+console.log('window.uploadDemoVideo:', typeof window.uploadDemoVideo);
+console.log('window.testUpload:', typeof window.testUpload);
+console.log('window.resetUpload:', typeof window.resetUpload);
+
 window.closeEvidenceModal = () => window.videoDetective.closeEvidenceModal();
 window.cleanupSession = () => window.videoDetective.cleanupSession();
 window.uploadSelectedVideo = () => window.videoDetective.uploadSelectedVideo();
@@ -1507,5 +1515,12 @@ window.minimizeChat = () => window.videoDetective.minimizeChat();
 window.testUpload = () => window.videoDetective.testUpload();
 window.resetUpload = () => window.videoDetective.resetUpload();
 window.cleanupOldUploads = () => window.videoDetective.cleanupOldUploads();
+
+// Test again after setting them
+console.log('🔍 After setting global functions...');
+console.log('window.startAnalysis:', typeof window.startAnalysis);
+console.log('window.uploadDemoVideo:', typeof window.uploadDemoVideo);
+console.log('window.testUpload:', typeof window.testUpload);
+console.log('window.resetUpload:', typeof window.resetUpload);
 
 console.log('🚀 AI Video Detective Pro is ready!');
