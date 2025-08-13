@@ -255,27 +255,125 @@ class VideoDetective {
             console.log('🔍 Starting video analysis...');
             this.showLoadingModal('Analyzing Video');
 
-            const response = await fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    analysis_type: 'comprehensive_analysis',
-                    user_focus: 'Analyze this video comprehensively for all important events and observations'
-                })
-            });
-
-            // Debug: Log response details before parsing
-            console.log('🔍 Response status:', response.status);
-            console.log('🔍 Response headers:', response.headers);
-            console.log('🔍 Response ok:', response.ok);
+            // Create AbortController for timeout handling
+            this.currentController = new AbortController();
+            const timeoutId = setTimeout(() => this.currentController.abort(), 300000); // 5 minutes timeout
             
-            // Get the raw response text first
-            const responseText = await response.text();
-            console.log('🔍 Raw response text:', responseText);
-            console.log('🔍 Response text length:', responseText.length);
-            console.log('🔍 Response text first 200 chars:', responseText.substring(0, 200));
+            // Show progress indicator for long-running requests
+            this.showAnalysisProgress('Starting analysis... This may take several minutes for large videos.');
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        analysis_type: 'comprehensive_analysis',
+                        user_focus: 'Analyze this video comprehensively for all important events and observations'
+                    }),
+                    signal: this.currentController.signal
+                });
+                
+                clearTimeout(timeoutId); // Clear timeout if request completes
+                
+                // Debug: Log response details before parsing
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response headers:', response.headers);
+                console.log('🔍 Response ok:', response.ok);
+                
+                // Get the raw response text first
+                const responseText = await response.text();
+                console.log('🔍 Raw response text:', responseText);
+                console.log('🔍 Response text length:', responseText.length);
+                console.log('🔍 Response text first 200 chars:', responseText.substring(0, 200));
+                
+                // Check if response is HTML (error page) instead of JSON
+                if (responseText.trim().startsWith('<!DOCTYPE html>') || responseText.includes('<html')) {
+                    console.error('❌ Server returned HTML instead of JSON - likely a timeout error');
+                    
+                    // Check for specific error types
+                    if (responseText.includes('Error code 524') || responseText.includes('A timeout occurred')) {
+                        throw new Error('Server timeout error (524): The analysis is taking too long. This usually happens with large videos. Please try again or use a shorter video.');
+                    } else if (responseText.includes('Error code 502') || responseText.includes('Bad Gateway')) {
+                        throw new Error('Server error (502): The backend service is temporarily unavailable. Please try again in a few minutes.');
+                    } else if (responseText.includes('Error code 503') || responseText.includes('Service Unavailable')) {
+                        throw new Error('Server error (503): The service is temporarily unavailable. Please try again later.');
+                    } else {
+                        throw new Error('Server returned an HTML error page instead of JSON. This indicates a server-side issue. Please try again.');
+                    }
+                }
+                
+                // Try to parse as JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                    console.log('📊 Analysis response:', result);
+                } catch (jsonError) {
+                    console.error('❌ JSON parsing failed:', jsonError);
+                    console.error('❌ Raw response that failed to parse:', responseText);
+                    
+                    // Provide more helpful error messages based on response content
+                    if (responseText.includes('timeout') || responseText.includes('524')) {
+                        throw new Error('Server timeout: The video analysis is taking too long. Please try with a shorter video or try again later.');
+                    } else if (responseText.includes('error') || responseText.includes('Error')) {
+                        throw new Error('Server error: The server encountered an issue processing your request. Please try again.');
+                    } else {
+                        throw new Error(`Invalid response from server: ${jsonError.message}. Please try again or contact support.`);
+                    }
+                }
+                
+                this.hideLoadingModal();
+                this.hideAnalysisProgress();
+
+                if (result.success) {
+                    console.log('✅ Analysis successful, showing chat interface...');
+                    this.analysisComplete = true;
+                    this.showChatInterface();
+                    
+                    // Show analysis completion message with evidence if available
+                    let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
+                    
+                    if (result.evidence && result.evidence.length > 0) {
+                        const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
+                        const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
+                        
+                        let evidenceText = '';
+                        if (screenshotCount > 0 && videoCount > 0) {
+                            evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
+                        } else if (screenshotCount > 0) {
+                            evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
+                        } else if (videoCount > 0) {
+                            evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
+                        }
+                        completionMessage += `\n\n${evidenceText}`;
+                    }
+                    
+                    completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
+                    
+                    // Add completion message with typing effect
+                    this.addChatMessageWithTyping('ai', completionMessage);
+                    
+                    // Display evidence if available (after message appears)
+                    if (result.evidence && result.evidence.length > 0) {
+                        setTimeout(() => {
+                            this.displayEvidence(result.evidence);
+                        }, 800); // Wait for fade-in effect to complete + buffer
+                    }
+                } else {
+                    console.error('❌ Analysis failed:', result.error);
+                    this.showError(result.error || 'Analysis failed');
+                }
+                
+            } catch (fetchError) {
+                clearTimeout(timeoutId); // Clear timeout
+                
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('Request timeout: The analysis request took too long and was cancelled. Please try with a shorter video or try again later.');
+                } else {
+                    throw fetchError; // Re-throw other fetch errors
+                }
+            }
             
             // Try to parse as JSON
             let result;
@@ -285,7 +383,15 @@ class VideoDetective {
             } catch (jsonError) {
                 console.error('❌ JSON parsing failed:', jsonError);
                 console.error('❌ Raw response that failed to parse:', responseText);
-                throw new Error(`Invalid JSON response from server: ${jsonError.message}. Raw response: ${responseText.substring(0, 500)}`);
+                
+                // Provide more helpful error messages based on response content
+                if (responseText.includes('timeout') || responseText.includes('524')) {
+                    throw new Error('Server timeout: The video analysis is taking too long. Please try with a shorter video or try again later.');
+                } else if (responseText.includes('error') || responseText.includes('Error')) {
+                    throw new Error('Server error: The server encountered an issue processing your request. Please try again.');
+                } else {
+                    throw new Error(`Invalid response from server: ${jsonError.message}. Please try again or contact support.`);
+                }
             }
             
             this.hideLoadingModal();
@@ -331,7 +437,18 @@ class VideoDetective {
         } catch (error) {
             console.error('❌ Analysis error:', error);
             this.hideLoadingModal();
-            this.showError('Analysis failed: ' + error.message);
+            this.hideAnalysisProgress();
+            
+            // Show user-friendly error message with retry option
+            let userMessage = error.message;
+            if (error.message.includes('timeout') || error.message.includes('524')) {
+                userMessage = '⏰ **Analysis Timeout**\n\nThe video analysis is taking longer than expected. This commonly happens with:\n\n• Large video files (>100MB)\n• Long videos (>5 minutes)\n• High-resolution videos (4K, 8K)\n\n**Suggestions:**\n• Try with a shorter video first\n• Reduce video resolution\n• Wait a few minutes and try again\n• Contact support if the issue persists';
+                
+                // Show retry button for timeout errors
+                this.showTimeoutErrorWithRetry(userMessage);
+            } else {
+                this.showError(userMessage);
+            }
         }
     }
 
@@ -724,6 +841,181 @@ class VideoDetective {
             }, 300);
         }, 5000);
     }
+    
+    showTimeoutErrorWithRetry(message) {
+        // Create a timeout error notification with retry button
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f59e0b;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            font-weight: 500;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease;
+        `;
+        
+        notification.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+                <strong>⏰ Analysis Timeout</strong>
+                <p style="margin: 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">${message}</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button id="retryAnalysisBtn" style="
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    padding: 0.5rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                ">🔄 Retry Analysis</button>
+                <button id="dismissTimeoutBtn" style="
+                    background: transparent;
+                    color: white;
+                    border: 1px solid white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    opacity: 0.8;
+                ">✕ Dismiss</button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Add event listeners
+        const retryBtn = notification.querySelector('#retryAnalysisBtn');
+        const dismissBtn = notification.querySelector('#dismissTimeoutBtn');
+        
+        retryBtn.addEventListener('click', () => {
+            document.body.removeChild(notification);
+            // Wait a moment before retrying
+            setTimeout(() => {
+                this.analyzeVideo();
+            }, 1000);
+        });
+        
+        dismissBtn.addEventListener('click', () => {
+            document.body.removeChild(notification);
+        });
+        
+        // Auto remove after 15 seconds (longer for timeout errors)
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 15000);
+    }
+    
+    showAnalysisProgress(message) {
+        // Create a progress notification for long-running analysis
+        const notification = document.createElement('div');
+        notification.id = 'analysisProgressNotification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #3b82f6;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            font-weight: 500;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease;
+        `;
+        
+        notification.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+                <strong>🔍 Video Analysis in Progress</strong>
+                <p style="margin: 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">${message}</p>
+                <div style="
+                    width: 100%;
+                    height: 4px;
+                    background: rgba(255, 255, 255, 0.3);
+                    border-radius: 2px;
+                    overflow: hidden;
+                ">
+                    <div id="progressBar" style="
+                        height: 100%;
+                        background: #10b981;
+                        width: 0%;
+                        transition: width 0.3s ease;
+                        border-radius: 2px;
+                    "></div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button id="cancelAnalysisBtn" style="
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    padding: 0.5rem 1rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                ">❌ Cancel</button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Add cancel button event listener
+        const cancelBtn = notification.querySelector('#cancelAnalysisBtn');
+        cancelBtn.addEventListener('click', () => {
+            // Abort the current request if possible
+            if (this.currentController) {
+                this.currentController.abort();
+            }
+            document.body.removeChild(notification);
+            this.hideLoadingModal();
+        });
+        
+        // Animate progress bar
+        this.animateProgressBar();
+    }
+    
+    animateProgressBar() {
+        const progressBar = document.getElementById('progressBar');
+        if (!progressBar) return;
+        
+        let width = 0;
+        const interval = setInterval(() => {
+            if (width >= 90) {
+                clearInterval(interval);
+            } else {
+                width += Math.random() * 2;
+                progressBar.style.width = width + '%';
+            }
+        }, 1000);
+    }
+    
+    hideAnalysisProgress() {
+        const notification = document.getElementById('analysisProgressNotification');
+        if (notification && document.body.contains(notification)) {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }
+    }
 
     async cleanupSession() {
         try {
@@ -1059,21 +1351,21 @@ class VideoDetective {
             const selectedModel = modelSelect.value;
             const modelDescriptions = {
                 'minicpm': 'Fast and efficient vision-language model for quick analysis',
-                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities',
-                'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
+                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities'
+                // 'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
             };
             
             // Update the model info text
             modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
             
             // Add visual feedback for selected model
-            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl');
             modelSelect.classList.add(`model-selected-${selectedModel}`);
             
             // Update the model selection container styling
             const modelSelection = document.querySelector('.model-selection');
             if (modelSelection) {
-                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl');
                 modelSelection.classList.add(`model-selected-${selectedModel}`);
             }
         }
