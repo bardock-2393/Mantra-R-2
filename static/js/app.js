@@ -292,13 +292,10 @@ class VideoDetective {
             // Show progress message
             const progressStatus = document.getElementById('progressStatus');
             if (progressStatus) {
-                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos.';
+                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos. Please wait patiently - no timeout set.';
             }
             
-            // Call the analyze API with timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
-            
+            // Call the analyze API (no timeout)
             let response;
             try {
                 response = await fetch('/analyze', {
@@ -309,16 +306,9 @@ class VideoDetective {
                     body: JSON.stringify({
                         analysis_type: 'comprehensive_analysis',
                         user_focus: 'Analyze this video comprehensively for all important events and observations'
-                    }),
-                    signal: controller.signal
+                    })
                 });
-                
-                clearTimeout(timeoutId);
             } catch (fetchError) {
-                clearTimeout(timeoutId);
-                if (fetchError.name === 'AbortError') {
-                    throw new Error('Analysis request timed out after 5 minutes. Please try again.');
-                }
                 throw fetchError;
             }
 
