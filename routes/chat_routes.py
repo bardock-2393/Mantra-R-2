@@ -12,6 +12,8 @@ from services.session_service import get_session_data, store_session_data
 # COMMENTED OUT TO SAVE MEMORY - ONLY USE 32B MODEL
 # from services.ai_service_fixed import minicpm_service
 from services.vector_search_service import vector_search_service
+from services.model_manager import model_manager
+from services.qwen25vl_32b_service import qwen25vl_32b_service
 
 # Create Blueprint
 chat_bp = Blueprint('chat', __name__)
@@ -126,7 +128,6 @@ Response:"""
                     
                     try:
                         # Use the 32B service for enhanced response
-                        from services.qwen25vl_32b_service import qwen25vl_32b_service
                         
                         # Debug: Check service status
                         print(f"🔍 32B Service Status: {qwen25vl_32b_service.is_ready()}")
@@ -140,9 +141,55 @@ Response:"""
                             )
                             print(f"✅ 32B model generated enhanced response")
                         else:
-                            # Fallback to analysis-based response
-                            if is_ultra_accurate:
-                                ai_response = f"""🚀 ULTRA-ACCURATE ANALYSIS RESPONSE
+                            # Fallback to AI service-based response
+                            try:
+                                print(f"🔄 Attempting to use AI service for response generation...")
+                                
+                                # Try to use the 32B service first with synchronous method
+                                if hasattr(qwen25vl_32b_service, 'is_initialized') and qwen25vl_32b_service.is_initialized:
+                                    print(f"✅ Using 32B service for response generation")
+                                    
+                                    # Create a contextual prompt for the 32B service
+                                    contextual_prompt = f"""ULTRA-ACCURATE VIDEO ANALYSIS RESPONSE
+
+You have access to ultra-accurate video analysis with maximum precision:
+- Multi-scale analysis (5 scales)
+- Cross-validation for accuracy
+- Quality thresholds applied
+- Chunk processing for long videos
+- Maximum GPU utilization (80GB optimized)
+
+VIDEO ANALYSIS:
+{analysis_result}
+
+USER QUESTION: {enhanced_message}
+
+Please provide an ULTRA-ACCURATE response that:
+1. References specific details from the ultra-accurate analysis
+2. Answers the user's question with maximum precision
+3. Provides detailed insights based on the enhanced analysis
+4. Uses all available technical information
+5. Mentions the ultra-accurate analysis capabilities when relevant
+
+ULTRA-ACCURATE RESPONSE:"""
+                                    
+                                    ai_response = qwen25vl_32b_service._generate_text_sync(
+                                        contextual_prompt,
+                                        max_new_tokens=1024
+                                    )
+                                else:
+                                    # Try to use the model manager with synchronous fallback
+                                    print(f"🔄 32B service not ready, using template response")
+                                    raise RuntimeError("32B service not available")
+                                
+                                print(f"✅ AI service generated response successfully")
+                                
+                            except Exception as ai_error:
+                                print(f"⚠️ AI service failed: {ai_error}, falling back to template")
+                                
+                                # Final fallback to template response
+                                if is_ultra_accurate:
+                                    ai_response = f"""🚀 ULTRA-ACCURATE ANALYSIS RESPONSE
 
 Based on the ultra-accurate video analysis, here's what I can tell you about "{enhanced_message}":
 
@@ -165,9 +212,8 @@ Based on the ultra-accurate video analysis, here's what I can tell you about "{e
 **Confidence Level:** Ultra-High (based on multi-scale analysis and cross-validation)
 
 For even more detailed responses, the 32B AI model can be loaded to provide enhanced contextual answers."""
-                                print(f"✅ Generated ultra-accurate analysis-based response")
-                            else:
-                                ai_response = f"""Based on the video analysis, here's what I can tell you about "{enhanced_message}":
+                                else:
+                                    ai_response = f"""Based on the video analysis, here's what I can tell you about "{enhanced_message}":
 
 {analysis_result}
 
@@ -179,12 +225,36 @@ For even more detailed responses, the 32B AI model can be loaded to provide enha
 **To answer your specific question:** {enhanced_message}
 
 For more detailed analysis, the 32B AI model needs to be loaded. Currently, I'm providing insights based on the available video metadata and frame analysis."""
-                                print(f"✅ Generated analysis-based response")
+                                
+                                print(f"✅ Generated template fallback response")
                             
                     except Exception as e:
                         print(f"Error in enhanced response generation: {e}")
                         # Fallback to basic analysis-based response
-                        ai_response = f"""Based on the video analysis, here's what I can tell you:
+                        try:
+                            if hasattr(qwen25vl_32b_service, 'is_initialized') and qwen25vl_32b_service.is_initialized:
+                                print(f"✅ Using 32B service for basic fallback response")
+                                
+                                contextual_prompt = f"""Based on this video analysis:
+
+{analysis_result}
+
+User question: {enhanced_message}
+
+Please provide a helpful response that:
+1. References specific details from the video analysis
+2. Answers the user's question directly
+3. Provides insights based on the video content
+
+Response:"""
+                                
+                                ai_response = qwen25vl_32b_service._generate_text_sync(
+                                    contextual_prompt,
+                                    max_new_tokens=1024
+                                )
+                            else:
+                                # Fallback to template
+                                ai_response = f"""Based on the video analysis, here's what I can tell you:
 
 {analysis_result}
 
@@ -193,6 +263,18 @@ For more detailed analysis, the 32B AI model needs to be loaded. Currently, I'm 
 **Response:** I can see this is a BMW M4 racing video with dynamic camera work and high-speed action. The video has been analyzed for technical specifications and content patterns. 
 
 For more detailed answers to your specific question, the AI model needs to be fully loaded."""
+                        except Exception as ai_error:
+                            print(f"⚠️ AI service failed for basic fallback: {ai_error}, using template")
+                            ai_response = f"""Based on the video analysis, here's what I can tell you:
+
+{analysis_result}
+
+**Your Question:** {enhanced_message}
+
+**Response:** I can see this is a BMW M4 racing video with dynamic camera work and high-speed action. The video has been analyzed for technical specifications and content patterns. 
+
+For more detailed answers to your specific question, the AI model needs to be fully loaded."""
+                        
                         print(f"✅ Generated fallback analysis-based response")
                         
                 else:
@@ -223,7 +305,44 @@ Please try asking again after the video analysis completes, and I'll give you a 
                 # Check if we have video analysis results
                 if analysis_result and len(analysis_result) > 100:
                     print(f"✅ Using video analysis for fallback response")
-                    ai_response = f"""Based on the video analysis, here's what I can tell you about "{message}":
+                    
+                    # Try to use AI service for better response
+                    try:
+                        if hasattr(qwen25vl_32b_service, 'is_initialized') and qwen25vl_32b_service.is_initialized:
+                            print(f"✅ Using 32B service for fallback response generation")
+                            
+                            contextual_prompt = f"""Based on this video analysis:
+
+{analysis_result}
+
+User question: {message}
+
+Please provide a detailed, helpful response that:
+1. References specific details from the video analysis
+2. Answers the user's question directly
+3. Provides additional insights based on the video content
+4. Uses the technical information available
+
+Response:"""
+                            
+                            ai_response = qwen25vl_32b_service._generate_text_sync(
+                                contextual_prompt,
+                                max_new_tokens=1024
+                            )
+                        else:
+                            # Fallback to template
+                            ai_response = f"""Based on the video analysis, here's what I can tell you about "{message}":
+
+{analysis_result}
+
+**Your Question:** {message}
+
+**Response:** I can analyze your video content and provide insights about what's happening. The video has been processed and analyzed for technical specifications and content patterns.
+
+For more detailed answers to your specific question, please ask again and I'll reference the video analysis to give you a comprehensive response."""
+                    except Exception as ai_error:
+                        print(f"⚠️ AI service failed for fallback: {ai_error}, using template")
+                        ai_response = f"""Based on the video analysis, here's what I can tell you about "{message}":
 
 {analysis_result}
 
