@@ -195,8 +195,19 @@ Response:"""
                         # Check if it's async
                         import asyncio
                         if asyncio.iscoroutinefunction(service.generate_text_response):
-                            # It's async, we can't call it synchronously
-                            raise RuntimeError("Service method is async")
+                            # It's async, we need to run it in a new event loop
+                            print(f"🔄 Service method is async, running in new event loop...")
+                            try:
+                                # Create a new event loop for this thread
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                result = loop.run_until_complete(service.generate_text_response(prompt))
+                                loop.close()
+                                print(f"✅ Async service method completed successfully")
+                                return result
+                            except Exception as async_error:
+                                print(f"⚠️ Async execution failed: {async_error}")
+                                raise RuntimeError(f"Async execution failed: {async_error}")
                         else:
                             # It's sync, call it directly
                             return service.generate_text_response(prompt)
