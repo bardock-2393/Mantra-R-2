@@ -51,10 +51,10 @@ class Config:
         'chat_temperature': 0.3
     }
     
-    # Qwen2.5-VL-32B Model Configuration - ULTRA-FAST for short videos
-    QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
+    # Qwen2.5-VL-7B Model Configuration - ULTRA-FAST for short videos
+    QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-7B-Instruct')
     QWEN25VL_32B_CONFIG = {
-        'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
+        'model_name': 'Qwen/Qwen2.5-VL-7B-Instruct',
         'hf_token': os.getenv('HF_TOKEN', ''),
         'max_length': 1024,  # ULTRA-FAST: Reduced from 4096 to 1024 for speed
         'temperature': 0.0,   # ULTRA-FAST: Deterministic (greedy) generation
@@ -70,7 +70,7 @@ class Config:
         'early_stopping': True,
         'repetition_penalty': 1.0,  # ULTRA-FAST: No repetition penalty
         'length_penalty': 1.0,      # ULTRA-FAST: No length penalty
-        # Memory optimization for 80GB GPU
+        # Memory optimization for 7B GPU (not 80GB)
         'batch_size': 1,      # Single batch for memory efficiency
         'gradient_checkpointing': False,  # Disable for inference
         'use_flash_attention': False,  # Disable for compatibility
@@ -92,14 +92,14 @@ class Config:
         'bad_words_ids': None,   # ULTRA-FAST: No bad word filtering
     }
     
-    # DeepStream Configuration - Optimized for 120min 720p 90fps
+    # DeepStream Configuration - Optimized for 120min 720p 90fps (7B model)
     DEEPSTREAM_CONFIG = {
         'enabled': True,
         'fps_target': 90,
         'max_video_duration': 120 * 60,  # 120 minutes
         'yolo_model': 'yolov8n.engine',  # TensorRT optimized
         'tracking': 'nvdcf',  # NVIDIA DeepStream tracker
-        'gpu_memory': 8 * 1024 * 1024 * 1024,  # 8GB for DeepStream (increased)
+        'gpu_memory': 4 * 1024 * 1024 * 1024,  # 4GB for DeepStream (7B model)
         'chunk_size': 30,  # Process 30-second chunks
         'overlap': 5,  # 5-second overlap between chunks
         'memory_efficient': True  # Enable memory optimization
@@ -139,13 +139,13 @@ class Config:
         'parallel_chunk_processing': True,  # Process chunks in parallel
     }
     
-    # Performance Targets - Adjusted for 80GB constraint
+    # Performance Targets - Adjusted for 7B model (not 80GB constraint)
     PERFORMANCE_TARGETS = {
-        'latency_target': 2000,  # Increased to 2s for 32B model
+        'latency_target': 1000,  # Reduced to 1s for 7B model (faster than 32B)
         'fps_target': 90,
         'max_video_duration': 120 * 60,  # 120 minutes
-        'concurrent_sessions': 2,  # Reduced for 32B model
-        'memory_buffer': 10 * 1024 * 1024 * 1024  # 10GB buffer
+        'concurrent_sessions': 4,  # Increased for 7B model (more memory available)
+        'memory_buffer': 2 * 1024 * 1024 * 1024  # 2GB buffer for 7B model
     }
     
     # Redis Configuration
