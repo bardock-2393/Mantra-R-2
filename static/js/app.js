@@ -827,6 +827,11 @@ class VideoDetective {
                 // Add AI message with typing effect
                 this.addChatMessageWithTyping('ai', result.response);
                 
+                // Show ultra-accurate indicator if available
+                if (result.ultra_accurate_mode) {
+                    this.showUltraAccurateIndicator();
+                }
+                
                 // Display additional evidence if available (after message appears)
                 if (result.additional_screenshots && result.additional_screenshots.length > 0) {
                     setTimeout(() => {
@@ -1541,8 +1546,12 @@ class VideoDetective {
                 
                 // Show ultra-accurate Q&A section if available
                 const ultraAccurateQASection = document.getElementById('ultraAccurateQASection');
+                console.log('🔍 Looking for ultra-accurate Q&A section:', ultraAccurateQASection);
                 if (ultraAccurateQASection) {
                     ultraAccurateQASection.style.display = 'block';
+                    console.log('✅ Ultra-accurate Q&A section shown');
+                } else {
+                    console.error('❌ Ultra-accurate Q&A section not found!');
                 }
                 
                 console.log('✅ Ultra-accurate analysis completed successfully!');
@@ -1590,7 +1599,27 @@ class VideoDetective {
         }
     }
 
+    showUltraAccurateIndicator() {
+        // Show a small indicator that ultra-accurate analysis is being used
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            const indicator = document.createElement('div');
+            indicator.className = 'ultra-accurate-indicator';
+            indicator.innerHTML = `
+                <div class="alert alert-warning alert-sm mb-2">
+                    <i class="fas fa-rocket text-warning"></i>
+                    <small><strong>Ultra-Accurate Mode:</strong> This response uses ultra-accurate video analysis with multi-scale processing and cross-validation.</small>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
     showResults(result) {
+        console.log('🔍 showResults called with:', result);
+        console.log('🔍 ultra_accurate_mode:', result.ultra_accurate_mode);
+        
         // Show results section
         const resultsSection = document.getElementById('resultsSection');
         if (resultsSection) {

@@ -16,7 +16,7 @@ from services.session_service import generate_session_id, store_session_data, ge
 # from services.ai_service_fixed import minicpm_service
 from services.vector_search_service import vector_search_service
 from utils.video_utils import extract_video_metadata, create_evidence_for_timestamps
-from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text
+from utils.text_utils import extract_timestamps_from_text, extract_timestamp_ranges_from_text, clean_and_deduplicate_timestamps, aggressive_timestamp_validation
 from analysis_templates import ANALYSIS_TEMPLATES
 
 # Create Blueprint
@@ -389,7 +389,6 @@ def analyze_video():
         print(f"🎯 Raw extracted timestamps: {timestamps}")
         
         # Clean and deduplicate timestamps
-        from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
         timestamps = clean_and_deduplicate_timestamps(timestamps)
         print(f"🎯 Cleaned timestamps: {timestamps}")
         
@@ -509,8 +508,7 @@ def analyze_video_ultra_accurate():
                 # Extract timestamps from ultra-accurate analysis
                 timestamps = extract_timestamps_from_text(analysis_result.get('analysis', ''))
                 
-                # Import the missing functions
-                from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
+                # Clean and deduplicate timestamps
                 timestamps = clean_and_deduplicate_timestamps(timestamps)
                 
                 # Get video metadata
