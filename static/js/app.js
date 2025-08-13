@@ -16,7 +16,36 @@ class VideoDetective {
         this.setupPageCleanup();
         this.showDemoVideoPreview();
         this.initializeModelSelection();
+        
+        // Debug: Check if upload button is visible
+        setTimeout(() => {
+            this.debugUploadButton();
+        }, 1000);
+        
         console.log('✅ AI Video Detective Pro initialized successfully!');
+    }
+
+    debugUploadButton() {
+        console.log('🔍 Debugging upload button visibility...');
+        const uploadButtons = document.querySelector('.upload-buttons');
+        const button = document.querySelector('.upload-buttons .btn');
+        const uploadArea = document.getElementById('uploadArea');
+        
+        console.log('Upload buttons container:', uploadButtons);
+        console.log('Upload button:', button);
+        console.log('Upload area:', uploadArea);
+        
+        if (button) {
+            console.log('Button text:', button.textContent);
+            console.log('Button visible:', button.offsetParent !== null);
+            console.log('Button display:', window.getComputedStyle(button).display);
+            console.log('Button visibility:', window.getComputedStyle(button).visibility);
+        }
+        
+        if (uploadButtons) {
+            console.log('Upload buttons container display:', window.getComputedStyle(uploadButtons).display);
+            console.log('Upload buttons container visibility:', window.getComputedStyle(uploadButtons).visibility);
+        }
     }
 
     setupEventListeners() {
