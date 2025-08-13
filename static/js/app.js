@@ -170,7 +170,7 @@ class VideoDetective {
 
         console.log('✅ File validation passed, setting up UI...');
         this.currentFile = file;
-        // Don't reset fileUploaded here - let showFileInfo handle it
+        this.fileUploaded = false; // Reset upload status for new file
         this.showFileInfo(file);
         this.showVideoPreview(file);
         this.showAnalysisForm();
@@ -196,14 +196,8 @@ class VideoDetective {
             fileInfo.style.display = 'block';
         }
         
-        // Mark file as uploaded if it has a name and size
-        if (file.name && file.size > 0) {
-            this.fileUploaded = true;
-            console.log('✅ File marked as uploaded:', file.name);
-            this.updateAnalysisButtonState();
-        } else {
-            console.log('⚠️ File not marked as uploaded - missing name or size');
-        }
+        // Don't mark file as uploaded here - it needs to go through actual upload process
+        console.log('📁 File info displayed, waiting for upload...');
     }
 
     formatFileSize(bytes) {
@@ -247,13 +241,15 @@ class VideoDetective {
             console.log('  - currentFile:', this.currentFile ? this.currentFile.name : 'None');
             console.log('  - fileUploaded:', this.fileUploaded);
             
-            if (this.currentFile && this.fileUploaded) {
+            if (this.currentFile) {
                 submitAnalysisBtn.disabled = false;
                 submitAnalysisBtn.innerHTML = '<i class="fas fa-play"></i> Analyze Video';
+                submitAnalysisBtn.onclick = () => { this.uploadAndAnalyze(); return false; };
                 console.log('✅ Button enabled: Analyze Video');
             } else {
                 submitAnalysisBtn.disabled = true;
                 submitAnalysisBtn.innerHTML = '<i class="fas fa-clock"></i> Please Upload Video First';
+                submitAnalysisBtn.onclick = null;
                 console.log('❌ Button disabled: Please Upload Video First');
             }
         } else {
@@ -1170,6 +1166,11 @@ class VideoDetective {
                     size: 0,
                     type: 'video/mp4'
                 };
+                
+                // Set the current file and mark as uploaded
+                this.currentFile = demoFile;
+                this.fileUploaded = true;
+                
                 this.showFileInfo(demoFile);
                 
                 // Update file info with actual data from server
@@ -1181,16 +1182,12 @@ class VideoDetective {
                     }
                 }
                 
-                // Mark demo video as uploaded
-                this.fileUploaded = true;
-                
                 // Show success message
                 this.showSuccess('Demo video loaded successfully! 🎬');
                 
-                // Start analysis after a short delay
-                setTimeout(() => {
-                    this.analyzeVideo();
-                }, 1000);
+                // Show analysis form and update button state
+                this.showAnalysisForm();
+                this.updateAnalysisButtonState();
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Failed to load demo video');
@@ -1467,6 +1464,29 @@ class VideoDetective {
             console.log('Cleanup request failed (normal on page unload)');
         }
     }
+
+    async uploadAndAnalyze() {
+        console.log('🚀 Starting upload and analysis process...');
+        
+        if (!this.currentFile) {
+            this.showError('Please select a video file first');
+            return;
+        }
+
+        try {
+            // First upload the file
+            console.log('📤 Uploading file...');
+            await this.uploadFile(this.currentFile);
+            
+            // Then start analysis
+            console.log('🔍 Starting analysis...');
+            await this.startAnalysis();
+            
+        } catch (error) {
+            console.error('❌ Upload and analysis failed:', error);
+            this.showError('Process failed: ' + error.message);
+        }
+    }
 }
 
 // Add CSS animations
@@ -1515,6 +1535,7 @@ window.minimizeChat = () => window.videoDetective.minimizeChat();
 window.testUpload = () => window.videoDetective.testUpload();
 window.resetUpload = () => window.videoDetective.resetUpload();
 window.cleanupOldUploads = () => window.videoDetective.cleanupOldUploads();
+window.uploadAndAnalyze = () => window.videoDetective.uploadAndAnalyze();
 
 // Test again after setting them
 console.log('🔍 After setting global functions...');

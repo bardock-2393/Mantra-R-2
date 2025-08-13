@@ -254,3 +254,4 @@ watch -n 1 nvidia-smi
 
 **🎯 You're all set!** The 7B model provides an excellent balance of performance and quality for most video analysis needs. Enjoy your AI-powered video detective experience!
 
+

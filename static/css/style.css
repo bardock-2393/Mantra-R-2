@@ -1323,3 +1323,40 @@ body {
         padding: 0.75rem;
     }
 } 
+
+/* Analysis form styling */
+.analysis-form {
+    margin-top: 2rem;
+}
+
+.analysis-form .card {
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.analysis-form .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 14px 14px 0 0;
+    border: none;
+}
+
+.analysis-form .card-header h5 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.analysis-form .upload-btn {
+    margin: 0;
+}
+
+.analysis-form .upload-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.analysis-form .upload-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+} 

@@ -347,9 +347,7 @@
                             <div class="mb-3">
                                 <label for="modelSelect" class="form-label">Select AI Model:</label>
                                 <select class="form-select" id="modelSelect">
-                                    <option value="minicpm">MiniCPM-V - Fast & Efficient</option>
                                     <option value="qwen25vl">Qwen2.5-VL - Advanced Vision</option>
-                                    <option value="qwen25vl_32b" selected>Qwen2.5-VL-32B - High Performance</option>
                                 </select>
                                 <div id="modelInfo" class="form-text">
                                     <small>High-performance 32B parameter model with superior video analysis capabilities</small>
@@ -444,7 +442,7 @@
                                                 <i class="fas fa-info-circle"></i>
                                                 <strong>Ready for Analysis:</strong> Your video is ready to be analyzed. Click the button below to start the AI analysis process.
                                             </div>
-                                            <button class="upload-btn primary" onclick="startAnalysis(); console.log('startAnalysis clicked'); return false;">
+                                            <button class="upload-btn primary" onclick="uploadAndAnalyze(); return false;">
                                                 <i class="fas fa-play"></i>
                                                 Start Analysis
                                             </button>
@@ -472,23 +470,21 @@
                             <h5><i class="fas fa-play"></i> Start Video Analysis</h5>
                         </div>
                         <div class="card-body">
-                            <form id="analysisFormElement">
-                                <div class="mb-4">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i>
-                                        <strong>Analysis Mode:</strong> The AI will analyze the entire video comprehensively and then you can chat with it about any aspect of the content.
-                                    </div>
+                            <div class="mb-4">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Analysis Mode:</strong> The AI will analyze the entire video comprehensively and then you can chat with it about any aspect of the content.
                                 </div>
-                                
-                                <div class="d-flex justify-content-between">
-                                    <button type="submit" id="submitAnalysis" class="upload-btn primary">
-                                        <i class="fas fa-play"></i> Analyze Video
-                                    </button>
-                                    <button type="button" id="resetBtn" class="upload-btn secondary" onclick="resetUpload()">
-                                        <i class="fas fa-redo"></i> Reset
-                                    </button>
-                                </div>
-                            </form>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <button type="button" id="submitAnalysis" class="upload-btn primary" onclick="uploadAndAnalyze(); return false;">
+                                    <i class="fas fa-play"></i> Analyze Video
+                                </button>
+                                <button type="button" id="resetBtn" class="upload-btn secondary" onclick="resetUpload(); return false;">
+                                    <i class="fas fa-redo"></i> Reset
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
