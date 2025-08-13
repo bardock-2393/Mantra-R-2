@@ -102,6 +102,53 @@ class ModelManager:
                 self.available_models[self.current_model]['initialized'] = False
             return False
     
+    def initialize_model_sync(self, model_name: str = None) -> bool:
+        """Synchronous initialization of the specified model"""
+        try:
+            if model_name:
+                if model_name not in self.available_models:
+                    raise ValueError(f"Unknown model: {model_name}. Available: {list(self.available_models.keys())}")
+                self.current_model = model_name
+            
+            model_info = self.available_models[self.current_model]
+            
+            # Check if already initialized
+            if model_info['initialized'] and model_info['service_instance']:
+                print(f"ℹ️ {model_info['name']} is already initialized")
+                return True
+            
+            print(f"🚀 Initializing {model_info['name']} synchronously...")
+            
+            # Create service instance if not exists
+            if not model_info['service_instance']:
+                model_info['service_instance'] = model_info['service_class']()
+            
+            # Initialize the service using asyncio
+            try:
+                import asyncio
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(model_info['service_instance'].initialize())
+                loop.close()
+                
+                if success:
+                    model_info['initialized'] = True
+                    print(f"✅ {model_info['name']} initialized successfully")
+                    return True
+                else:
+                    print(f"❌ Failed to initialize {model_info['name']}")
+                    model_info['initialized'] = False
+                    return False
+                    
+            except Exception as async_error:
+                print(f"⚠️ Async initialization failed: {async_error}")
+                return False
+            
+        except Exception as e:
+            print(f"❌ Failed to initialize {self.current_model}: {e}")
+            return False
+    
     async def switch_model(self, model_name: str) -> bool:
         """Switch to a different model"""
         try:
@@ -157,8 +204,23 @@ class ModelManager:
             if not model_info['initialized']:
                 # Try to initialize synchronously
                 print(f"🔄 Initializing {model_info['name']} synchronously...")
-                # For now, just return a fallback response
-                return f"""Based on the video analysis, here's what I can tell you about "{message}":
+                try:
+                    if self.initialize_model_sync():
+                        print(f"✅ {model_info['name']} initialized successfully for chat")
+                    else:
+                        print(f"❌ Failed to initialize {model_info['name']}, using fallback")
+                        return f"""Based on the video analysis, here's what I can tell you about "{message}":
+
+{analysis_result}
+
+**Your Question:** {message}
+
+**Response:** I can analyze your video content and provide insights about what's happening. The video has been processed and analyzed for technical specifications and content patterns.
+
+For more detailed answers to your specific question, please ask again and I'll reference the video analysis to give you a comprehensive response."""
+                except Exception as init_error:
+                    print(f"❌ Synchronous initialization failed: {init_error}")
+                    return f"""Based on the video analysis, here's what I can tell you about "{message}":
 
 {analysis_result}
 
