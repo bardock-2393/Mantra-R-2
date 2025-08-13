@@ -1,0 +1,86 @@
+# Enhanced Accuracy Requirements for AI Video Detective
+# Optimized versions for maximum video analysis accuracy
+
+# Core AI and ML Libraries
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.36.0
+accelerate>=0.24.0
+bitsandbytes>=0.41.0
+
+# Enhanced Video Processing
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Computer Vision Enhancements
+scikit-image>=0.21.0
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.8
+decord>=0.6.0
+
+# Quality Enhancement Libraries
+cv2-utils>=0.1.0
+imgaug>=0.4.0
+albumentations>=1.3.0
+
+# Performance Optimization
+flash-attn>=2.3.0
+xformers>=0.0.22
+optimum>=1.14.0
+
+# Memory and GPU Optimization
+pytorch-memlab>=0.2.4
+gputil>=1.4.0
+nvidia-ml-py3>=7.352.0
+
+# Enhanced Analysis Tools
+spacy>=3.7.0
+nltk>=3.8.1
+textstat>=0.7.3
+
+# Quality Assessment
+psnr-hvsm>=0.1.0
+lpips>=0.1.4
+fid-score>=0.3.0
+
+# Multi-scale Analysis
+pyramid>=1.0.0
+scikit-learn>=1.3.0
+
+# Error Handling and Recovery
+tenacity>=8.2.0
+retrying>=1.3.4
+
+# Logging and Monitoring
+loguru>=0.7.0
+rich>=13.0.0
+
+# Testing and Validation
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Development Tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Additional Dependencies for Enhanced Accuracy
+# These are optional but recommended for maximum accuracy
+
+# Super Resolution (Optional - for very low quality videos)
+# realesrgan>=0.3.0
+
+# Advanced Image Enhancement (Optional)
+# gfpgan>=1.3.8
+
+# Motion Analysis Enhancement (Optional)
+# mediapipe>=0.10.0
+
+# Color Science (Optional - for precise color analysis)
+# colour-science>=0.4.2
+
+# Note: Install with: pip install -r requirements_accuracy_enhanced.txt
+# For GPU support: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
