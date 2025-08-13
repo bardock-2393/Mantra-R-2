@@ -1541,18 +1541,14 @@ class VideoDetective {
                 // Hide progress section
                 this.hideProgressSection();
                 
-                // Show results
-                this.showResults(result);
+                // Don't show results section - go straight to chat
+                // this.showResults(result);
                 
-                // Show ultra-accurate Q&A section if available
-                const ultraAccurateQASection = document.getElementById('ultraAccurateQASection');
-                console.log('🔍 Looking for ultra-accurate Q&A section:', ultraAccurateQASection);
-                if (ultraAccurateQASection) {
-                    ultraAccurateQASection.style.display = 'block';
-                    console.log('✅ Ultra-accurate Q&A section shown');
-                } else {
-                    console.error('❌ Ultra-accurate Q&A section not found!');
-                }
+                // Automatically open the chat interface
+                this.openChatInterface();
+                
+                // Show ultra-accurate mode indicator in chat
+                this.showUltraAccurateChatMode();
                 
                 console.log('✅ Ultra-accurate analysis completed successfully!');
                 
@@ -1596,6 +1592,66 @@ class VideoDetective {
         
         if (progressStatus) {
             progressStatus.textContent = status;
+        }
+    }
+
+    openChatInterface() {
+        // Open the chat interface
+        const chatInterface = document.getElementById('chatInterface');
+        if (chatInterface) {
+            chatInterface.style.display = 'flex';
+            chatInterface.style.opacity = '1';
+            chatInterface.style.transform = 'translateY(0)';
+            console.log('✅ Chat interface opened');
+        }
+    }
+
+    showUltraAccurateChatMode() {
+        // Show ultra-accurate mode indicator in chat
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            const indicator = document.createElement('div');
+            indicator.className = 'ultra-accurate-mode-indicator';
+            indicator.innerHTML = `
+                <div class="alert alert-warning mb-3">
+                    <i class="fas fa-rocket text-warning"></i>
+                    <strong>🚀 ULTRA-ACCURATE MODE ACTIVATED!</strong><br>
+                    <small>
+                        Your video has been analyzed with maximum precision using:<br>
+                        ✅ Multi-scale analysis (5 scales)<br>
+                        ✅ Cross-validation for accuracy<br>
+                        ✅ Quality thresholds applied<br>
+                        ✅ Chunk processing for long videos<br>
+                        ✅ Maximum GPU utilization (80GB optimized)<br><br>
+                        <strong>Ask me anything about your video with ultra-high accuracy!</strong>
+                    </small>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            
+            // Add a welcome message from the AI
+            const welcomeMessage = document.createElement('div');
+            welcomeMessage.className = 'chat-message ai-message';
+            welcomeMessage.innerHTML = `
+                <div class="message-content">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-text">
+                        🚀 Welcome to Ultra-Accurate Mode!<br><br>
+                        I've just completed a comprehensive analysis of your video using advanced AI models with maximum precision. I can now answer any questions you have about the video content with ultra-high accuracy.<br><br>
+                        <strong>What would you like to know about your video?</strong><br>
+                        • Content details and events<br>
+                        • Specific timestamps and moments<br>
+                        • Visual elements and descriptions<br>
+                        • Technical specifications<br>
+                        • Or anything else you're curious about!
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(welcomeMessage);
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     }
 
