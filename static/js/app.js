@@ -163,6 +163,9 @@ class VideoDetective {
         this.currentFile = file;
         this.showFileInfo(file);
         this.showVideoPreview(file);
+        
+        // Show the analysis form after file is selected
+        this.showAnalysisForm();
     }
 
     isValidVideoFile(file) {
@@ -170,17 +173,17 @@ class VideoDetective {
         return validTypes.includes(file.type);
     }
 
-    showFileInfo(file) {
+    showFileInfo(file, filename = null, fileSize = null) {
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
+        const fileSizeElement = document.getElementById('fileSize');
         
-        fileName.textContent = file.name;
-        fileSize.textContent = this.formatFileSize(file.size);
+        // Use provided filename or fallback to file.name
+        fileName.textContent = filename || file.name;
+        fileSizeElement.textContent = fileSize || this.formatFileSize(file.size);
         fileInfo.style.display = 'block';
         
-        // Show the analysis form after file is selected
-        this.showAnalysisForm();
+        console.log('📁 File info displayed:', { name: filename || file.name, size: fileSize || this.formatFileSize(file.size) });
     }
 
     showAnalysisForm() {
@@ -197,6 +200,12 @@ class VideoDetective {
 
     handleAnalysisSubmit() {
         console.log('🚀 Starting comprehensive video analysis...');
+        
+        // Check if we have a current file
+        if (!this.currentFile) {
+            this.showError('No video file selected. Please upload a video first.');
+            return;
+        }
         
         // Hide the analysis form and show progress
         const analysisForm = document.getElementById('analysisForm');
@@ -245,47 +254,76 @@ class VideoDetective {
         }
     }
 
-    startAnalysis() {
-        // This function would integrate with your backend API
-        console.log('🔍 Starting comprehensive AI analysis...');
+    async startAnalysis() {
+        // Call the actual analyze API endpoint
+        console.log('🔍 Starting comprehensive AI analysis via API...');
         
-        // Simulate progress updates
-        this.updateProgress(0, 'Initializing comprehensive analysis...');
-        
-        setTimeout(() => this.updateProgress(25, 'Loading AI model...'), 1000);
-        setTimeout(() => this.updateProgress(50, 'Processing video frames...'), 3000);
-        setTimeout(() => this.updateProgress(75, 'Generating comprehensive analysis...'), 6000);
-        setTimeout(() => this.updateProgress(100, 'Analysis complete!'), 9000);
-        
-        // In a real implementation, you would:
-        // 1. Send the video file to your backend for comprehensive analysis
-        // 2. Receive progress updates via WebSocket or polling
-        // 3. Display results when complete
-    }
+        try {
+            // Show progress section
+            this.showProgressSection();
+            
+            // Call the analyze API
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    analysis_type: 'comprehensive_analysis',
+                    user_focus: 'Analyze this video comprehensively for all important events and observations'
+                })
+            });
 
-    updateProgress(percentage, status) {
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        const progressStatus = document.getElementById('progressStatus');
-        
-        if (progressBar) progressBar.style.width = percentage + '%';
-        if (progressText) progressText.textContent = percentage + '%';
-        if (progressStatus) progressStatus.textContent = status;
-        
-        if (percentage === 100) {
-            // Show results section after completion
-            setTimeout(() => this.showResults(), 1000);
+            // Parse response
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Analysis successful, showing chat interface...');
+                this.analysisComplete = true;
+                this.showChatInterface();
+                
+                // Show analysis completion message
+                let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
+                
+                if (result.analysis) {
+                    completionMessage += '\n\n**Analysis Summary:**\n' + result.analysis.substring(0, 300) + '...';
+                }
+                
+                completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
+                
+                // Add completion message with typing effect
+                this.addChatMessageWithTyping('ai', completionMessage);
+                
+                // Hide progress section
+                const progressSection = document.getElementById('progressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            } else {
+                console.error('❌ Analysis failed:', result.error);
+                this.showError(result.error || 'Analysis failed');
+                
+                // Hide progress section on error
+                const errorSection = document.getElementById('errorSection');
+                if (errorSection) {
+                    errorSection.style.display = 'block';
+                    document.getElementById('errorText').textContent = result.error || 'Analysis failed';
+                }
+            }
+        } catch (error) {
+            console.error('❌ Analysis error:', error);
+            this.showError('Analysis failed: ' + error.message);
+            
+            // Show error section
+            const errorSection = document.getElementById('errorSection');
+            if (errorSection) {
+                errorSection.style.display = 'block';
+                document.getElementById('errorText').textContent = 'Analysis failed: ' + error.message;
+            }
         }
     }
 
-    showResults() {
-        const resultsSection = document.getElementById('resultsSection');
-        if (resultsSection) {
-            resultsSection.style.display = 'block';
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            console.log('✅ Results section displayed');
-        }
-    }
+
 
     formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
@@ -349,7 +387,9 @@ class VideoDetective {
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
-                this.analyzeVideo();
+                // Show analysis form after successful upload
+                this.showAnalysisForm();
+                console.log('✅ Upload successful, analysis form shown');
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
@@ -362,10 +402,19 @@ class VideoDetective {
 
     showProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        if (!progress) {
+            console.warn('⚠️ Upload progress element not found');
+            return;
+        }
+        
+        const progressBar = progress.querySelector('.progress-bar');
+        if (!progressBar) {
+            console.warn('⚠️ Progress bar element not found');
+            return;
+        }
         
         progress.style.display = 'block';
-        progressFill.style.width = '0%';
+        progressBar.style.width = '0%';
         
         // Simulate progress
         let width = 0;
@@ -374,16 +423,25 @@ class VideoDetective {
                 clearInterval(interval);
             } else {
                 width += Math.random() * 10;
-                progressFill.style.width = width + '%';
+                progressBar.style.width = width + '%';
             }
         }, 200);
     }
 
     hideProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        if (!progress) {
+            console.warn('⚠️ Upload progress element not found');
+            return;
+        }
         
-        progressFill.style.width = '100%';
+        const progressBar = progress.querySelector('.progress-bar');
+        if (!progressBar) {
+            console.warn('⚠️ Progress bar element not found');
+            return;
+        }
+        
+        progressBar.style.width = '100%';
         setTimeout(() => {
             progress.style.display = 'none';
         }, 500);
@@ -853,7 +911,7 @@ class VideoDetective {
 
     async cleanupSession() {
         try {
-            const response = await fetch('/session/cleanup', {
+            const response = await fetch('/api/session/cleanup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -943,28 +1001,30 @@ class VideoDetective {
         try {
             console.log('🎬 Showing demo video preview...');
             
-            // Show video preview with demo video URL
-            const videoPreview = document.getElementById('videoPreview');
-            const previewVideo = document.getElementById('previewVideo');
-            
-            // Set the demo video source
-            previewVideo.src = '/demo-video';
-            
-            // Show the preview section
-            videoPreview.style.display = 'block';
-            
-            // Update preview header for demo video
-            const previewHeader = videoPreview.querySelector('.preview-header h3');
-            if (previewHeader) {
-                previewHeader.textContent = 'Demo Video Preview';
-            }
-            
-            const previewDescription = videoPreview.querySelector('.preview-header p');
-            if (previewDescription) {
-                previewDescription.textContent = 'Preview the BMW M4 demo video before using it for analysis';
-            }
-            
-            console.log('🎬 Demo video preview shown');
+            // Check if demo video route exists
+            fetch('/demo-video', { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        // Demo video route exists, show preview
+                        const videoPreview = document.getElementById('videoPreview');
+                        const previewVideo = document.getElementById('previewVideo');
+                        
+                        if (videoPreview && previewVideo) {
+                            // Set the demo video source
+                            previewVideo.src = '/demo-video';
+                            
+                            // Show the preview section
+                            videoPreview.style.display = 'block';
+                            
+                            console.log('🎬 Demo video preview shown');
+                        }
+                    } else {
+                        console.log('ℹ️ Demo video route not available, skipping preview');
+                    }
+                })
+                .catch(error => {
+                    console.log('ℹ️ Demo video route not available, skipping preview:', error.message);
+                });
         } catch (error) {
             console.error('Failed to show demo video preview:', error);
         }

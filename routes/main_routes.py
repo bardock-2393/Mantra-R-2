@@ -366,4 +366,17 @@ def analyze_video():
 # @main_bp.route('/screenshot/<filename>')
 # def get_screenshot(filename):
 #     """Serve screenshot files - DISABLED"""
-#     return jsonify({'error': 'Screenshot feature has been disabled'}), 404 
+#     return jsonify({'error': 'Screenshot feature has been disabled'}), 404
+
+@main_bp.route('/demo-video')
+def demo_video():
+    """Serve demo video file"""
+    try:
+        demo_path = Config.DEFAULT_VIDEO_PATH
+        if os.path.exists(demo_path):
+            return send_file(demo_path, mimetype='video/mp4')
+        else:
+            return jsonify({'error': 'Demo video not found'}), 404
+    except Exception as e:
+        print(f"Demo video error: {e}")
+        return jsonify({'error': f'Demo video error: {str(e)}'}), 500 
