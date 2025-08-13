@@ -1111,8 +1111,8 @@ class VideoDetective {
                     <i class="${icon}"></i>
                 </div>
                 <div class="message-text"></div>
-                </div>
-            `;
+            </div>
+        `;
 
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
