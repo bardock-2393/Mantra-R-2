@@ -1094,4 +1094,199 @@ body {
     .input-container {
         padding: 0.75rem;
     }
+}
+
+/* Full Screen Chat Interface Styles */
+.chat-interface-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    animation: slideInUp 0.5s ease-out;
+}
+
+.chat-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+}
+
+.chat-content {
+    flex: 1;
+    padding: 2rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-messages-fullscreen {
+    flex: 1;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.chat-input-fullscreen {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.1);
+}
+
+.typing-indicator-fullscreen {
+    color: #6c757d;
+    font-style: italic;
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 10px;
+}
+
+/* Enhanced Chat Message Styles for Full Screen */
+.chat-interface-fullscreen .chat-message {
+    margin-bottom: 1.5rem;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.chat-interface-fullscreen .chat-message.user-message {
+    text-align: right;
+}
+
+.chat-interface-fullscreen .chat-message.ai-message {
+    text-align: left;
+}
+
+.chat-interface-fullscreen .message-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    max-width: 80%;
+}
+
+.chat-interface-fullscreen .user-message .message-content {
+    flex-direction: row-reverse;
+    margin-left: auto;
+}
+
+.chat-interface-fullscreen .message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.chat-interface-fullscreen .user-message .message-avatar {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.chat-interface-fullscreen .ai-message .message-avatar {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+}
+
+.chat-interface-fullscreen .message-text {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 1rem 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.chat-interface-fullscreen .user-message .message-text {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    text-align: left;
+}
+
+.chat-interface-fullscreen .ai-message .message-text {
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+}
+
+/* Full Screen Chat Animations */
+@keyframes slideInUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Full Screen Chat Responsive Design */
+@media (max-width: 768px) {
+    .chat-header {
+        padding: 1rem;
+    }
+    
+    .chat-content {
+        padding: 1rem;
+    }
+    
+    .chat-input-fullscreen {
+        padding: 1rem;
+    }
+    
+    .chat-interface-fullscreen .message-content {
+        max-width: 90%;
+    }
+    
+    .chat-messages-fullscreen {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-header {
+        padding: 0.75rem;
+    }
+    
+    .chat-content {
+        padding: 0.75rem;
+    }
+    
+    .chat-input-fullscreen {
+        padding: 0.75rem;
+    }
+    
+    .chat-interface-fullscreen .message-content {
+        max-width: 95%;
+    }
+    
+    .chat-messages-fullscreen {
+        padding: 0.75rem;
+    }
 } 

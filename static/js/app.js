@@ -272,10 +272,7 @@ class VideoDetective {
     }
 
     async startAnalysis() {
-        // Call the actual analyze API endpoint
-        console.log('🔍 Starting comprehensive AI analysis via API...');
-        console.log('🔍 This is the REAL startAnalysis function, not a simulation!');
-        console.log('🔍 Function ID: REAL_START_ANALYSIS_V2');
+        console.log('🚀 Starting comprehensive AI analysis via API...');
         
         try {
             // Show progress section
@@ -292,135 +289,218 @@ class VideoDetective {
             // Show progress message
             const progressStatus = document.getElementById('progressStatus');
             if (progressStatus) {
-                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos. Please wait patiently - no timeout set.';
+                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos. Please wait patiently.';
             }
             
-            // Call the analyze API (no timeout)
-            let response;
-            try {
-                response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        analysis_type: 'comprehensive_analysis',
-                        user_focus: 'Analyze this video comprehensively for all important events and observations'
-                    })
-                });
-            } catch (fetchError) {
-                throw fetchError;
-            }
-
-            console.log('🔍 API response received:', response.status, response.ok);
+            // Start analysis with improved polling strategy
+            console.log('🚀 Starting analysis with improved polling strategy...');
             
-            // Check if response is ok
-            if (!response.ok) {
-                if (response.status === 524) {
-                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
-                } else if (response.status >= 500) {
-                    throw new Error(`Server error (${response.status}). Please try again later.`);
-                } else if (response.status >= 400) {
-                    throw new Error(`Request error (${response.status}). Please check your input and try again.`);
-                } else {
-                    throw new Error(`Unexpected response (${response.status}). Please try again.`);
-                }
+            // Start the analysis (don't wait for completion)
+            const startResponse = await fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    analysis_type: 'comprehensive_analysis',
+                    user_focus: 'Analyze this video comprehensively for all important events and observations'
+                })
+            });
+            
+            if (!startResponse.ok) {
+                throw new Error(`Analysis failed to start: ${startResponse.status}`);
             }
             
-            // Get response text first to check if it's valid JSON
-            const responseText = await response.text();
-            console.log('🔍 Response text received:', responseText.substring(0, 200) + '...');
+            console.log('✅ Analysis started successfully, beginning polling...');
             
-            // Try to parse as JSON
-            let result;
-            try {
-                result = JSON.parse(responseText);
-                console.log('🔍 API result parsed:', result);
-            } catch (jsonError) {
-                console.error('❌ JSON parsing failed:', jsonError);
-                console.error('❌ Raw response:', responseText);
-                
-                // Check if it's a timeout or error response
-                if (responseText.includes('timeout') || responseText.includes('524')) {
-                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
-                } else if (responseText.includes('error') || responseText.includes('Error')) {
-                    throw new Error('Server error: ' + responseText.substring(0, 100));
-                } else {
-                    throw new Error('Invalid response from server. Please try again.');
-                }
+            // Update progress message
+            if (progressStatus) {
+                progressStatus.textContent = 'AI analysis started! Polling for completion... This may take 1-2 minutes.';
             }
             
-            if (result.success) {
-                console.log('✅ Analysis successful, showing chat interface...');
-                this.analysisComplete = true;
-                this.showChatInterface();
+            // Poll for completion every 3 seconds with better error handling
+            let pollCount = 0;
+            const maxPolls = 200; // 10 minutes max (200 * 3 seconds)
+            
+            const pollInterval = setInterval(async () => {
+                pollCount++;
                 
-                // Show analysis completion message
-                let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
-                
-                if (result.analysis) {
-                    completionMessage += '\n\n**Analysis Summary:**\n' + result.analysis.substring(0, 300) + '...';
-                }
-                
-                completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
-                
-                // Add completion message with typing effect
-                this.addChatMessageWithTyping('ai', completionMessage);
-                
-                // Hide progress section
-                const progressSection = document.getElementById('progressSection');
-                if (progressSection) {
-                    progressSection.style.display = 'none';
-                }
-            } else {
-                console.error('❌ Analysis failed:', result.error);
-                this.showError(result.error || 'Analysis failed');
-                
-                // Hide progress section on error
-                const errorSection = document.getElementById('errorSection');
-                if (errorSection) {
-                    errorSection.style.display = 'block';
-                    document.getElementById('errorText').textContent = result.error || 'Analysis failed';
-                }
-            }
-                    } catch (error) {
-                console.error('❌ Analysis error:', error);
-                
-                // Check if it's a timeout error and offer retry
-                if (error.message.includes('timed out') || error.message.includes('timeout')) {
-                    const errorMessage = error.message + '\n\nThis is normal for large videos. The AI model is processing your video in the background.';
-                    this.showError(errorMessage);
+                try {
+                    console.log(`🔍 Polling attempt ${pollCount}/${maxPolls}...`);
+                    const statusResponse = await fetch('/api/session/status');
                     
-                    // Show retry button
-                    const errorSection = document.getElementById('errorSection');
-                    if (errorSection) {
-                        errorSection.style.display = 'block';
-                        const errorText = document.getElementById('errorText');
-                        if (errorText) {
-                            errorText.innerHTML = errorMessage.replace(/\n/g, '<br>');
+                    if (!statusResponse.ok) {
+                        console.warn('⚠️ Status check failed:', statusResponse.status);
+                        if (pollCount >= maxPolls) {
+                            clearInterval(pollInterval);
+                            this.handleAnalysisTimeout();
+                        }
+                        return;
+                    }
+                    
+                    const statusData = await statusResponse.json();
+                    console.log('📊 Status response:', statusData);
+                    
+                    // Check if analysis is complete
+                    if (statusData.analysis_result && statusData.analysis_result.length > 100) {
+                        clearInterval(pollInterval);
+                        console.log('🎉 Analysis completed!');
+                        
+                        // Show results
+                        this.analysisComplete = true;
+                        this.showChatInterface();
+                        
+                        // Show completion message
+                        let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
+                        
+                        if (statusData.analysis_result) {
+                            completionMessage += '\n\n**Analysis Summary:**\n' + statusData.analysis_result.substring(0, 300) + '...';
                         }
                         
-                        // Add retry button
-                        const retryButton = document.createElement('button');
-                        retryButton.className = 'btn btn-primary mt-3';
-                        retryButton.innerHTML = '<i class="fas fa-redo"></i> Retry Analysis';
-                        retryButton.onclick = () => {
-                            errorSection.style.display = 'none';
-                            this.startAnalysis();
-                        };
-                        errorSection.querySelector('.card-body').appendChild(retryButton);
+                        completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
+                        
+                        // Add completion message with typing effect
+                        this.addChatMessageWithTyping('ai', completionMessage);
+                        
+                        // Hide progress section
+                        const progressSection = document.getElementById('progressSection');
+                        if (progressSection) {
+                            progressSection.style.display = 'none';
+                        }
+                        
+                        // Update progress status
+                        if (progressStatus) {
+                            progressStatus.textContent = '✅ Analysis completed! Chat interface is ready.';
+                        }
+                        
+                        return;
                     }
-                } else {
-                    this.showError('Analysis failed: ' + error.message);
                     
-                    // Show error section
-                    const errorSection = document.getElementById('errorSection');
-                    if (errorSection) {
-                        errorSection.style.display = 'block';
-                        document.getElementById('errorText').textContent = 'Analysis failed: ' + error.message;
+                    // Update progress with current time
+                    if (progressStatus) {
+                        progressStatus.textContent = `AI analysis in progress... (${new Date().toLocaleTimeString()}) - Attempt ${pollCount}/${maxPolls}`;
+                    }
+                    
+                    // Check if we've reached max polls
+                    if (pollCount >= maxPolls) {
+                        clearInterval(pollInterval);
+                        this.handleAnalysisTimeout();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error during polling:', error);
+                    if (pollCount >= maxPolls) {
+                        clearInterval(pollInterval);
+                        this.handleAnalysisTimeout();
                     }
                 }
+            }, 3000); // Poll every 3 seconds instead of 5
+            
+        } catch (error) {
+            console.error('❌ Analysis failed:', error);
+            
+            const progressStatus = document.getElementById('progressStatus');
+            if (progressStatus) {
+                progressStatus.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <h6>❌ Analysis Failed</h6>
+                        <p class="mb-2">Error: ${error.message}</p>
+                        <button class="btn btn-primary btn-sm" onclick="app.startAnalysis()">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                    </div>
+                `;
             }
+            
+            // Hide progress section on error
+            const progressSection = document.getElementById('progressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }
+    }
+    
+    handleAnalysisTimeout() {
+        console.log('⏰ Analysis timeout - showing manual check option');
+        
+        const progressStatus = document.getElementById('progressStatus');
+        if (progressStatus) {
+            progressStatus.innerHTML = `
+                <div class="alert alert-warning" role="alert">
+                    <h6>⏰ Analysis taking longer than expected</h6>
+                    <p class="mb-2">The analysis is still running in the background. You can:</p>
+                    <button class="btn btn-primary btn-sm me-2" onclick="app.checkAnalysisStatus()">
+                        <i class="fas fa-sync-alt"></i> Check Status Now
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="app.showChatInterface()">
+                        <i class="fas fa-comments"></i> Try Chat Anyway
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    async checkAnalysisStatus() {
+        try {
+            console.log('🔍 Manual status check requested...');
+            
+            const progressStatus = document.getElementById('progressStatus');
+            if (progressStatus) {
+                progressStatus.textContent = 'Checking analysis status...';
+            }
+            
+            const statusResponse = await fetch('/api/session/status');
+            
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                
+                if (statusData.analysis_result && statusData.analysis_result.length > 100) {
+                    console.log('🎉 Manual check: Analysis completed!');
+                    this.analysisComplete = true;
+                    this.showChatInterface();
+                    
+                    if (progressStatus) {
+                        progressStatus.textContent = '✅ Analysis completed! Chat interface is ready.';
+                    }
+                    
+                    // Hide progress section
+                    const progressSection = document.getElementById('progressSection');
+                    if (progressSection) {
+                        progressSection.style.display = 'none';
+                    }
+                } else {
+                    if (progressStatus) {
+                        progressStatus.innerHTML = `
+                            <div class="alert alert-info" role="alert">
+                                <h6>📊 Analysis Status</h6>
+                                <p class="mb-2">Analysis is still in progress. Please wait a bit longer or try again.</p>
+                                <button class="btn btn-primary btn-sm" onclick="app.checkAnalysisStatus()">
+                                    <i class="fas fa-sync-alt"></i> Check Again
+                                </button>
+                            </p>
+                        </div>
+                    `;
+                }
+            } else {
+                throw new Error(`Status check failed: ${statusResponse.status}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ Manual status check failed:', error);
+            
+            const progressStatus = document.getElementById('progressStatus');
+            if (progressStatus) {
+                progressStatus.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <h6>❌ Status Check Failed</h6>
+                        <p class="mb-2">Error: ${error.message}</p>
+                        <button class="btn btn-primary btn-sm" onclick="app.checkAnalysisStatus()">
+                            <i class="fas fa-sync-alt"></i> Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
     }
 
 
@@ -798,6 +878,7 @@ class VideoDetective {
         
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
+        const minimizeChatBtn = document.getElementById('minimizeChatBtn');
         
         if (!chatInput || !sendBtn) {
             console.error('❌ Chat elements not found for event listeners');
@@ -807,9 +888,13 @@ class VideoDetective {
         // Remove existing event listeners to prevent duplicates
         const newChatInput = chatInput.cloneNode(true);
         const newSendBtn = sendBtn.cloneNode(true);
+        const newMinimizeChatBtn = minimizeChatBtn ? minimizeChatBtn.cloneNode(true) : null;
         
         chatInput.parentNode.replaceChild(newChatInput, chatInput);
         sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+        if (newMinimizeChatBtn && minimizeChatBtn) {
+            minimizeChatBtn.parentNode.replaceChild(newMinimizeChatBtn, minimizeChatBtn);
+        }
         
         // Add new event listeners
         newChatInput.addEventListener('keydown', (e) => {
@@ -821,6 +906,11 @@ class VideoDetective {
         
         newSendBtn.addEventListener('click', () => this.sendMessage());
         
+        // Setup minimize button functionality
+        if (newMinimizeChatBtn) {
+            newMinimizeChatBtn.addEventListener('click', () => this.minimizeChat());
+        }
+        
         // Setup auto-resize for textarea
         newChatInput.addEventListener('input', () => {
             newChatInput.style.height = 'auto';
@@ -828,6 +918,31 @@ class VideoDetective {
         });
         
         console.log('✅ Chat event listeners setup complete');
+    }
+    
+    minimizeChat() {
+        console.log('📱 Minimizing chat interface...');
+        
+        const chatInterface = document.getElementById('chatInterface');
+        const uploadSection = document.getElementById('uploadSection');
+        
+        if (chatInterface && uploadSection) {
+            // Hide chat interface
+            chatInterface.style.display = 'none';
+            
+            // Show upload section with animation
+            uploadSection.style.display = 'block';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                uploadSection.style.transition = 'all 0.3s ease';
+                uploadSection.style.opacity = '1';
+                uploadSection.style.transform = 'translateY(0)';
+            }, 50);
+            
+            console.log('✅ Chat interface minimized, upload section restored');
+        }
     }
 
     async sendMessage() {
