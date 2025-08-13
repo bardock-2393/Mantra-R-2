@@ -374,66 +374,6 @@ class VideoDetective {
                     throw fetchError; // Re-throw other fetch errors
                 }
             }
-            
-            // Try to parse as JSON
-            let result;
-            try {
-                result = JSON.parse(responseText);
-                console.log('📊 Analysis response:', result);
-            } catch (jsonError) {
-                console.error('❌ JSON parsing failed:', jsonError);
-                console.error('❌ Raw response that failed to parse:', responseText);
-                
-                // Provide more helpful error messages based on response content
-                if (responseText.includes('timeout') || responseText.includes('524')) {
-                    throw new Error('Server timeout: The video analysis is taking too long. Please try with a shorter video or try again later.');
-                } else if (responseText.includes('error') || responseText.includes('Error')) {
-                    throw new Error('Server error: The server encountered an issue processing your request. Please try again.');
-                } else {
-                    throw new Error(`Invalid response from server: ${jsonError.message}. Please try again or contact support.`);
-                }
-            }
-            
-            this.hideLoadingModal();
-
-            if (result.success) {
-                console.log('✅ Analysis successful, showing chat interface...');
-                this.analysisComplete = true;
-                this.showChatInterface();
-                
-                // Show analysis completion message with evidence if available
-                let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
-                
-                if (result.evidence && result.evidence.length > 0) {
-                    const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
-                    const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
-                    
-                    let evidenceText = '';
-                    if (screenshotCount > 0 && videoCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
-                    } else if (screenshotCount > 0) {
-                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
-                    } else if (videoCount > 0) {
-                        evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
-                    }
-                    completionMessage += `\n\n${evidenceText}`;
-                }
-                
-                completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
-                
-                // Add completion message with typing effect
-                this.addChatMessageWithTyping('ai', completionMessage);
-                
-                // Display evidence if available (after message appears)
-                if (result.evidence && result.evidence.length > 0) {
-                    setTimeout(() => {
-                        this.displayEvidence(result.evidence);
-                    }, 800); // Wait for fade-in effect to complete + buffer
-                }
-            } else {
-                console.error('❌ Analysis failed:', result.error);
-                this.showError(result.error || 'Analysis failed');
-            }
         } catch (error) {
             console.error('❌ Analysis error:', error);
             this.hideLoadingModal();
