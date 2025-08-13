@@ -1720,6 +1720,22 @@
                 resultsSection.style.display = 'block';
                 resultsSection.classList.add('show');
             }
+            
+            // Check if this was ultra-accurate analysis and show Q&A section
+            const sessionData = window.sessionData || {};
+            if (sessionData.analysis_type === 'ultra_accurate_80gb_gpu') {
+                showUltraAccurateQASection();
+            }
+        }
+        
+        // Function to show ultra-accurate Q&A section
+        function showUltraAccurateQASection() {
+            const ultraAccurateQASection = document.getElementById('ultraAccurateQASection');
+            if (ultraAccurateQASection) {
+                ultraAccurateQASection.style.display = 'block';
+                ultraAccurateQASection.classList.add('show');
+                console.log('✅ Ultra-accurate Q&A section displayed');
+            }
         }
         
         // Override onclick handlers to use enhanced function

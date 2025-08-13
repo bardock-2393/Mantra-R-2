@@ -8,7 +8,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, Optional, List
-import torch
+    import torch
 from datetime import datetime
 import traceback
 
@@ -288,7 +288,7 @@ This is a fallback analysis mode. For full visual analysis, please ensure:
                 return ultra_service.analyze_long_video_ultra_accurate(video_path, user_focus)
             except ImportError:
                 logger.info("⚠️ Ultra-accurate service not available, using enhanced analysis")
-            except Exception as e:
+        except Exception as e:
                 logger.warning(f"Ultra-accurate service failed: {str(e)}, falling back to enhanced analysis")
             
             # Enhanced vision processing (fallback)
@@ -417,7 +417,7 @@ FALLBACK ANALYSIS DETAILS:
 
 For optimal accuracy, please resolve the underlying issues and re-run the analysis."""
             
-            return {
+                return {
                 "analysis": fallback_analysis,
                 "success": False,
                 "fallback": True,

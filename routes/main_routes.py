@@ -508,6 +508,9 @@ def analyze_video_ultra_accurate():
                 
                 # Extract timestamps from ultra-accurate analysis
                 timestamps = extract_timestamps_from_text(analysis_result.get('analysis', ''))
+                
+                # Import the missing functions
+                from utils.text_utils import clean_and_deduplicate_timestamps, aggressive_timestamp_validation
                 timestamps = clean_and_deduplicate_timestamps(timestamps)
                 
                 # Get video metadata
