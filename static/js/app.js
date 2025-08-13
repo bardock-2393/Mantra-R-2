@@ -17,6 +17,7 @@ class VideoDetective {
         this.setupPageCleanup();
         this.showDemoVideoPreview();
         this.initializeModelSelection();
+        this.updateAnalysisButtonState(); // Initialize button state
         console.log('✅ AI Video Detective Pro initialized successfully!');
     }
 
@@ -113,12 +114,15 @@ class VideoDetective {
 
     handleFileSelect(event) {
         const file = event.target.files[0];
+        console.log('📂 File selected:', file ? file.name : 'None');
         if (file) {
             this.handleFile(file);
         }
     }
 
     handleFile(file) {
+        console.log('🎬 Handling file:', file.name, file.size, file.type);
+        
         if (!this.isValidVideoFile(file)) {
             this.showError('Please select a valid video file (MP4, AVI, MOV, WebM, MKV)');
             return;
@@ -129,8 +133,9 @@ class VideoDetective {
             return;
         }
 
+        console.log('✅ File validation passed, setting up UI...');
         this.currentFile = file;
-        this.fileUploaded = false; // Reset upload status for new file
+        // Don't reset fileUploaded here - let showFileInfo handle it
         this.showFileInfo(file);
         this.showVideoPreview(file);
         this.showAnalysisForm();
@@ -147,9 +152,23 @@ class VideoDetective {
         const fileName = document.getElementById('fileName');
         const fileSize = document.getElementById('fileSize');
         
-        fileName.textContent = file.name;
-        fileSize.textContent = this.formatFileSize(file.size);
-        fileInfo.style.display = 'block';
+        console.log('📁 Showing file info:', file.name, file.size);
+        
+        if (fileName) fileName.textContent = file.name;
+        if (fileSize) fileSize.textContent = this.formatFileSize(file.size);
+        
+        if (fileInfo) {
+            fileInfo.style.display = 'block';
+        }
+        
+        // Mark file as uploaded if it has a name and size
+        if (file.name && file.size > 0) {
+            this.fileUploaded = true;
+            console.log('✅ File marked as uploaded:', file.name);
+            this.updateAnalysisButtonState();
+        } else {
+            console.log('⚠️ File not marked as uploaded - missing name or size');
+        }
     }
 
     formatFileSize(bytes) {
@@ -189,13 +208,21 @@ class VideoDetective {
     updateAnalysisButtonState() {
         const submitAnalysisBtn = document.getElementById('submitAnalysis');
         if (submitAnalysisBtn) {
+            console.log('🔍 Updating analysis button state:');
+            console.log('  - currentFile:', this.currentFile ? this.currentFile.name : 'None');
+            console.log('  - fileUploaded:', this.fileUploaded);
+            
             if (this.currentFile && this.fileUploaded) {
                 submitAnalysisBtn.disabled = false;
                 submitAnalysisBtn.innerHTML = '<i class="fas fa-play"></i> Analyze Video';
+                console.log('✅ Button enabled: Analyze Video');
             } else {
                 submitAnalysisBtn.disabled = true;
                 submitAnalysisBtn.innerHTML = '<i class="fas fa-clock"></i> Please Upload Video First';
+                console.log('❌ Button disabled: Please Upload Video First');
             }
+        } else {
+            console.log('⚠️ Analysis button not found');
         }
     }
 
