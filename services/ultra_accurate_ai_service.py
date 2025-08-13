@@ -777,7 +777,9 @@ QUALITY: Maximum precision enabled"""
             avg_quality = np.mean(quality_scores) if quality_scores else 0.0
             
             # Generate actual video content analysis using the same pattern as working AI service
+            logger.info(f"🔍 Generating direct content analysis for chunk {chunk['chunk_id']}")
             content_analysis = self._analyze_video_content_directly(chunk, frames)
+            logger.info(f"✅ Direct content analysis generated: {len(content_analysis)} characters")
             
             # Add AI content analysis if available
             ai_content_analysis = ""
@@ -844,10 +846,14 @@ Provide specific, accurate observations with timestamps when possible."""
             
             # Add the direct content analysis
             analysis += content_analysis
+            logger.info(f"📝 Added direct content analysis: {len(content_analysis)} characters")
             
             # Add AI enhanced analysis if available
             if ai_content_analysis:
                 analysis += ai_content_analysis
+                logger.info(f"🤖 Added AI enhanced analysis: {len(ai_content_analysis)} characters")
+            
+            logger.info(f"📊 Final analysis length: {len(analysis)} characters")
             
             analysis += f"""
 
@@ -919,6 +925,65 @@ Provide specific, accurate observations with timestamps when possible."""
             content_analysis += f"- Resolution: {chunk['resolution'][0]}x{chunk['resolution'][1]}\n"
             content_analysis += f"- Frame rate: {chunk['fps']:.2f}fps\n"
             content_analysis += f"- Total frames analyzed: {len(frames)}\n"
+            
+            # Add detailed frame-by-frame analysis like the working basic service
+            content_analysis += f"\n**DETAILED FRAME ANALYSIS:**\n"
+            for i, frame in enumerate(frames[:10]):  # Analyze first 10 frames in detail
+                frame_time = chunk["start_time"] + (frame.get("frame_number", 0) / chunk["fps"])
+                quality = frame.get("quality_score", 0.0)
+                
+                content_analysis += f"Frame {i+1}: Time {frame_time:.1f}s, Quality {quality:.3f}"
+                
+                # Add frame characteristics
+                if "frame" in frame and frame["frame"] is not None:
+                    frame_data = frame["frame"]
+                    if hasattr(frame_data, 'shape'):
+                        height, width = frame_data.shape[:2]
+                        content_analysis += f", Size {width}x{height}"
+                        
+                        # Basic content analysis based on frame characteristics
+                        if width > 0 and height > 0:
+                            aspect_ratio = width / height
+                            if aspect_ratio > 1.5:
+                                content_analysis += ", Landscape orientation"
+                            elif aspect_ratio < 0.7:
+                                content_analysis += ", Portrait orientation"
+                            else:
+                                content_analysis += ", Square-like orientation"
+                
+                content_analysis += "\n"
+            
+            if len(frames) > 10:
+                content_analysis += f"... and {len(frames) - 10} more frames\n"
+            
+            # Add video content analysis based on characteristics
+            content_analysis += f"\n**VIDEO CONTENT ANALYSIS:**\n"
+            
+            # Analyze video characteristics
+            if chunk['duration'] < 5:
+                content_analysis += "- This is a short video segment (under 5 seconds)\n"
+            elif chunk['duration'] < 30:
+                content_analysis += "- This is a medium video segment (5-30 seconds)\n"
+            else:
+                content_analysis += "- This is a long video segment (over 30 seconds)\n"
+            
+            # Analyze frame density
+            frame_density = len(frames) / chunk['duration'] if chunk['duration'] > 0 else 0
+            if frame_density > 20:
+                content_analysis += "- High frame density suggests detailed motion capture\n"
+            elif frame_density > 10:
+                content_analysis += "- Medium frame density suggests moderate motion\n"
+            else:
+                content_analysis += "- Low frame density suggests minimal motion or static content\n"
+            
+            # Analyze quality distribution
+            high_quality_count = len([f for f in frames if f.get("quality_score", 0) >= 0.8])
+            if high_quality_count > len(frames) * 0.7:
+                content_analysis += "- High quality frames dominate, suggesting clear video content\n"
+            elif high_quality_count > len(frames) * 0.3:
+                content_analysis += "- Mixed quality frames, suggesting varying video conditions\n"
+            else:
+                content_analysis += "- Lower quality frames, suggesting challenging video conditions\n"
             
             return content_analysis
             
