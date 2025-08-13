@@ -51,24 +51,24 @@ class Config:
         'chat_temperature': 0.3
     }
     
-    # Qwen2.5-VL-32B Model Configuration - Optimized for speed
-    QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
-    QWEN25VL_32B_CONFIG = {
-        'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
-        'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 8192,  # Reduced for faster generation
-        'temperature': 0.1,   # More deterministic = faster
-        'top_p': 0.8,        # Reduced for faster sampling
-        'top_k': 20,          # Reduced for faster sampling
-        'chat_temperature': 0.2,
-        'min_pixels': 256 * 28 * 28,  # 256 tokens
-        'max_pixels': 1280 * 28 * 28,  # 1280 tokens
-        # Speed optimization settings
-        'use_cache': True,
-        'do_sample': False,   # Disable sampling for speed
-        'num_beams': 1,       # Single beam for speed
-        'early_stopping': True
-    }
+    # Qwen2.5-VL-32B Model Configuration - DISABLED TO SAVE MEMORY AND PREVENT LOADING ERRORS
+    # QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
+    # QWEN25VL_32B_CONFIG = {
+    #     'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
+    #     'hf_token': os.getenv('HF_TOKEN', ''),
+    #     'max_length': 8192,  # Reduced for faster generation
+    #     'temperature': 0.1,   # More deterministic = faster
+    #     'top_p': 0.8,        # Reduced for faster sampling
+    #     'top_k': 20,          # Reduced for faster sampling
+    #     'chat_temperature': 0.2,
+    #     'min_pixels': 256 * 28 * 28,  # 256 tokens
+    #     'max_pixels': 1280 * 28 * 28,  # 1280 tokens
+    #     # Speed optimization settings
+    #     'use_cache': True,
+    #     'do_sample': False,   # Disable sampling for speed
+    #     'num_beams': 1,       # Single beam for speed
+    #     'early_stopping': True
+    # }
     
     # DeepStream Configuration - Optimized for 120min 720p 90fps
     DEEPSTREAM_CONFIG = {

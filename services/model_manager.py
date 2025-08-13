@@ -6,36 +6,36 @@ Handles switching between different AI models for video analysis
 import asyncio
 from typing import Dict, Optional
 from config import Config
-# COMMENTED OUT OTHER MODELS TO SAVE MEMORY - ONLY LOAD 32B MODEL
-# from services.ai_service_fixed import minicpm_service
-# from services.qwen25vl_service import qwen25vl_service
-from services.qwen25vl_32b_service import qwen25vl_32b_service
+# COMMENTED OUT 32B MODEL TO SAVE MEMORY AND PREVENT LOADING ERRORS
+from services.ai_service_fixed import minicpm_service
+from services.qwen25vl_service import qwen25vl_service
+# from services.qwen25vl_32b_service import qwen25vl_32b_service
 
 class ModelManager:
     """Manages different AI models and provides unified interface"""
     
     def __init__(self):
-        self.current_model = 'qwen25vl_32b'  # Default to 32B model only
+        self.current_model = 'minicpm'  # Default to minicpm model (fast and efficient)
         self.available_models = {
-            # COMMENTED OUT OTHER MODELS TO SAVE MEMORY
-            # 'minicpm': {
-            #     'name': 'MiniCPM-V-2_6',
-            #     'description': 'Fast, efficient vision-language model',
-            #     'service': minicpm_service,
-            #     'initialized': False
-            # },
-            # 'qwen25vl': {
-            #     'name': 'Qwen2.5-VL-7B-Instruct',
-            #     'description': 'Advanced multimodal model with enhanced video understanding',
-            #     'service': qwen25vl_service,
-            #     'initialized': False
-            # },
-            'qwen25vl_32b': {
-                'name': 'Qwen2.5-VL-32B-Instruct',
-                'description': 'High-performance 32B parameter model with superior video analysis capabilities',
-                'service': qwen25vl_32b_service,
+            # ENABLED MODELS - 32B MODEL COMMENTED OUT TO SAVE MEMORY
+            'minicpm': {
+                'name': 'MiniCPM-V-2_6',
+                'description': 'Fast, efficient vision-language model',
+                'service': minicpm_service,
+                'initialized': False
+            },
+            'qwen25vl': {
+                'name': 'Qwen2.5-VL-7B-Instruct',
+                'description': 'Advanced multimodal model with enhanced video understanding',
+                'service': qwen25vl_service,
                 'initialized': False
             }
+            # 'qwen25vl_32b': {
+            #     'name': 'Qwen2.5-VL-32B-Instruct',
+            #     'description': 'High-performance 32B parameter model with superior video analysis capabilities',
+            #     'service': qwen25vl_32b_service,
+            #     'initialized': False
+            # }
         }
         self._initialization_lock = asyncio.Lock()  # Prevent concurrent initialization
     
