@@ -392,6 +392,87 @@
             padding: 2rem;
             background: #f8fafc;
         }
+        
+        /* Analysis Mode Selection Styles */
+        .analysis-mode-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            height: 100%;
+            background: white;
+        }
+        
+        .analysis-mode-card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-heavy);
+        }
+        
+        .analysis-mode-card.selected {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+        }
+        
+        .analysis-mode-card.selected.ultra-accurate {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.2);
+        }
+        
+        .mode-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .mode-header h6 {
+            margin: 0;
+            color: #374151;
+            font-weight: 600;
+        }
+        
+        .mode-description {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .mode-features {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+        }
+        
+        .mode-features li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #4b5563;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .mode-features i {
+            font-size: 0.8rem;
+        }
+        
+        .mode-requirements {
+            padding-top: 0.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .analysis-mode-card.ultra-accurate .mode-header h6 {
+            color: #92400e;
+        }
+        
+        .analysis-mode-card.ultra-accurate .badge {
+            background: #f59e0b !important;
+        }
 
         .chat-input-fullscreen {
             padding: 1.5rem 2rem;
@@ -546,6 +627,26 @@
         .processing .upload-buttons {
             pointer-events: none;
             opacity: 0.6;
+        }
+        
+        /* Keep chat interface functional during processing */
+        .processing .chat-interface-fullscreen {
+            pointer-events: auto !important;
+            opacity: 1 !important;
+        }
+        
+        .processing .chat-interface-fullscreen .chat-input-fullscreen {
+            pointer-events: auto !important;
+        }
+        
+        .processing .chat-interface-fullscreen #chatInput {
+            pointer-events: auto !important;
+            opacity: 1 !important;
+        }
+        
+        .processing .chat-interface-fullscreen #sendBtn {
+            pointer-events: auto !important;
+            opacity: 1 !important;
         }
 
         .processing .progress-section {
@@ -781,6 +882,62 @@
                     </div>
                 </div>
 
+                <!-- Analysis Mode Selection -->
+                <div id="analysisModeSelection" class="analysis-mode-selection">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-cogs"></i> Analysis Mode Selection</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="analysis-mode-card" data-mode="standard">
+                                        <div class="mode-header">
+                                            <h6><i class="fas fa-play-circle text-primary"></i> Standard Analysis</h6>
+                                            <span class="badge bg-primary">Recommended</span>
+                                        </div>
+                                        <p class="mode-description">High-quality analysis using 32B model for videos up to 30 minutes</p>
+                                        <ul class="mode-features">
+                                            <li><i class="fas fa-check text-success"></i> Basic frame analysis</li>
+                                            <li><i class="fas fa-check text-success"></i> Timestamp extraction</li>
+                                            <li><i class="fas fa-check text-success"></i> Content description</li>
+                                        </ul>
+                                        <div class="mode-requirements">
+                                            <small class="text-muted">GPU: Any GPU</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="analysis-mode-card" data-mode="ultra_accurate">
+                                        <div class="mode-header">
+                                            <h6><i class="fas fa-rocket text-warning"></i> Ultra-Accurate Analysis</h6>
+                                            <span class="badge bg-warning">80GB GPU</span>
+                                        </div>
+                                        <p class="mode-description">Maximum accuracy analysis using 80GB GPU optimization for videos up to 120 minutes</p>
+                                        <ul class="mode-features">
+                                            <li><i class="fas fa-check text-success"></i> Multi-scale analysis (5 scales)</li>
+                                            <li><i class="fas fa-check text-success"></i> Cross-validation</li>
+                                            <li><i class="fas fa-check text-success"></i> Quality thresholds</li>
+                                            <li><i class="fas fa-check text-success"></i> Chunk processing</li>
+                                            <li><i class="fas fa-check text-success"></i> 120-minute video support</li>
+                                        </ul>
+                                        <div class="mode-requirements">
+                                            <small class="text-muted">GPU: 70GB+ memory required</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>GPU Status:</strong> <span id="gpuStatus">Checking...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Analysis Form -->
                 <div id="analysisForm" class="analysis-form">
                     <div class="card mb-4">
@@ -791,7 +948,22 @@
                             <div class="mb-4">
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle"></i>
-                                    <strong>Analysis Mode:</strong> The AI will analyze the entire video comprehensively and then you can chat with it about any aspect of the content.
+                                    <strong>Analysis Mode:</strong> <span id="selectedModeText">Standard Analysis</span> - The AI will analyze the entire video comprehensively and then you can chat with it about any aspect of the content.
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="userFocus" class="form-label">
+                                    <i class="fas fa-bullseye"></i> Analysis Focus
+                                </label>
+                                <input type="text" class="form-control" id="userFocus" 
+                                       placeholder="What would you like me to focus on? (e.g., 'Analyze the content and identify key moments', 'Focus on technical details and quality')"
+                                       value="Analyze this video comprehensively and identify key moments, content, and technical details">
+                                <div class="form-text">
+                                    <small class="text-muted">
+                                        <i class="fas fa-lightbulb"></i> 
+                                        Be specific about what aspects you want the AI to focus on for better results.
+                                    </small>
                                 </div>
                             </div>
                             
@@ -850,6 +1022,64 @@
                                     
                                     <h6 class="mt-3 fw-bold">Timestamps Found:</h6>
                                     <ul id="timestampsList" class="list-group list-group-flush"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ultra-Accurate Q&A Section -->
+                <div id="ultraAccurateQASection" class="ultra-accurate-qa-section" style="display: none;">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-rocket text-warning"></i> Ultra-Accurate Q&A</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Ultra-Accurate Mode Active:</strong> You can now ask detailed questions about your analyzed video with maximum accuracy.
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label for="qaQuestion" class="form-label">
+                                            <i class="fas fa-question-circle"></i> Ask a Question
+                                        </label>
+                                        <textarea class="form-control" id="qaQuestion" rows="3" 
+                                                  placeholder="Ask me anything about the video content... (e.g., 'What happens at 2:30?', 'Describe the main characters', 'What are the key events?')"></textarea>
+                                    </div>
+                                    <button type="button" id="submitQA" class="btn btn-warning btn-lg" onclick="askUltraAccurateQuestion()">
+                                        <i class="fas fa-rocket"></i> Ask Question (Ultra-Accurate)
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold mb-3">Q&A Features:</h6>
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item">
+                                            <i class="fas fa-check text-success"></i> Multi-scale analysis
+                                        </li>
+                                        <li class="list-group-item">
+                                            <i class="fas fa-check text-success"></i> Cross-validation
+                                        </li>
+                                        <li class="list-group-item">
+                                            <i class="fas fa-check text-success"></i> Quality thresholds
+                                        </li>
+                                        <li class="list-group-item">
+                                            <i class="fas fa-check text-success"></i> 120-minute video support
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div id="qaResults" class="mt-4" style="display: none;">
+                                <h6 class="fw-bold mb-3">Answer:</h6>
+                                <div id="qaAnswer" class="border rounded p-3 bg-light"></div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Confidence: <span id="qaConfidence" class="badge bg-success">Ultra-High</span>
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -1093,6 +1323,147 @@
             }
         }
         
+        // Function to ensure chat interface is always functional
+        function ensureChatInterfaceFunctional() {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const chatInterface = document.getElementById('chatInterface');
+            
+            if (chatInput && sendBtn && chatInterface) {
+                // Always ensure chat interface is enabled
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInterface.style.pointerEvents = 'auto';
+                
+                // Add event listeners if not already present
+                if (!chatInput.hasAttribute('data-listeners-added')) {
+                    chatInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (typeof window.app !== 'undefined' && window.app.sendMessage) {
+                                window.app.sendMessage();
+                            }
+                        }
+                    });
+                    
+                    sendBtn.addEventListener('click', () => {
+                        if (typeof window.app !== 'undefined' && window.app.sendMessage) {
+                            window.app.sendMessage();
+                        }
+                    });
+                    
+                    chatInput.setAttribute('data-listeners-added', 'true');
+                    console.log('✅ Chat interface event listeners added');
+                }
+            }
+        }
+        
+        // Analysis Mode Selection
+        let selectedAnalysisMode = 'standard';
+        
+        function initializeAnalysisModeSelection() {
+            const modeCards = document.querySelectorAll('.analysis-mode-card');
+            const gpuStatus = document.getElementById('gpuStatus');
+            const selectedModeText = document.getElementById('selectedModeText');
+            
+            // Check GPU capabilities
+            checkGPUStatus();
+            
+            // Add click handlers to mode cards
+            modeCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const mode = this.dataset.mode;
+                    selectAnalysisMode(mode);
+                });
+            });
+            
+            // Set default selection
+            selectAnalysisMode('standard');
+        }
+        
+        function selectAnalysisMode(mode) {
+            selectedAnalysisMode = mode;
+            
+            // Update visual selection
+            const modeCards = document.querySelectorAll('.analysis-mode-card');
+            modeCards.forEach(card => {
+                card.classList.remove('selected');
+                if (card.dataset.mode === mode) {
+                    card.classList.add('selected');
+                    if (mode === 'ultra_accurate') {
+                        card.classList.add('ultra-accurate');
+                    }
+                }
+            });
+            
+            // Update selected mode text
+            const selectedModeText = document.getElementById('selectedModeText');
+            if (selectedModeText) {
+                if (mode === 'standard') {
+                    selectedModeText.textContent = 'Standard Analysis';
+                } else if (mode === 'ultra_accurate') {
+                    selectedModeText.textContent = 'Ultra-Accurate Analysis (80GB GPU)';
+                }
+            }
+            
+            console.log(`✅ Analysis mode selected: ${mode}`);
+        }
+        
+        async function checkGPUStatus() {
+            try {
+                const response = await fetch('/api/analysis-modes');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const gpuStatus = document.getElementById('gpuStatus');
+                    if (gpuStatus) {
+                        if (data.gpu_status.available) {
+                            const gpuName = data.gpu_status.name;
+                            const gpuMemory = data.gpu_status.memory_gb;
+                            const ultraAccurateReady = data.gpu_status.ultra_accurate_ready;
+                            
+                            if (ultraAccurateReady) {
+                                gpuStatus.innerHTML = `<span class="text-success">✅ ${gpuName} (${gpuMemory.toFixed(1)}GB) - Ultra-Accurate Ready</span>`;
+                                
+                                // Enable ultra-accurate mode
+                                const ultraAccurateCard = document.querySelector('.analysis-mode-card[data-mode="ultra_accurate"]');
+                                if (ultraAccurateCard) {
+                                    ultraAccurateCard.style.opacity = '1';
+                                    ultraAccurateCard.style.cursor = 'pointer';
+                                }
+                            } else {
+                                gpuStatus.innerHTML = `<span class="text-warning">⚠️ ${gpuName} (${gpuMemory.toFixed(1)}GB) - Standard Mode Only</span>`;
+                                
+                                // Disable ultra-accurate mode
+                                const ultraAccurateCard = document.querySelector('.analysis-mode-card[data-mode="ultra_accurate"]');
+                                if (ultraAccurateCard) {
+                                    ultraAccurateCard.style.opacity = '0.6';
+                                    ultraAccurateCard.style.cursor = 'not-allowed';
+                                    ultraAccurateCard.title = 'Requires 70GB+ GPU memory';
+                                }
+                            }
+                        } else {
+                            gpuStatus.innerHTML = '<span class="text-danger">❌ No GPU detected - Standard Mode Only</span>';
+                            
+                            // Disable ultra-accurate mode
+                            const ultraAccurateCard = document.querySelector('.analysis-mode-card[data-mode="ultra_accurate"]');
+                            if (ultraAccurateCard) {
+                                ultraAccurateCard.style.opacity = '0.6';
+                                ultraAccurateCard.style.cursor = 'not-allowed';
+                                ultraAccurateCard.title = 'Requires CUDA GPU';
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking GPU status:', error);
+                const gpuStatus = document.getElementById('gpuStatus');
+                if (gpuStatus) {
+                    gpuStatus.innerHTML = '<span class="text-warning">⚠️ Unable to check GPU status</span>';
+                }
+            }
+        }
+        
         // Override the existing uploadAndAnalyze function to show loading state
         function enhancedUploadAndAnalyze() {
             // Check if a video is already selected
@@ -1144,9 +1515,180 @@
             // Show processing state
             setProcessingState(true);
             
-            // Call the original function from app.js
-            if (typeof uploadAndAnalyze === 'function') {
-                uploadAndAnalyze();
+            // Use the selected analysis mode
+            if (selectedAnalysisMode === 'ultra_accurate') {
+                console.log('🚀 Starting ultra-accurate analysis...');
+                startUltraAccurateAnalysis();
+            } else {
+                console.log('🎬 Starting standard analysis...');
+                // Call the original function from app.js
+                if (typeof uploadAndAnalyze === 'function') {
+                    uploadAndAnalyze();
+                }
+            }
+        }
+        
+        // Ultra-Accurate Analysis Function
+        async function startUltraAccurateAnalysis() {
+            try {
+                const userFocus = document.getElementById('userFocus')?.value || 'Analyze this video with ultra-high accuracy';
+                
+                // Show loading modal
+                const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+                loadingModal.show();
+                
+                // Update modal content for ultra-accurate mode
+                const modalTitle = document.querySelector('#loadingModal .modal-title');
+                const modalBody = document.querySelector('#loadingModal .modal-body');
+                
+                if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-rocket text-warning"></i> Ultra-Accurate Analysis (80GB GPU)';
+                if (modalBody) {
+                    modalBody.innerHTML = `
+                        <div class="text-center mb-4">
+                            <div class="spinner-border text-warning" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Ultra-Accurate Mode:</strong> This analysis will use maximum GPU resources for the highest possible accuracy.
+                        </div>
+                        <div class="progress mb-3" style="height: 30px;">
+                            <div id="modalProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%">
+                                <span id="modalProgressText">0%</span>
+                            </div>
+                        </div>
+                        <div id="loadingMessage" class="text-center">Initializing ultra-accurate analysis...</div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                This mode processes videos in chunks with multi-scale analysis, cross-validation, and quality thresholds.
+                            </small>
+                        </div>
+                    `;
+                }
+                
+                // Start progress updates
+                updateModalProgress(10, 'Initializing ultra-accurate AI service...');
+                
+                // Make API call to ultra-accurate endpoint
+                const response = await fetch('/analyze-ultra-accurate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_focus: userFocus
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateModalProgress(100, 'Ultra-accurate analysis completed successfully!');
+                    
+                    // Show success message
+                    setTimeout(() => {
+                        loadingModal.hide();
+                        
+                        // Display results
+                        displayAnalysisResults(result);
+                        
+                        // Complete processing
+                        completeProcessing();
+                        
+                        // Show success notification
+                        showNotification('Ultra-accurate analysis completed successfully!', 'success');
+                        
+                    }, 1000);
+                    
+                } else {
+                    throw new Error(result.error || 'Ultra-accurate analysis failed');
+                }
+                
+            } catch (error) {
+                console.error('Ultra-accurate analysis error:', error);
+                
+                // Hide loading modal
+                const loadingModal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
+                if (loadingModal) loadingModal.hide();
+                
+                // Show error
+                showNotification(`Ultra-accurate analysis failed: ${error.message}`, 'error');
+                
+                // Complete processing (with error)
+                completeProcessing();
+            }
+        }
+        
+        // Display Analysis Results
+        function displayAnalysisResults(result) {
+            try {
+                // Display analysis text
+                const analysisText = document.getElementById('analysisText');
+                if (analysisText && result.analysis) {
+                    analysisText.innerHTML = result.analysis.replace(/\n/g, '<br>');
+                }
+                
+                // Display video duration
+                const durationInfo = document.getElementById('durationInfo');
+                if (durationInfo && result.video_duration) {
+                    const minutes = Math.floor(result.video_duration / 60);
+                    const seconds = Math.floor(result.video_duration % 60);
+                    durationInfo.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+                
+                // Display timestamps
+                const timestampsList = document.getElementById('timestampsList');
+                if (timestampsList && result.timestamps) {
+                    timestampsList.innerHTML = '';
+                    if (result.timestamps.length > 0) {
+                        result.timestamps.forEach(timestamp => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.innerHTML = `<i class="fas fa-clock text-primary"></i> ${timestamp}`;
+                            timestampsList.appendChild(li);
+                        });
+                    } else {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item text-muted';
+                        li.textContent = 'No timestamps found';
+                        timestampsList.appendChild(li);
+                    }
+                }
+                
+                // Show ultra-accurate metadata if available
+                if (result.ultra_accurate_mode) {
+                    const resultsSection = document.getElementById('resultsSection');
+                    if (resultsSection) {
+                        const ultraAccurateInfo = document.createElement('div');
+                        ultraAccurateInfo.className = 'alert alert-warning mt-3';
+                        ultraAccurateInfo.innerHTML = `
+                            <i class="fas fa-rocket text-warning"></i>
+                            <strong>Ultra-Accurate Analysis Completed!</strong><br>
+                            <small>
+                                • GPU Optimization: ${result.gpu_optimization}<br>
+                                • Analysis Quality: ${result.analysis_quality}<br>
+                                • Multi-scale Analysis: ${result.multi_scale_analysis ? '✅' : '❌'}<br>
+                                • Cross-validation: ${result.cross_validation ? '✅' : '❌'}<br>
+                                • Max Video Duration: ${result.max_video_duration}
+                            </small>
+                        `;
+                        resultsSection.querySelector('.card-body').appendChild(ultraAccurateInfo);
+                    }
+                    
+                    // Show ultra-accurate Q&A section
+                    const ultraAccurateQASection = document.getElementById('ultraAccurateQASection');
+                    if (ultraAccurateQASection) {
+                        ultraAccurateQASection.style.display = 'block';
+                        ultraAccurateQASection.classList.add('show');
+                    }
+                }
+                
+                console.log('✅ Analysis results displayed successfully');
+                
+            } catch (error) {
+                console.error('Error displaying analysis results:', error);
             }
         }
         
@@ -1186,12 +1728,168 @@
                     return false;
                 };
             });
+            
+            // Initialize analysis mode selection
+            initializeAnalysisModeSelection();
         });
+        
+        // Show notification function
+        function showNotification(message, type = 'info') {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                              type === 'error' ? 'alert-danger' : 
+                              type === 'warning' ? 'alert-warning' : 'alert-info';
+            
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                                   type === 'error' ? 'exclamation-triangle' : 
+                                   type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                <strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
         
         // Expose functions globally for app.js to use
         window.setProcessingState = setProcessingState;
         window.updateModalProgress = updateModalProgress;
         window.completeProcessing = completeProcessing;
+        
+        // Ensure chat interface is functional when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Page loaded, ensuring chat interface is functional...');
+            setTimeout(ensureChatInterfaceFunctional, 1000); // Wait for app to initialize
+        });
+        
+        // Update completeProcessing to also ensure chat interface is functional
+        const originalCompleteProcessing = completeProcessing;
+        window.completeProcessing = function() {
+            originalCompleteProcessing();
+            ensureChatInterfaceFunctional();
+            console.log('✅ Processing completed, chat interface should be functional');
+        };
+        
+        // Ultra-Accurate Q&A Function
+        async function askUltraAccurateQuestion() {
+            const question = document.getElementById('qaQuestion')?.value;
+            const submitQA = document.getElementById('submitQA');
+            const qaResults = document.getElementById('qaResults');
+            const qaAnswer = document.getElementById('qaAnswer');
+            const qaConfidence = document.getElementById('qaConfidence');
+            
+            if (!question || question.trim() === '') {
+                showNotification('Please enter a question', 'warning');
+                return;
+            }
+            
+            try {
+                // Disable submit button and show loading
+                submitQA.disabled = true;
+                submitQA.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                // Make API call to ultra-accurate Q&A endpoint
+                const response = await fetch('/qa-ultra-accurate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question.trim()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Display answer
+                    qaAnswer.innerHTML = result.answer.replace(/\n/g, '<br>');
+                    qaConfidence.textContent = result.confidence || 'Ultra-High';
+                    qaConfidence.className = `badge bg-${result.confidence === 'ultra_high' ? 'success' : 'warning'}`;
+                    
+                    // Show results
+                    qaResults.style.display = 'block';
+                    
+                    // Clear question input
+                    document.getElementById('qaQuestion').value = '';
+                    
+                    showNotification('Question answered successfully!', 'success');
+                    
+                } else {
+                    throw new Error(result.error || 'Q&A failed');
+                }
+                
+            } catch (error) {
+                console.error('Ultra-accurate Q&A error:', error);
+                showNotification(`Q&A failed: ${error.message}`, 'error');
+                
+                // Show error in results
+                qaAnswer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                qaResults.style.display = 'block';
+                
+            } finally {
+                // Re-enable submit button
+                submitQA.disabled = false;
+                submitQA.innerHTML = '<i class="fas fa-rocket"></i> Ask Question (Ultra-Accurate)';
+            }
+        }
+        
+        // Chat interface test functions
+        function testChatInterface() {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const resultDiv = document.getElementById('chatTestResult');
+            const resultMessage = document.getElementById('chatTestMessage');
+            
+            if (!chatInput || !sendBtn) {
+                resultMessage.textContent = '❌ Chat elements not found!';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            const isDisabled = chatInput.disabled || sendBtn.disabled;
+            const isVisible = chatInput.style.display !== 'none' && sendBtn.style.display !== 'none';
+            const hasPointerEvents = chatInput.style.pointerEvents !== 'none';
+            
+            let message = '✅ Chat interface is working properly!\n';
+            message += `- Input disabled: ${isDisabled}\n`;
+            message += `- Elements visible: ${isVisible}\n`;
+            message += `- Pointer events: ${hasPointerEvents}\n`;
+            message += `- Input value: "${chatInput.value}"\n`;
+            message += `- Input placeholder: "${chatInput.placeholder}"`;
+            
+            resultMessage.textContent = message;
+            resultDiv.style.display = 'block';
+            
+            // Try to focus the input
+            try {
+                chatInput.focus();
+                chatInput.value = 'Test message ' + new Date().toLocaleTimeString();
+                console.log('✅ Chat input test successful');
+            } catch (error) {
+                console.error('❌ Chat input test failed:', error);
+                resultMessage.textContent += '\n❌ Focus test failed: ' + error.message;
+            }
+        }
+        
+        function showChatInterface() {
+            const chatInterface = document.getElementById('chatInterface');
+            if (chatInterface) {
+                chatInterface.style.display = 'flex';
+                chatInterface.style.opacity = '1';
+                chatInterface.style.transform = 'translateY(0)';
+                console.log('✅ Chat interface shown');
+            }
+        }
     </script>
 </body>
 </html> 

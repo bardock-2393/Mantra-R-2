@@ -44,6 +44,83 @@ def get_analysis_types():
         'success': True
     })
 
+@main_bp.route('/api/analysis-modes')
+def get_analysis_modes():
+    """Get available analysis modes including ultra-accurate"""
+    try:
+        import torch
+        
+        # Check GPU capabilities
+        gpu_available = torch.cuda.is_available()
+        gpu_memory = 0
+        gpu_name = "None"
+        
+        if gpu_available:
+            gpu_name = torch.cuda.get_device_name()
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+        
+        # Define available analysis modes
+        analysis_modes = {
+            'standard': {
+                'name': 'Standard Analysis',
+                'description': 'Standard video analysis using 32B model',
+                'endpoint': '/analyze',
+                'max_video_duration': '30 minutes',
+                'gpu_requirement': 'Any GPU',
+                'accuracy': 'High',
+                'features': ['Basic frame analysis', 'Timestamp extraction', 'Content description']
+            },
+            'ultra_accurate': {
+                'name': 'Ultra-Accurate Analysis (80GB GPU)',
+                'description': 'Maximum accuracy analysis using 80GB GPU optimization',
+                'endpoint': '/analyze-ultra-accurate',
+                'max_video_duration': '120 minutes',
+                'gpu_requirement': '70GB+ GPU memory',
+                'accuracy': 'Ultra-High',
+                'features': [
+                    'Multi-scale analysis (5 scales)',
+                    'Cross-validation',
+                    'Quality thresholds',
+                    'Chunk processing',
+                    '120-minute video support',
+                    'Maximum GPU utilization'
+                ],
+                'available': gpu_available and gpu_memory >= 70,
+                'gpu_memory_available': gpu_memory,
+                'gpu_name': gpu_name
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'analysis_modes': analysis_modes,
+            'gpu_status': {
+                'available': gpu_available,
+                'name': gpu_name,
+                'memory_gb': gpu_memory,
+                'ultra_accurate_ready': gpu_available and gpu_memory >= 70
+            },
+            'recommendations': {
+                'standard': 'Use for most videos under 30 minutes',
+                'ultra_accurate': 'Use for maximum accuracy and videos up to 120 minutes (requires 70GB+ GPU)'
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error getting analysis modes: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'analysis_modes': {
+                'standard': {
+                    'name': 'Standard Analysis',
+                    'description': 'Standard video analysis',
+                    'endpoint': '/analyze',
+                    'available': True
+                }
+            }
+        })
+
 @main_bp.route('/upload', methods=['POST'])
 def upload_video():
     """Handle video upload"""
@@ -365,11 +442,274 @@ def analyze_video():
         print(f"Analysis error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+@main_bp.route('/analyze-ultra-accurate', methods=['POST'])
+def analyze_video_ultra_accurate():
+    """Ultra-accurate video analysis using 80GB GPU optimization"""
+    try:
+        data = request.get_json()
+        user_focus = data.get('user_focus', 'Analyze this video with ultra-high accuracy')
+        
+        session_id = session.get('session_id')
+        print(f"🚀 Ultra-Accurate Analysis - Session ID: {session_id}")
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'No session found'})
+        
+        # Get session data
+        session_data = get_session_data(session_id)
+        if not session_data or 'filepath' not in session_data:
+            return jsonify({'success': False, 'error': 'No video uploaded'})
+        
+        video_path = session_data['filepath']
+        print(f"🎬 Ultra-accurate analysis for: {video_path}")
+        
+        if not os.path.exists(video_path):
+            return jsonify({'success': False, 'error': 'Video file not found'})
+        
+        # Use ultra-accurate AI service for 80GB GPU optimization
+        try:
+            from services.ultra_accurate_ai_service import UltraAccurateAIService
+            
+            print("🚀 Initializing ultra-accurate AI service...")
+            ultra_service = UltraAccurateAIService()
+            
+            # Check GPU availability
+            import torch
+            if torch.cuda.is_available():
+                gpu_name = torch.cuda.get_device_name()
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+                print(f"✅ GPU detected: {gpu_name} with {gpu_memory:.1f}GB memory")
+                
+                if gpu_memory < 70:  # Need at least 70GB for ultra-accurate mode
+                    print(f"⚠️ GPU memory ({gpu_memory:.1f}GB) may be insufficient for ultra-accurate mode")
+                    return jsonify({
+                        'success': False, 
+                        'error': f'Insufficient GPU memory. Ultra-accurate mode requires at least 70GB, but only {gpu_memory:.1f}GB available.',
+                        'gpu_memory': gpu_memory,
+                        'required_memory': 70
+                    })
+            else:
+                print("❌ No GPU detected - ultra-accurate mode requires CUDA GPU")
+                return jsonify({
+                    'success': False, 
+                    'error': 'Ultra-accurate mode requires CUDA GPU with at least 70GB memory'
+                })
+            
+            # Start ultra-accurate analysis
+            print("🎯 Starting ultra-accurate analysis with 80GB GPU optimization...")
+            analysis_result = ultra_service.analyze_long_video_ultra_accurate(video_path, user_focus)
+            
+            if analysis_result.get('success'):
+                print(f"✅ Ultra-accurate analysis completed successfully!")
+                print(f"📊 Analysis length: {len(analysis_result.get('analysis', ''))} characters")
+                print(f"🎬 Video duration: {analysis_result.get('total_duration', 0)/60:.1f} minutes")
+                print(f"📸 Frames analyzed: {analysis_result.get('total_frames', 0)}")
+                print(f"🔍 Chunks processed: {analysis_result.get('chunk_count', 0)}")
+                
+                # Extract timestamps from ultra-accurate analysis
+                timestamps = extract_timestamps_from_text(analysis_result.get('analysis', ''))
+                timestamps = clean_and_deduplicate_timestamps(timestamps)
+                
+                # Get video metadata
+                stored_metadata = session_data.get('metadata')
+                if stored_metadata and isinstance(stored_metadata, str):
+                    try:
+                        video_metadata = json.loads(stored_metadata)
+                        video_duration = video_metadata.get('duration', 0)
+                    except json.JSONDecodeError:
+                        video_metadata = extract_video_metadata(video_path)
+                        video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+                else:
+                    video_metadata = extract_video_metadata(video_path)
+                    video_duration = video_metadata.get('duration', 0) if video_metadata else 0
+                
+                # Filter timestamps to video duration
+                if video_duration > 0:
+                    timestamps = aggressive_timestamp_validation(timestamps, video_duration)
+                
+                # Store ultra-accurate analysis results
+                analysis_data = {
+                    'analysis_result': analysis_result.get('analysis', ''),
+                    'analysis_type': 'ultra_accurate_80gb_gpu',
+                    'user_focus': user_focus,
+                    'timestamps_found': timestamps,
+                    'evidence': [],  # No evidence in ultra-accurate mode
+                    'analysis_time': datetime.now().isoformat(),
+                    'video_duration': video_duration,
+                    'video_metadata': video_metadata,
+                    'ultra_accurate_metadata': {
+                        'gpu_utilization': analysis_result.get('gpu_utilization', '80GB optimized'),
+                        'analysis_quality': analysis_result.get('analysis_quality', 'ultra_high'),
+                        'chunk_count': analysis_result.get('chunk_count', 0),
+                        'total_frames': analysis_result.get('total_frames', 0),
+                        'multi_scale_analysis': True,
+                        'cross_validation': True,
+                        'quality_thresholds': True
+                    }
+                }
+                
+                # Update session data
+                session_data.update(analysis_data)
+                store_session_data(session_id, session_data)
+                
+                # Create vector embeddings for semantic search
+                try:
+                    vector_search_service.create_embeddings(session_id, analysis_data)
+                    print(f"✅ Vector embeddings created for ultra-accurate analysis")
+                except Exception as e:
+                    print(f"⚠️ Warning: Could not create vector embeddings: {e}")
+                
+                return jsonify({
+                    'success': True,
+                    'analysis': analysis_result.get('analysis', ''),
+                    'timestamps': timestamps,
+                    'evidence': [],
+                    'evidence_count': 0,
+                    'video_duration': video_duration,
+                    'vector_search_available': True,
+                    'ultra_accurate_mode': True,
+                    'gpu_optimization': '80GB GPU Optimized',
+                    'analysis_quality': 'Ultra-High Accuracy',
+                    'multi_scale_analysis': True,
+                    'cross_validation': True,
+                    'chunk_processing': True,
+                    'max_video_duration': '120 minutes'
+                })
+                
+            else:
+                error_msg = analysis_result.get('error', 'Unknown error in ultra-accurate analysis')
+                print(f"❌ Ultra-accurate analysis failed: {error_msg}")
+                return jsonify({
+                    'success': False, 
+                    'error': f'Ultra-accurate analysis failed: {error_msg}',
+                    'fallback_available': True,
+                    'suggestion': 'Try using the standard analysis endpoint instead'
+                })
+                
+        except ImportError as e:
+            print(f"❌ Ultra-accurate service not available: {e}")
+            return jsonify({
+                'success': False, 
+                'error': 'Ultra-accurate service not available. Please install the required dependencies.',
+                'fallback_available': True,
+                'suggestion': 'Use the standard analysis endpoint instead'
+            })
+            
+        except Exception as e:
+            print(f"❌ Ultra-accurate analysis error: {e}")
+            return jsonify({
+                'success': False, 
+                'error': f'Ultra-accurate analysis failed: {str(e)}',
+                'fallback_available': True,
+                'suggestion': 'Try using the standard analysis endpoint instead'
+            })
+            
+    except Exception as e:
+        print(f"Ultra-accurate analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
 # DISABLED: Screenshot serving route
 # @main_bp.route('/screenshot/<filename>')
 # def get_screenshot(filename):
 #     """Serve screenshot files - DISABLED"""
 #     return jsonify({'error': 'Screenshot feature has been disabled'}), 404
+
+@main_bp.route('/qa-ultra-accurate', methods=['POST'])
+def qa_ultra_accurate():
+    """Real-time Q&A using ultra-accurate analysis results"""
+    try:
+        data = request.get_json()
+        question = data.get('question', '')
+        
+        if not question:
+            return jsonify({'success': False, 'error': 'No question provided'})
+        
+        session_id = session.get('session_id')
+        if not session_id:
+            return jsonify({'success': False, 'error': 'No active session'})
+        
+        # Get session data
+        session_data = get_session_data(session_id)
+        if not session_data:
+            return jsonify({'success': False, 'error': 'No session data found'})
+        
+        # Check if ultra-accurate analysis is available
+        if session_data.get('analysis_type') != 'ultra_accurate_80gb_gpu':
+            return jsonify({
+                'success': False, 
+                'error': 'Ultra-accurate Q&A requires ultra-accurate analysis results',
+                'suggestion': 'First run ultra-accurate analysis, then ask questions'
+            })
+        
+        # Use ultra-accurate service for Q&A
+        try:
+            from services.ultra_accurate_ai_service import UltraAccurateAIService
+            
+            ultra_service = UltraAccurateAIService()
+            
+            # Answer question using stored analysis
+            qa_result = ultra_service.answer_question_ultra_accurate(question)
+            
+            if 'error' not in qa_result:
+                # Store Q&A in chat history
+                chat_history = session_data.get('chat_history', [])
+                if isinstance(chat_history, str):
+                    try:
+                        chat_list = json.loads(chat_history)
+                    except json.JSONDecodeError:
+                        chat_list = []
+                else:
+                    chat_list = chat_history if isinstance(chat_history, list) else []
+                
+                chat_list.append({
+                    'user': question,
+                    'timestamp': datetime.now().isoformat()
+                })
+                chat_list.append({
+                    'ai': qa_result.get('answer', ''),
+                    'timestamp': datetime.now().isoformat(),
+                    'confidence': qa_result.get('confidence', 'ultra_high'),
+                    'source': 'ultra_accurate_analysis'
+                })
+                
+                # Update session data
+                session_data['chat_history'] = chat_list
+                store_session_data(session_id, session_data)
+                
+                return jsonify({
+                    'success': True,
+                    'answer': qa_result.get('answer', ''),
+                    'confidence': qa_result.get('confidence', 'ultra_high'),
+                    'source': 'ultra_accurate_analysis',
+                    'chat_history': chat_list
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': qa_result.get('error', 'Q&A failed'),
+                    'fallback_available': True
+                })
+                
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'Ultra-accurate service not available',
+                'fallback_available': True
+            })
+            
+        except Exception as e:
+            print(f"Ultra-accurate Q&A error: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Q&A failed: {str(e)}',
+                'fallback_available': True
+            })
+            
+    except Exception as e:
+        print(f"Ultra-accurate Q&A error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @main_bp.route('/demo-video')
 def demo_video():
