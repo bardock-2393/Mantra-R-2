@@ -22,53 +22,77 @@ class VideoDetective {
     }
 
     setupEventListeners() {
+        console.log('🔧 Setting up event listeners...');
+        
         // File upload
         const videoFile = document.getElementById('videoFile');
         const uploadArea = document.getElementById('uploadArea');
+        
+        console.log('📁 Video file input found:', videoFile);
+        console.log('📤 Upload area found:', uploadArea);
 
-        videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
+        if (videoFile) {
+            videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
+            console.log('✅ File change event listener added');
+        } else {
+            console.error('❌ Video file input not found!');
+        }
 
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
+        if (uploadArea) {
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
 
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFile(files[0]);
-            }
-        });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.handleFile(files[0]);
+                }
+            });
 
-        uploadArea.addEventListener('click', (e) => {
-            // Don't open file dialog if clicking on model selection or other interactive elements
-            if (e.target.closest('.model-selection') || 
-                e.target.closest('.upload-buttons') || 
-                e.target.closest('.upload-features')) {
-                return;
-            }
-            videoFile.click();
-        });
+            uploadArea.addEventListener('click', (e) => {
+                // Don't open file dialog if clicking on model selection or other interactive elements
+                if (e.target.closest('.model-selection') || 
+                    e.target.closest('.upload-buttons') || 
+                    e.target.closest('.upload-features')) {
+                    return;
+                }
+                console.log('🖱️ Upload area clicked, opening file dialog...');
+                videoFile.click();
+            });
+            
+            console.log('✅ Upload area event listeners added');
+        } else {
+            console.error('❌ Upload area not found!');
+        }
 
         // Chat functionality
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        if (chatInput && sendBtn) {
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            sendBtn.addEventListener('click', () => this.sendMessage());
+            console.log('✅ Chat event listeners added');
+        } else {
+            console.log('⚠️ Chat elements not found (normal on initial load)');
+        }
         
-        sendBtn.addEventListener('click', () => this.sendMessage());
+        console.log('🔧 Event listeners setup complete');
     }
 
     setupAutoResize() {
@@ -375,20 +399,31 @@ class VideoDetective {
     }
 
     async uploadFile(file) {
+        console.log('📤 Starting file upload:', file.name, file.size, file.type);
+        
         const formData = new FormData();
         formData.append('video', file);
+        
+        console.log('📦 FormData created with file');
 
         try {
+            console.log('🔄 Showing progress bar...');
             this.showProgress();
 
+            console.log('📡 Sending upload request to /upload...');
             const response = await fetch('/upload', {
                 method: 'POST',
                 body: formData
             });
 
+            console.log('📥 Upload response received:', response.status, response.statusText);
+            console.log('📋 Response headers:', response.headers);
+
             const result = await response.json();
+            console.log('📊 Upload result:', result);
 
             if (result.success) {
+                console.log('✅ Upload successful!');
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
@@ -397,10 +432,12 @@ class VideoDetective {
                 // Don't auto-analyze, let user click the analysis button
                 this.showSuccess('Video uploaded successfully! Click "Start Analysis" to begin analysis.');
             } else {
+                console.log('❌ Upload failed:', result.error);
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
             }
         } catch (error) {
+            console.log('💥 Upload error caught:', error);
             this.hideProgress();
             this.showError('Upload failed: ' + error.message);
         }
@@ -408,31 +445,35 @@ class VideoDetective {
 
     showProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        const progressBar = progress.querySelector('.progress-bar');
         
-        progress.style.display = 'block';
-        progressFill.style.width = '0%';
-        
-        // Simulate progress
-        let width = 0;
-        const interval = setInterval(() => {
-            if (width >= 90) {
-                clearInterval(interval);
-            } else {
-                width += Math.random() * 10;
-                progressFill.style.width = width + '%';
-            }
-        }, 200);
+        if (progress && progressBar) {
+            progress.style.display = 'block';
+            progressBar.style.width = '0%';
+            
+            // Simulate progress
+            let width = 0;
+            const interval = setInterval(() => {
+                if (width >= 90) {
+                    clearInterval(interval);
+                } else {
+                    width += Math.random() * 10;
+                    progressBar.style.width = width + '%';
+                }
+            }, 200);
+        }
     }
 
     hideProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
+        const progressBar = progress.querySelector('.progress-bar');
         
-        progressFill.style.width = '100%';
-        setTimeout(() => {
-            progress.style.display = 'none';
-        }, 500);
+        if (progress && progressBar) {
+            progressBar.style.width = '100%';
+            setTimeout(() => {
+                progress.style.display = 'none';
+            }, 500);
+        }
     }
 
     async analyzeVideo() {
@@ -1279,5 +1320,23 @@ window.startAnalysis = () => window.videoDetective.startAnalysis();
 window.resetUpload = () => window.videoDetective.resetUpload();
 window.minimizeChat = () => window.videoDetective.minimizeChat();
 window.cleanupOldUploads = () => window.videoDetective.cleanupOldUploads();
+
+// Debug function to test upload
+window.testUpload = () => {
+    console.log('🧪 Testing upload functionality...');
+    console.log('📁 Current file:', window.videoDetective.currentFile);
+    console.log('📤 File uploaded flag:', window.videoDetective.fileUploaded);
+    console.log('🔍 Video file input:', document.getElementById('videoFile'));
+    console.log('📤 Upload area:', document.getElementById('uploadArea'));
+    
+    // Test file input click
+    const fileInput = document.getElementById('videoFile');
+    if (fileInput) {
+        console.log('🖱️ Clicking file input...');
+        fileInput.click();
+    } else {
+        console.error('❌ File input not found!');
+    }
+};
 
 console.log('🚀 AI Video Detective Pro is ready!');

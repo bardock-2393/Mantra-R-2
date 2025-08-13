@@ -329,13 +329,17 @@
                                             <p class="text-muted">Maximum size: 500MB</p>
                                         </div>
                                         <div class="upload-buttons">
-                                            <button class="upload-btn primary" onclick="document.getElementById('videoFile').click()">
+                                            <button class="upload-btn primary" onclick="document.getElementById('videoFile').click(); return false;">
                                                 <i class="fas fa-folder-open"></i>
                                                 Choose Video File
                                             </button>
                                             <button class="upload-btn secondary" onclick="uploadDemoVideo()">
                                                 <i class="fas fa-play-circle"></i>
                                                 Use Demo Video
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info" onclick="testUpload()" style="margin-top: 10px;">
+                                                <i class="fas fa-bug"></i>
+                                                Debug Upload
                                             </button>
                                         </div>
                                     </div>
