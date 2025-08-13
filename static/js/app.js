@@ -737,60 +737,133 @@ class VideoDetective {
     showChatInterface() {
         console.log('💬 Showing chat interface...');
         
-        const uploadSection = document.getElementById('uploadSection');
-        const chatInterface = document.getElementById('chatInterface');
-        
-        // Hide upload section with animation
-        uploadSection.style.transition = 'all 0.3s ease';
-        uploadSection.style.opacity = '0';
-        uploadSection.style.transform = 'translateY(-20px)';
-        
-        setTimeout(() => {
-            uploadSection.style.display = 'none';
+        try {
+            const uploadSection = document.getElementById('uploadSection');
+            const chatInterface = document.getElementById('chatInterface');
             
-            // Show chat interface
-            chatInterface.style.display = 'flex';
-            chatInterface.style.opacity = '0';
-            chatInterface.style.transform = 'translateY(20px)';
+            if (!uploadSection || !chatInterface) {
+                console.error('❌ Required elements not found:', { uploadSection: !!uploadSection, chatInterface: !!chatInterface });
+                return;
+            }
+            
+            // Hide upload section with animation
+            uploadSection.style.transition = 'all 0.3s ease';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
             
             setTimeout(() => {
-                chatInterface.style.transition = 'all 0.3s ease';
-                chatInterface.style.opacity = '1';
-                chatInterface.style.transform = 'translateY(0)';
-            }, 50);
-        }, 300);
+                uploadSection.style.display = 'none';
+                
+                // Show chat interface
+                chatInterface.style.display = 'flex';
+                chatInterface.style.opacity = '0';
+                chatInterface.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    chatInterface.style.transition = 'all 0.3s ease';
+                    chatInterface.style.opacity = '1';
+                    chatInterface.style.transform = 'translateY(0)';
+                }, 50);
+            }, 300);
+            
+            // Enable chat input and ensure event listeners are working
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (chatInput && sendBtn) {
+                // Remove any existing disabled state
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                
+                // Ensure event listeners are attached
+                this.setupChatEventListeners();
+                
+                // Focus on input
+                chatInput.focus();
+                
+                console.log('✅ Chat interface elements enabled and focused');
+            } else {
+                console.error('❌ Chat input elements not found');
+            }
+            
+            console.log('✅ Chat interface should now be visible');
+            
+        } catch (error) {
+            console.error('❌ Error showing chat interface:', error);
+        }
+    }
+    
+    setupChatEventListeners() {
+        console.log('🔧 Setting up chat event listeners...');
         
-        // Enable chat input
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
         
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
-        chatInput.focus();
+        if (!chatInput || !sendBtn) {
+            console.error('❌ Chat elements not found for event listeners');
+            return;
+        }
         
-        console.log('✅ Chat interface should now be visible');
+        // Remove existing event listeners to prevent duplicates
+        const newChatInput = chatInput.cloneNode(true);
+        const newSendBtn = sendBtn.cloneNode(true);
+        
+        chatInput.parentNode.replaceChild(newChatInput, chatInput);
+        sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+        
+        // Add new event listeners
+        newChatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+        
+        newSendBtn.addEventListener('click', () => this.sendMessage());
+        
+        // Setup auto-resize for textarea
+        newChatInput.addEventListener('input', () => {
+            newChatInput.style.height = 'auto';
+            newChatInput.style.height = Math.min(newChatInput.scrollHeight, 120) + 'px';
+        });
+        
+        console.log('✅ Chat event listeners setup complete');
     }
 
     async sendMessage() {
-        const chatInput = document.getElementById('chatInput');
-        const message = chatInput.value.trim();
-
-        if (!message || this.isTyping) return;
-
-        // Add user message
-        this.addChatMessage('user', message);
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
+        console.log('💬 sendMessage called');
         
-        // Disable input while processing
-        chatInput.disabled = true;
-        const sendBtn = document.getElementById('sendBtn');
-        sendBtn.disabled = true;
-
-        // Show typing indicator
-        this.showTypingIndicator();
-
         try {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!chatInput || !sendBtn) {
+                console.error('❌ Chat elements not found in sendMessage');
+                return;
+            }
+            
+            const message = chatInput.value.trim();
+            console.log('📝 Message to send:', message);
+
+            if (!message || this.isTyping) {
+                console.log('⚠️ Message empty or typing in progress');
+                return;
+            }
+
+            // Add user message
+            this.addChatMessage('user', message);
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // Disable input while processing
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Show typing indicator
+            this.showTypingIndicator();
+
+            console.log('🚀 Sending message to /chat endpoint...');
+            
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {
@@ -799,7 +872,14 @@ class VideoDetective {
                 body: JSON.stringify({ message: message })
             });
 
+            console.log('📡 Response received:', response.status, response.ok);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const result = await response.json();
+            console.log('📊 Chat result:', result);
 
             // Hide typing indicator
             this.hideTypingIndicator();
@@ -815,17 +895,24 @@ class VideoDetective {
                     }, 800); // Wait for fade-in effect to complete + buffer
                 }
             } else {
-                this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
+                console.error('❌ Chat API returned error:', result.error);
+                this.addChatMessage('ai', `Sorry, I encountered an error: ${result.error || 'Unknown error'}. Please try again.`);
             }
         } catch (error) {
+            console.error('❌ Error in sendMessage:', error);
             this.hideTypingIndicator();
-            this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
+            this.addChatMessage('ai', `Sorry, I encountered an error: ${error.message}. Please try again.`);
+        } finally {
+            // Re-enable input
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (chatInput && sendBtn) {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.focus();
+            }
         }
-        
-        // Re-enable input
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
-        chatInput.focus();
     }
 
     showTypingIndicator() {
@@ -901,19 +988,51 @@ class VideoDetective {
     }
 
     showMessageWithEffect(element, text) {
-        // Start with opacity 0 and add fade-in effect
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(10px)';
-        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        
-        // Set the content immediately
-        element.innerHTML = text;
-        
-        // Trigger the fade-in animation
-        setTimeout(() => {
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, 50);
+        try {
+            // Start with opacity 0 and add fade-in effect
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(10px)';
+            element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            
+            // Set the content immediately
+            element.innerHTML = text;
+            
+            // Trigger the fade-in animation
+            setTimeout(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            }, 50);
+        } catch (error) {
+            console.error('❌ Error in showMessageWithEffect:', error);
+            // Fallback: just set the content without animation
+            if (element) {
+                element.innerHTML = text;
+            }
+        }
+    }
+    
+    showTypingIndicator() {
+        try {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.style.display = 'block';
+                this.isTyping = true;
+            }
+        } catch (error) {
+            console.error('❌ Error showing typing indicator:', error);
+        }
+    }
+    
+    hideTypingIndicator() {
+        try {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.style.display = 'none';
+                this.isTyping = false;
+            }
+        } catch (error) {
+            console.error('❌ Error hiding typing indicator:', error);
+        }
     }
 
     formatAIResponse(message) {
