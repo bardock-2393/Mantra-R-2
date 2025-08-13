@@ -295,12 +295,10 @@ class VideoDetective {
                 progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos. Please wait patiently - no timeout set.';
             }
             
-            // Start analysis and then poll for completion (to avoid proxy timeout)
-            console.log('🚀 Starting analysis with polling strategy...');
-            
+            // Call the analyze API (no timeout)
+            let response;
             try {
-                // Start the analysis (don't wait for completion)
-                const startResponse = await fetch('/analyze', {
+                response = await fetch('/analyze', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -310,83 +308,79 @@ class VideoDetective {
                         user_focus: 'Analyze this video comprehensively for all important events and observations'
                     })
                 });
+            } catch (fetchError) {
+                throw fetchError;
+            }
+
+            console.log('🔍 API response received:', response.status, response.ok);
+            
+            // Check if response is ok
+            if (!response.ok) {
+                if (response.status === 524) {
+                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
+                } else if (response.status >= 500) {
+                    throw new Error(`Server error (${response.status}). Please try again later.`);
+                } else if (response.status >= 400) {
+                    throw new Error(`Request error (${response.status}). Please check your input and try again.`);
+                } else {
+                    throw new Error(`Unexpected response (${response.status}). Please try again.`);
+                }
+            }
+            
+            // Get response text first to check if it's valid JSON
+            const responseText = await response.text();
+            console.log('🔍 Response text received:', responseText.substring(0, 200) + '...');
+            
+            // Try to parse as JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('🔍 API result parsed:', result);
+            } catch (jsonError) {
+                console.error('❌ JSON parsing failed:', jsonError);
+                console.error('❌ Raw response:', responseText);
                 
-                console.log('🔍 Analysis started, response status:', startResponse.status);
+                // Check if it's a timeout or error response
+                if (responseText.includes('timeout') || responseText.includes('524')) {
+                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
+                } else if (responseText.includes('error') || responseText.includes('Error')) {
+                    throw new Error('Server error: ' + responseText.substring(0, 100));
+                } else {
+                    throw new Error('Invalid response from server. Please try again.');
+                }
+            }
+            
+            if (result.success) {
+                console.log('✅ Analysis successful, showing chat interface...');
+                this.analysisComplete = true;
+                this.showChatInterface();
                 
-                // Update progress message
-                const progressStatus = document.getElementById('progressStatus');
-                if (progressStatus) {
-                    progressStatus.textContent = 'AI analysis started! Polling for completion... This may take several minutes.';
+                // Show analysis completion message
+                let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
+                
+                if (result.analysis) {
+                    completionMessage += '\n\n**Analysis Summary:**\n' + result.analysis.substring(0, 300) + '...';
                 }
                 
-                // Poll for completion every 10 seconds
-                const pollInterval = setInterval(async () => {
-                    try {
-                        console.log('🔍 Polling for analysis completion...');
-                        const statusResponse = await fetch('/api/session/status');
-                        
-                        if (statusResponse.ok) {
-                            const statusData = await statusResponse.json();
-                            console.log('🔍 Session status:', statusData);
-                            
-                            if (statusData.analysis_result && statusData.analysis_result.length > 100) {
-                                console.log('✅ Analysis completed! Showing results...');
-                                clearInterval(pollInterval);
-                                
-                                // Show results
-                                this.analysisComplete = true;
-                                this.showChatInterface();
-                                
-                                // Show completion message
-                                let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
-                                
-                                if (statusData.analysis_result) {
-                                    completionMessage += '\n\n**Analysis Summary:**\n' + statusData.analysis_result.substring(0, 300) + '...';
-                                }
-                                
-                                completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
-                                
-                                // Add completion message with typing effect
-                                this.addChatMessageWithTyping('ai', completionMessage);
-                                
-                                // Hide progress section
-                                const progressSection = document.getElementById('progressSection');
-                                if (progressSection) {
-                                    progressSection.style.display = 'none';
-                                }
-                            } else {
-                                console.log('⏳ Analysis still in progress...');
-                                if (progressStatus) {
-                                    progressStatus.textContent = `AI analysis in progress... (${new Date().toLocaleTimeString()})`;
-                                }
-                            }
-                        } else {
-                            console.log('⚠️ Status check failed, retrying...');
-                        }
-                    } catch (pollError) {
-                        console.error('❌ Polling error:', pollError);
-                        if (progressStatus) {
-                            progressStatus.textContent = 'Checking analysis status... (retrying)';
-                        }
-                    }
-                }, 10000); // Poll every 10 seconds
+                completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
                 
-                // Set a maximum polling time (30 minutes)
-                setTimeout(() => {
-                    clearInterval(pollInterval);
-                    if (progressStatus) {
-                        progressStatus.textContent = 'Analysis taking longer than expected. Please check back later or refresh the page.';
-                    }
-                }, 1800000); // 30 minutes
+                // Add completion message with typing effect
+                this.addChatMessageWithTyping('ai', completionMessage);
                 
-            } catch (startError) {
-                console.error('❌ Failed to start analysis:', startError);
-                this.showError('Failed to start analysis: ' + startError.message);
-                
-                // Hide progress section on error
+                // Hide progress section
                 const progressSection = document.getElementById('progressSection');
                 if (progressSection) {
                     progressSection.style.display = 'none';
+                }
+            } else {
+                console.error('❌ Analysis failed:', result.error);
+                this.showError(result.error || 'Analysis failed');
+                
+                // Hide progress section on error
+                const errorSection = document.getElementById('errorSection');
+                if (errorSection) {
+                    errorSection.style.display = 'block';
+                    document.getElementById('errorText').textContent = result.error || 'Analysis failed';
                 }
             }
                     } catch (error) {
@@ -1077,26 +1071,6 @@ class VideoDetective {
                 } else {
                     this.hideCleanupButton();
                 }
-                
-                // Check if analysis is already complete
-                if (result.analysis_result && result.analysis_result.length > 100) {
-                    console.log('✅ Analysis already completed, showing chat interface...');
-                    this.analysisComplete = true;
-                    this.showChatInterface();
-                    
-                    // Show completion message
-                    let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
-                    
-                    if (result.analysis_result) {
-                        completionMessage += '\n\n**Analysis Summary:**\n' + result.analysis_result.substring(0, 300) + '...';
-                    }
-                    
-                    completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
-                    
-                    // Add completion message with typing effect
-                    this.addChatMessageWithTyping('ai', completionMessage);
-                }
-                
                 console.log('📊 Session status:', result);
             } else {
                 this.hideCleanupButton();

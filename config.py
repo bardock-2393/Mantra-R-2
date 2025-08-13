@@ -51,38 +51,45 @@ class Config:
         'chat_temperature': 0.3
     }
     
-    # Qwen2.5-VL-32B Model Configuration - Optimized for speed and 80GB GPU
+    # Qwen2.5-VL-32B Model Configuration - ULTRA-FAST for short videos
     QWEN25VL_32B_MODEL_PATH = os.getenv('QWEN25VL_32B_MODEL_PATH', 'Qwen/Qwen2.5-VL-32B-Instruct')
     QWEN25VL_32B_CONFIG = {
         'model_name': 'Qwen/Qwen2.5-VL-32B-Instruct',
         'hf_token': os.getenv('HF_TOKEN', ''),
-        'max_length': 4096,  # Reduced for faster generation and memory efficiency
-        'temperature': 0.1,   # More deterministic = faster
-        'top_p': 0.8,        # Reduced for faster sampling
-        'top_k': 20,          # Reduced for faster sampling
-        'chat_temperature': 0.2,
+        'max_length': 1024,  # ULTRA-FAST: Reduced from 4096 to 1024 for speed
+        'temperature': 0.0,   # ULTRA-FAST: Deterministic (greedy) generation
+        'top_p': 1.0,        # ULTRA-FAST: No nucleus sampling
+        'top_k': 1,          # ULTRA-FAST: Greedy selection only
+        'chat_temperature': 0.0,  # ULTRA-FAST: Deterministic chat
         'min_pixels': 256 * 28 * 28,  # 256 tokens
-        'max_pixels': 1280 * 28 * 28,  # 1280 tokens
-        # Speed optimization settings
+        'max_pixels': 640 * 28 * 28,  # ULTRA-FAST: Reduced from 1280 to 640
+        # ULTRA-FAST speed optimization settings
         'use_cache': True,
-        'do_sample': False,   # Disable sampling for speed
-        'num_beams': 1,       # Single beam for speed
+        'do_sample': False,   # ULTRA-FAST: Disable sampling
+        'num_beams': 1,       # ULTRA-FAST: Single beam
         'early_stopping': True,
+        'repetition_penalty': 1.0,  # ULTRA-FAST: No repetition penalty
+        'length_penalty': 1.0,      # ULTRA-FAST: No length penalty
         # Memory optimization for 80GB GPU
         'batch_size': 1,      # Single batch for memory efficiency
         'gradient_checkpointing': False,  # Disable for inference
         'use_flash_attention': False,  # Disable for compatibility
         'compile_mode': 'max-autotune',  # Enhanced speed optimization
         # Timeout settings to prevent Cloudflare 524
-        'vision_timeout': 1800,  # 30 minutes for vision processing (increased)
-        'generation_timeout': 1800,  # 30 minutes for text generation (increased)
-        'total_timeout': 3600,  # 60 minutes total analysis time (increased)
-        # Frame optimization
-        'max_frames_large': 4,   # Large videos (>500MB) - reduced from 8
-        'max_frames_medium': 6,  # Medium videos (100-500MB) - reduced from 8
-        'max_frames_small': 8,   # Small videos (<100MB) - reduced from 8
+        'vision_timeout': 1800,  # 30 minutes for vision processing
+        'generation_timeout': 1800,  # 30 minutes for text generation
+        'total_timeout': 3600,  # 60 minutes total analysis time
+        # ULTRA-FAST frame optimization for short videos
+        'max_frames_large': 2,   # ULTRA-FAST: Large videos (>500MB) - only 2 frames
+        'max_frames_medium': 3,  # ULTRA-FAST: Medium videos (100-500MB) - only 3 frames
+        'max_frames_small': 4,   # ULTRA-FAST: Small videos (<100MB) - only 4 frames
         'frame_resolution': 224,  # Resize frames to 224x224 for memory efficiency
         'use_half_precision': True,  # Use FP16 for memory efficiency
+        # ULTRA-FAST generation settings
+        'max_new_tokens': 512,   # ULTRA-FAST: Limit output to 512 tokens max
+        'min_new_tokens': 100,   # ULTRA-FAST: Minimum 100 tokens for quality
+        'no_repeat_ngram_size': 0,  # ULTRA-FAST: Disable n-gram blocking
+        'bad_words_ids': None,   # ULTRA-FAST: No bad word filtering
     }
     
     # DeepStream Configuration - Optimized for 120min 720p 90fps

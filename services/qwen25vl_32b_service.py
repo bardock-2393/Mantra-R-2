@@ -601,17 +601,22 @@ class Qwen25VL32BService:
                 print(f"⚠️ Input processing failed: {e}")
                 return await self._generate_text_only_analysis(prompt, video_path)
             
-            # Generate response with 32B model optimizations
+            # Generate response with ULTRA-FAST 32B model optimizations
             with torch.no_grad():
                 generated_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=min(Config.QWEN25VL_32B_CONFIG['max_length'], 2048),
-                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
-                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
-                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
-                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
-                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
+                    max_new_tokens=Config.QWEN25VL_32B_CONFIG.get('max_new_tokens', 512),  # ULTRA-FAST: Limit to 512 tokens
+                    min_new_tokens=Config.QWEN25VL_32B_CONFIG.get('min_new_tokens', 100),  # ULTRA-FAST: Minimum 100 tokens
+                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],  # ULTRA-FAST: 0.0 for greedy
+                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],  # ULTRA-FAST: 1.0 for no sampling
+                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],  # ULTRA-FAST: 1 for greedy
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),  # ULTRA-FAST: False for greedy
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),  # ULTRA-FAST: Single beam
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),  # ULTRA-FAST: Enable cache
+                    repetition_penalty=Config.QWEN25VL_32B_CONFIG.get('repetition_penalty', 1.0),  # ULTRA-FAST: No penalty
+                    length_penalty=Config.QWEN25VL_32B_CONFIG.get('length_penalty', 1.0),  # ULTRA-FAST: No penalty
+                    no_repeat_ngram_size=Config.QWEN25VL_32B_CONFIG.get('no_repeat_ngram_size', 0),  # ULTRA-FAST: Disable
+                    early_stopping=Config.QWEN25VL_32B_CONFIG.get('early_stopping', True),  # ULTRA-FAST: Enable
                     pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
@@ -671,17 +676,21 @@ class Qwen25VL32BService:
             model_device = next(self.model.parameters()).device
             inputs = inputs.to(model_device)
             
-            # Generate response
+            # Generate response with ULTRA-FAST settings
             with torch.no_grad():
                 generated_ids = self.model.generate(
                     **inputs,
-                    max_new_tokens=min(max_new_tokens, Config.QWEN25VL_32B_CONFIG['max_length']),
-                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],
-                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],
-                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],
-                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),
-                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),
-                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),
+                    max_new_tokens=min(max_new_tokens, Config.QWEN25VL_32B_CONFIG.get('max_new_tokens', 512)),  # ULTRA-FAST: Limit to 512
+                    min_new_tokens=Config.QWEN25VL_32B_CONFIG.get('min_new_tokens', 50),  # ULTRA-FAST: Minimum 50 tokens
+                    temperature=Config.QWEN25VL_32B_CONFIG['temperature'],  # ULTRA-FAST: 0.0 for greedy
+                    top_p=Config.QWEN25VL_32B_CONFIG['top_p'],  # ULTRA-FAST: 1.0 for no sampling
+                    top_k=Config.QWEN25VL_32B_CONFIG['top_k'],  # ULTRA-FAST: 1 for greedy
+                    do_sample=Config.QWEN25VL_32B_CONFIG.get('do_sample', False),  # ULTRA-FAST: False for greedy
+                    num_beams=Config.QWEN25VL_32B_CONFIG.get('num_beams', 1),  # ULTRA-FAST: Single beam
+                    use_cache=Config.QWEN25VL_32B_CONFIG.get('use_cache', True),  # ULTRA-FAST: Enable cache
+                    repetition_penalty=Config.QWEN25VL_32B_CONFIG.get('repetition_penalty', 1.0),  # ULTRA-FAST: No penalty
+                    length_penalty=Config.QWEN25VL_32B_CONFIG.get('length_penalty', 1.0),  # ULTRA-FAST: No penalty
+                    early_stopping=Config.QWEN25VL_32B_CONFIG.get('early_stopping', True),  # ULTRA-FAST: Enable
                     pad_token_id=self.processor.tokenizer.eos_token_id if hasattr(self.processor, 'tokenizer') else None
                 )
             
