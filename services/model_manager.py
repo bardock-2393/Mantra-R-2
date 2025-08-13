@@ -191,6 +191,12 @@ Response:"""
                 
                 # Try to call it synchronously
                 try:
+                    # First try to use the synchronous wrapper if available
+                    if hasattr(service, '_generate_text_sync'):
+                        print(f"🔄 Using synchronous wrapper method...")
+                        return service._generate_text_sync(prompt)
+                    
+                    # Fallback to checking the original method
                     if hasattr(service.generate_text_response, '__call__'):
                         # Check if it's async
                         import asyncio

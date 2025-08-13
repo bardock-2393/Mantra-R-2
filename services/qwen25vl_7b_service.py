@@ -789,6 +789,20 @@ Be thorough and professional in your analysis."""
             print(f"❌ Text generation failed: {e}")
             return f"Error generating response: {str(e)}"
     
+    def _generate_text_sync(self, prompt: str, max_new_tokens: int = 1024) -> str:
+        """Synchronous wrapper for text generation"""
+        try:
+            import asyncio
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self.generate_text_response(prompt))
+            loop.close()
+            return result
+        except Exception as e:
+            print(f"❌ Synchronous text generation failed: {e}")
+            return f"Error generating response: {str(e)}"
+    
     async def chat(self, message: str, chat_history: List[Dict] = None) -> Dict:
         """Handle chat messages using Qwen2.5-VL-7B-Instruct"""
         if not self.is_initialized:
