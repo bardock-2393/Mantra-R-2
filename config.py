@@ -15,7 +15,7 @@ class Config:
     # File Upload Configuration
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'webm', 'mkv', 'm4v'}
     
-    # GPU Configuration - Optimized for 16GB+ + 7B model + video processing
+    # GPU Configuration for 7B Model
     GPU_CONFIG = {
         'enabled': True,
         'device': 'cuda:0',  # Primary GPU
@@ -24,7 +24,7 @@ class Config:
         'precision': 'bfloat16',  # Better for 7B models than float16
         'num_workers': 4,  # Increased for 7B model efficiency
         'gradient_checkpointing': False,  # Disable for inference
-        'use_flash_attention': True,  # Enable for 7B model
+        'use_flash_attention': False,  # Disable for compatibility - Flash Attention 2 not installed
         'compile_mode': 'reduce-overhead'  # Speed optimization
     }
     
@@ -73,7 +73,7 @@ class Config:
         # Memory optimization for 7B GPU (not 80GB)
         'batch_size': 1,      # Single batch for memory efficiency
         'gradient_checkpointing': False,  # Disable for inference
-        'use_flash_attention': False,  # Disable for compatibility
+        'use_flash_attention': False,  # Disable for compatibility - Flash Attention 2 not installed
         'compile_mode': 'max-autotune',  # Enhanced speed optimization
         # Timeout settings to prevent Cloudflare 524
         'vision_timeout': 1800,  # 30 minutes for vision processing

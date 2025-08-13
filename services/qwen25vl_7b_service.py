@@ -351,7 +351,7 @@ class Qwen25VL7BService:
                 self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     model_path,
                     torch_dtype=torch.bfloat16,  # Use bfloat16 for 7B model
-                    attn_implementation="flash_attention_2",  # Enable flash attention for 7B
+                    attn_implementation="sdpa",  # Use SDPA instead of flash attention for compatibility
                     device_map="auto",
                     trust_remote_code=True
                 )
@@ -367,7 +367,7 @@ class Qwen25VL7BService:
                 self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     alternative_path,
                     torch_dtype=torch.bfloat16,
-                    attn_implementation="flash_attention_2",
+                    attn_implementation="sdpa",  # Use SDPA instead of flash attention
                     device_map="auto",
                     trust_remote_code=True
                 )

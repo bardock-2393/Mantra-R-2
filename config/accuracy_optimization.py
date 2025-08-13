@@ -8,7 +8,7 @@ MODEL_CONFIG = {
     "model_name": "Qwen/Qwen2.5-VL-32B-Instruct",
     "device_map": "auto",
     "torch_dtype": "bfloat16",
-    "attn_implementation": "flash_attention_2",
+    "attn_implementation": "sdpa",  # Use SDPA instead of flash_attention_2 for compatibility
     "use_cache": False,  # Disable cache for better accuracy
     "low_cpu_mem_usage": True,
     "max_memory": {0: "80GB"},  # Optimize for 80GB GPU
@@ -196,7 +196,7 @@ PERFORMANCE_CONFIG = {
     "gpu_optimization": {
         "mixed_precision": True,
         "gradient_checkpointing": False,  # Disable for inference
-        "attention_implementation": "flash_attention_2",
+        "attention_implementation": "sdpa",  # Use SDPA instead of flash_attention_2 for compatibility
         "memory_efficient_attention": True,
         "compile_model": True,           # Enable torch.compile
     },
@@ -255,7 +255,7 @@ QWEN_SPECIFIC_CONFIG = {
         "trust_remote_code": True,
     },
     "inference_settings": {
-        "use_flash_attention": True,
+        "use_flash_attention": False,   # Disable for compatibility - Flash Attention 2 not installed
         "use_xformers": False,          # Disable for stability
         "use_deepspeed": False,         # Disable for simplicity
         "use_accelerate": True,
