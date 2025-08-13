@@ -186,7 +186,7 @@
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-
+        
         .upload-area:hover {
             border-color: #667eea;
             transform: translateY(-4px);
@@ -196,7 +196,7 @@
         .upload-area:hover::before {
             opacity: 1;
         }
-
+        
         .upload-area.dragover {
             border-color: #667eea;
             background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
@@ -317,7 +317,7 @@
             transform: none;
             box-shadow: none;
         }
-
+        
         /* Analysis form styling */
         .analysis-form .card-header {
             background: var(--primary-gradient);
@@ -740,7 +740,7 @@
                 height: 80px;
                 font-size: 2rem;
             }
-
+            
             .upload-btn {
                 padding: 0.875rem 1.5rem;
                 font-size: 0.9rem;
@@ -1379,10 +1379,14 @@
             
             // Set default selection
             selectAnalysisMode('standard');
+            window.selectedAnalysisMode = 'standard';
         }
         
         function selectAnalysisMode(mode) {
             selectedAnalysisMode = mode;
+            
+            // Set global variable for app.js to access
+            window.selectedAnalysisMode = mode;
             
             // Update visual selection
             const modeCards = document.querySelectorAll('.analysis-mode-card');
@@ -1546,18 +1550,18 @@
                     modalBody.innerHTML = `
                         <div class="text-center mb-4">
                             <div class="spinner-border text-warning" role="status" style="width: 3rem; height: 3rem;">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle"></i>
                             <strong>Ultra-Accurate Mode:</strong> This analysis will use maximum GPU resources for the highest possible accuracy.
-                        </div>
+            </div>
                         <div class="progress mb-3" style="height: 30px;">
                             <div id="modalProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%">
                                 <span id="modalProgressText">0%</span>
-                            </div>
-                        </div>
+        </div>
+    </div>
                         <div id="loadingMessage" class="text-center">Initializing ultra-accurate analysis...</div>
                         <div class="mt-3">
                             <small class="text-muted">
@@ -1621,7 +1625,7 @@
             }
         }
         
-        // Display Analysis Results
+        // Function removed - now handled by app.js
         function displayAnalysisResults(result) {
             try {
                 // Display analysis text

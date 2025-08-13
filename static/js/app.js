@@ -284,15 +284,21 @@ class VideoDetective {
 
         try {
             console.log('🔍 Starting video analysis...');
-            this.showLoadingModal('Analyzing Video');
+            
+            // Show progress section instead of loading modal
+            this.showProgressSection();
+            this.updateProgress(10, 'Initializing video analysis...');
 
             // First upload the file if it hasn't been uploaded yet
             if (!this.fileUploaded) {
                 console.log('📤 File not uploaded yet, uploading first...');
+                this.updateProgress(20, 'Uploading video file...');
                 await this.uploadFile(this.currentFile);
                 this.fileUploaded = true;
             }
 
+            this.updateProgress(30, 'Starting AI analysis...');
+            
             const response = await fetch('/analyze', {
                 method: 'POST',
                 headers: {
@@ -330,7 +336,8 @@ class VideoDetective {
                 throw new Error(`Invalid JSON response from server: ${jsonError.message}. Raw response: ${responseText.substring(0, 500)}`);
             }
             
-            this.hideLoadingModal();
+            this.updateProgress(90, 'Analysis completed, processing results...');
+            this.hideProgressSection();
 
             if (result.success) {
                 console.log('✅ Analysis successful, showing chat interface...');
@@ -381,7 +388,7 @@ class VideoDetective {
             }
         } catch (error) {
             console.error('❌ Analysis error:', error);
-            this.hideLoadingModal();
+            this.hideProgressSection();
             
             let errorMessage = error.message;
             
@@ -1474,17 +1481,174 @@ class VideoDetective {
         }
 
         try {
+            // Get selected analysis mode and user focus
+            const selectedMode = window.selectedAnalysisMode || 'standard';
+            const userFocus = document.getElementById('userFocus')?.value || 'Analyze this video comprehensively';
+            
+            console.log('🎯 Analysis mode:', selectedMode);
+            console.log('🎯 User focus:', userFocus);
+            
             // First upload the file
             console.log('📤 Uploading file...');
             await this.uploadFile(this.currentFile);
             
-            // Then start analysis
-            console.log('🔍 Starting analysis...');
-            await this.startAnalysis();
+            // Then start analysis based on selected mode
+            console.log('🔍 Starting analysis with mode:', selectedMode);
+            
+            if (selectedMode === 'ultra_accurate') {
+                await this.startUltraAccurateAnalysis(userFocus);
+            } else {
+                await this.startAnalysis();
+            }
             
         } catch (error) {
             console.error('❌ Upload and analysis failed:', error);
             this.showError('Process failed: ' + error.message);
+        }
+    }
+
+    async startUltraAccurateAnalysis(userFocus) {
+        console.log('🚀 Starting ultra-accurate analysis...');
+        
+        try {
+            // Show progress section
+            this.showProgressSection();
+            this.updateProgress(10, 'Initializing ultra-accurate AI service...');
+            
+            // Make API call to ultra-accurate endpoint
+            const response = await fetch('/analyze-ultra-accurate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_focus: userFocus
+                })
+            });
+            
+            this.updateProgress(30, 'Processing video with ultra-accurate analysis...');
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateProgress(100, 'Ultra-accurate analysis completed successfully!');
+                
+                // Hide progress section
+                this.hideProgressSection();
+                
+                // Show results
+                this.showResults(result);
+                
+                // Show ultra-accurate Q&A section if available
+                const ultraAccurateQASection = document.getElementById('ultraAccurateQASection');
+                if (ultraAccurateQASection) {
+                    ultraAccurateQASection.style.display = 'block';
+                }
+                
+                console.log('✅ Ultra-accurate analysis completed successfully!');
+                
+            } else {
+                throw new Error(result.error || 'Ultra-accurate analysis failed');
+            }
+            
+        } catch (error) {
+            console.error('❌ Ultra-accurate analysis error:', error);
+            this.hideProgressSection();
+            this.showError('Ultra-accurate analysis failed: ' + error.message);
+        }
+    }
+
+    showProgressSection() {
+        const progressSection = document.getElementById('progressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+    }
+
+    hideProgressSection() {
+        const progressSection = document.getElementById('progressSection');
+        if (progressSection) {
+            progressSection.style.display = 'none';
+        }
+    }
+
+    updateProgress(percent, status) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressStatus = document.getElementById('progressStatus');
+        
+        if (progressBar) {
+            progressBar.style.width = percent + '%';
+        }
+        
+        if (progressText) {
+            progressText.textContent = percent + '%';
+        }
+        
+        if (progressStatus) {
+            progressStatus.textContent = status;
+        }
+    }
+
+    showResults(result) {
+        // Show results section
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) {
+            resultsSection.style.display = 'block';
+        }
+        
+        // Display analysis text
+        const analysisText = document.getElementById('analysisText');
+        if (analysisText && result.analysis) {
+            analysisText.innerHTML = result.analysis.replace(/\n/g, '<br>');
+        }
+        
+        // Display video duration
+        const durationInfo = document.getElementById('durationInfo');
+        if (durationInfo && result.video_duration) {
+            const minutes = Math.floor(result.video_duration / 60);
+            const seconds = Math.floor(result.video_duration % 60);
+            durationInfo.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Display timestamps
+        const timestampsList = document.getElementById('timestampsList');
+        if (timestampsList && result.timestamps) {
+            timestampsList.innerHTML = '';
+            if (result.timestamps.length > 0) {
+                result.timestamps.forEach(timestamp => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.innerHTML = `<i class="fas fa-clock text-primary"></i> ${timestamp}`;
+                    timestampsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'list-group-item text-muted';
+                li.textContent = 'No timestamps found';
+                timestampsList.appendChild(li);
+            }
+        }
+        
+        // Show ultra-accurate metadata if available
+        if (result.ultra_accurate_mode) {
+            const resultsSection = document.getElementById('resultsSection');
+            if (resultsSection) {
+                const ultraAccurateInfo = document.createElement('div');
+                ultraAccurateInfo.className = 'alert alert-warning mt-3';
+                ultraAccurateInfo.innerHTML = `
+                    <i class="fas fa-rocket text-warning"></i>
+                    <strong>Ultra-Accurate Analysis Completed!</strong><br>
+                    <small>
+                        • GPU Optimization: ${result.gpu_optimization}<br>
+                        • Analysis Quality: ${result.analysis_quality}<br>
+                        • Multi-scale Analysis: ${result.multi_scale_analysis ? '✅' : '❌'}<br>
+                        • Cross-validation: ${result.cross_validation ? '✅' : '❌'}<br>
+                        • Max Video Duration: ${result.max_video_duration}
+                    </small>
+                `;
+                resultsSection.querySelector('.card-body').appendChild(ultraAccurateInfo);
+            }
         }
     }
 }
