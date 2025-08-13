@@ -227,6 +227,12 @@ body {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+    opacity: 0.6;
+}
+
+.upload-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 /* Model Selection Styles - REMOVED - Always using 32B model */

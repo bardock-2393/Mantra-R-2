@@ -5,6 +5,7 @@ class VideoDetective {
         this.currentFile = null;
         this.analysisComplete = false;
         this.isTyping = false;
+        this.fileUploaded = false;
         this.init();
     }
 
@@ -129,9 +130,11 @@ class VideoDetective {
         }
 
         this.currentFile = file;
+        this.fileUploaded = false; // Reset upload status for new file
         this.showFileInfo(file);
         this.showVideoPreview(file);
         this.showAnalysisForm();
+        this.updateAnalysisButtonState();
     }
 
     isValidVideoFile(file) {
@@ -176,9 +179,23 @@ class VideoDetective {
 
     showAnalysisForm() {
         const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
+        if (analysisForm && this.currentFile) {
             analysisForm.style.display = 'block';
             analysisForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            this.updateAnalysisButtonState();
+        }
+    }
+
+    updateAnalysisButtonState() {
+        const submitAnalysisBtn = document.getElementById('submitAnalysis');
+        if (submitAnalysisBtn) {
+            if (this.currentFile && this.fileUploaded) {
+                submitAnalysisBtn.disabled = false;
+                submitAnalysisBtn.innerHTML = '<i class="fas fa-play"></i> Analyze Video';
+            } else {
+                submitAnalysisBtn.disabled = true;
+                submitAnalysisBtn.innerHTML = '<i class="fas fa-clock"></i> Please Upload Video First';
+            }
         }
     }
 
@@ -195,9 +212,22 @@ class VideoDetective {
             return;
         }
 
+        // Check if we have a valid file before proceeding
+        if (!this.currentFile.name || this.currentFile.size === 0) {
+            this.showError('Invalid video file. Please select a valid video file.');
+            return;
+        }
+
         try {
             console.log('🔍 Starting video analysis...');
             this.showLoadingModal('Analyzing Video');
+
+            // First upload the file if it hasn't been uploaded yet
+            if (!this.fileUploaded) {
+                console.log('📤 File not uploaded yet, uploading first...');
+                await this.uploadFile(this.currentFile);
+                this.fileUploaded = true;
+            }
 
             const response = await fetch('/analyze', {
                 method: 'POST',
@@ -270,12 +300,31 @@ class VideoDetective {
                 }
             } else {
                 console.error('❌ Analysis failed:', result.error);
-                this.showError(result.error || 'Analysis failed');
+                let errorMessage = result.error || 'Analysis failed';
+                
+                // Provide more specific error messages
+                if (errorMessage.includes('No video uploaded')) {
+                    errorMessage = 'No video found. Please upload a video first, then try analysis again.';
+                } else if (errorMessage.includes('session')) {
+                    errorMessage = 'Session error. Please refresh the page and try again.';
+                }
+                
+                this.showError(errorMessage);
             }
         } catch (error) {
             console.error('❌ Analysis error:', error);
             this.hideLoadingModal();
-            this.showError('Analysis failed: ' + error.message);
+            
+            let errorMessage = error.message;
+            
+            // Provide more specific error messages
+            if (errorMessage.includes('JSON')) {
+                errorMessage = 'Server response error. Please try again or contact support.';
+            } else if (errorMessage.includes('fetch')) {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            }
+            
+            this.showError('Analysis failed: ' + errorMessage);
         }
     }
 
@@ -316,6 +365,8 @@ class VideoDetective {
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
+                this.fileUploaded = true; // Mark file as uploaded
+                this.updateAnalysisButtonState(); // Update button state
                 // Don't auto-analyze, let user click the analysis button
                 this.showSuccess('Video uploaded successfully! Click "Start Analysis" to begin analysis.');
             } else {
@@ -938,6 +989,10 @@ class VideoDetective {
                     }
                 }
                 
+                // Mark demo video as uploaded
+                this.fileUploaded = true;
+                this.updateAnalysisButtonState(); // Update button state
+                
                 // Show success message
                 this.showSuccess('Demo video loaded successfully! 🎬');
                 
@@ -984,6 +1039,12 @@ class VideoDetective {
         
         // Clear current file reference
         this.currentFile = null;
+        
+        // Reset upload status
+        this.fileUploaded = false;
+        
+        // Update analysis button state
+        this.updateAnalysisButtonState();
         
         // Show upload section with animation
         const uploadSection = document.getElementById('uploadSection');
