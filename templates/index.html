@@ -42,8 +42,8 @@
             <div class="col-lg-8">
                 <div class="text-center mb-4">
                     <h1><i class="fas fa-video text-primary"></i> AI Video Detective</h1>
-                    <p class="lead">Enhanced with Progress Tracking & Timeout Handling</p>
-                    <p class="text-muted">Prevents Cloudflare 524 errors with optimized 80GB GPU processing</p>
+                    <p class="lead">Upload, Analyze, and Chat with Your Videos</p>
+                    <p class="text-muted">AI-powered comprehensive video analysis with interactive chat capabilities</p>
                 </div>
 
                 <!-- File Upload Section -->
@@ -64,15 +64,15 @@
                                         <div class="upload-features mb-3">
                                             <div class="feature-item d-inline-block me-3">
                                                 <i class="fas fa-check text-success"></i>
-                                                <span class="ms-1">Advanced AI Analysis</span>
+                                                <span class="ms-1">Comprehensive AI Analysis</span>
                                             </div>
                                             <div class="feature-item d-inline-block me-3">
                                                 <i class="fas fa-check text-success"></i>
-                                                <span class="ms-1">Visual Evidence Capture</span>
+                                                <span class="ms-1">Interactive Chat</span>
                                             </div>
                                             <div class="feature-item d-inline-block">
                                                 <i class="fas fa-check text-success"></i>
-                                                <span class="ms-1">Real-time Insights</span>
+                                                <span class="ms-1">Whole Video Coverage</span>
                                             </div>
                                         </div>
                                         <div class="file-requirements mb-3">
@@ -138,38 +138,19 @@
                 <div id="analysisForm" class="analysis-form">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h5><i class="fas fa-cogs"></i> Analysis Configuration</h5>
+                            <h5><i class="fas fa-play"></i> Start Video Analysis</h5>
                         </div>
                         <div class="card-body">
                             <form id="analysisFormElement">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="analysisType" class="form-label">Analysis Type</label>
-                                        <select class="form-select" id="analysisType" name="analysisType" required>
-                                            <option value="">Select analysis type...</option>
-                                            <option value="general">General Analysis</option>
-                                            <option value="behavioral">Behavioral Analysis</option>
-                                            <option value="technical">Technical Analysis</option>
-                                            <option value="narrative">Narrative Analysis</option>
-                                            <option value="forensic">Forensic Analysis</option>
-                                            <option value="commercial">Commercial Analysis</option>
-                                            <option value="comprehensive_analysis">Comprehensive Analysis</option>
-                                            <option value="safety_investigation">Safety Investigation</option>
-                                            <option value="creative_review">Creative Review</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="userFocus" class="form-label">Focus Area</label>
-                                        <textarea class="form-control" id="userFocus" name="userFocus" rows="3" 
-                                                  placeholder="Describe what you want me to focus on..." maxlength="500" required></textarea>
-                                        <div class="char-count mt-1">
-                                            <span id="charCount">0/500</span>
-                                        </div>
+                                <div class="mb-4">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Analysis Mode:</strong> The AI will analyze the entire video comprehensively and then you can chat with it about any aspect of the content.
                                     </div>
                                 </div>
                                 
                                 <div class="d-flex justify-content-between">
-                                    <button type="submit" id="submitAnalysis" class="btn btn-primary">
+                                    <button type="submit" id="submitAnalysis" class="btn btn-primary btn-lg">
                                         <i class="fas fa-play"></i> Analyze Video
                                     </button>
                                     <button type="button" id="resetBtn" class="btn btn-secondary">
@@ -288,12 +269,12 @@
                                 </ul>
                             </div>
                             <div class="col-md-6">
-                                <h6>Performance Features:</h6>
+                                <h6>Analysis Features:</h6>
                                 <ul class="list-unstyled">
-                                    <li><strong>Timeout Protection:</strong> 5-minute max</li>
+                                    <li><strong>Analysis Mode:</strong> Comprehensive whole-video</li>
+                                    <li><strong>Chat Interface:</strong> Interactive AI conversations</li>
                                     <li><strong>Progress Tracking:</strong> Real-time updates</li>
-                                    <li><strong>Memory Optimization:</strong> Dynamic frame count</li>
-                                    <li><strong>Fallback Analysis:</strong> Multiple strategies</li>
+                                    <li><strong>Smart Processing:</strong> AI-powered insights</li>
                                 </ul>
                             </div>
                         </div>

@@ -81,24 +81,7 @@ class VideoDetective {
             console.log('ℹ️ Chat elements not found, chat functionality disabled');
         }
         
-        // Character count for focus area
-        const userFocus = document.getElementById('userFocus');
-        const charCount = document.getElementById('charCount');
-        if (userFocus && charCount) {
-            userFocus.addEventListener('input', () => {
-                const currentLength = userFocus.value.length;
-                charCount.textContent = `${currentLength}/500`;
-                
-                // Change color based on length
-                if (currentLength > 450) {
-                    charCount.style.color = '#dc3545'; // Red
-                } else if (currentLength > 400) {
-                    charCount.style.color = '#ffc107'; // Yellow
-                } else {
-                    charCount.style.color = '#6c757d'; // Default gray
-                }
-            });
-        }
+
         
         // Analysis form submission
         const analysisFormElement = document.getElementById('analysisFormElement');
@@ -213,20 +196,7 @@ class VideoDetective {
     }
 
     handleAnalysisSubmit() {
-        const analysisType = document.getElementById('analysisType').value;
-        const userFocus = document.getElementById('userFocus').value;
-        
-        if (!analysisType || !userFocus.trim()) {
-            this.showError('Please select an analysis type and provide a focus area description.');
-            return;
-        }
-        
-        if (userFocus.trim().length < 10) {
-            this.showError('Please provide a more detailed focus area description (at least 10 characters).');
-            return;
-        }
-        
-        console.log('🚀 Starting analysis with:', { analysisType, userFocus });
+        console.log('🚀 Starting comprehensive video analysis...');
         
         // Hide the analysis form and show progress
         const analysisForm = document.getElementById('analysisForm');
@@ -237,17 +207,11 @@ class VideoDetective {
         // Show progress section
         this.showProgressSection();
         
-        // Start the analysis (this would call your backend API)
-        this.startAnalysis(analysisType, userFocus);
+        // Start the comprehensive analysis
+        this.startAnalysis();
     }
 
     resetAnalysis() {
-        // Reset form fields
-        document.getElementById('analysisType').value = '';
-        document.getElementById('userFocus').value = '';
-        document.getElementById('charCount').textContent = '0/500';
-        document.getElementById('charCount').style.color = '#6c757d';
-        
         // Hide analysis form
         const analysisForm = document.getElementById('analysisForm');
         if (analysisForm) {
@@ -281,20 +245,20 @@ class VideoDetective {
         }
     }
 
-    startAnalysis(analysisType, userFocus) {
+    startAnalysis() {
         // This function would integrate with your backend API
-        console.log('🔍 Starting AI analysis...');
+        console.log('🔍 Starting comprehensive AI analysis...');
         
         // Simulate progress updates
-        this.updateProgress(0, 'Initializing analysis...');
+        this.updateProgress(0, 'Initializing comprehensive analysis...');
         
         setTimeout(() => this.updateProgress(25, 'Loading AI model...'), 1000);
         setTimeout(() => this.updateProgress(50, 'Processing video frames...'), 3000);
-        setTimeout(() => this.updateProgress(75, 'Generating analysis...'), 6000);
+        setTimeout(() => this.updateProgress(75, 'Generating comprehensive analysis...'), 6000);
         setTimeout(() => this.updateProgress(100, 'Analysis complete!'), 9000);
         
         // In a real implementation, you would:
-        // 1. Send the video file and analysis parameters to your backend
+        // 1. Send the video file to your backend for comprehensive analysis
         // 2. Receive progress updates via WebSocket or polling
         // 3. Display results when complete
     }
