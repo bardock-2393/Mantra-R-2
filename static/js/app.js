@@ -289,23 +289,76 @@ class VideoDetective {
             console.log('🔍 About to call /analyze API...');
             console.log('🔍 Current file:', this.currentFile.name, this.currentFile.size);
             
-            // Call the analyze API
-            const response = await fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    analysis_type: 'comprehensive_analysis',
-                    user_focus: 'Analyze this video comprehensively for all important events and observations'
-                })
-            });
+            // Show progress message
+            const progressStatus = document.getElementById('progressStatus');
+            if (progressStatus) {
+                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos.';
+            }
+            
+            // Call the analyze API with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
+            
+            let response;
+            try {
+                response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        analysis_type: 'comprehensive_analysis',
+                        user_focus: 'Analyze this video comprehensively for all important events and observations'
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('Analysis request timed out after 5 minutes. Please try again.');
+                }
+                throw fetchError;
+            }
 
             console.log('🔍 API response received:', response.status, response.ok);
             
-            // Parse response
-            const result = await response.json();
-            console.log('🔍 API result parsed:', result);
+            // Check if response is ok
+            if (!response.ok) {
+                if (response.status === 524) {
+                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
+                } else if (response.status >= 500) {
+                    throw new Error(`Server error (${response.status}). Please try again later.`);
+                } else if (response.status >= 400) {
+                    throw new Error(`Request error (${response.status}). Please check your input and try again.`);
+                } else {
+                    throw new Error(`Unexpected response (${response.status}). Please try again.`);
+                }
+            }
+            
+            // Get response text first to check if it's valid JSON
+            const responseText = await response.text();
+            console.log('🔍 Response text received:', responseText.substring(0, 200) + '...');
+            
+            // Try to parse as JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('🔍 API result parsed:', result);
+            } catch (jsonError) {
+                console.error('❌ JSON parsing failed:', jsonError);
+                console.error('❌ Raw response:', responseText);
+                
+                // Check if it's a timeout or error response
+                if (responseText.includes('timeout') || responseText.includes('524')) {
+                    throw new Error('Analysis timed out. The video is being processed but took too long. Please try again in a few minutes.');
+                } else if (responseText.includes('error') || responseText.includes('Error')) {
+                    throw new Error('Server error: ' + responseText.substring(0, 100));
+                } else {
+                    throw new Error('Invalid response from server. Please try again.');
+                }
+            }
             
             if (result.success) {
                 console.log('✅ Analysis successful, showing chat interface...');
@@ -340,17 +393,44 @@ class VideoDetective {
                     document.getElementById('errorText').textContent = result.error || 'Analysis failed';
                 }
             }
-        } catch (error) {
-            console.error('❌ Analysis error:', error);
-            this.showError('Analysis failed: ' + error.message);
-            
-            // Show error section
-            const errorSection = document.getElementById('errorSection');
-            if (errorSection) {
-                errorSection.style.display = 'block';
-                document.getElementById('errorText').textContent = 'Analysis failed: ' + error.message;
+                    } catch (error) {
+                console.error('❌ Analysis error:', error);
+                
+                // Check if it's a timeout error and offer retry
+                if (error.message.includes('timed out') || error.message.includes('timeout')) {
+                    const errorMessage = error.message + '\n\nThis is normal for large videos. The AI model is processing your video in the background.';
+                    this.showError(errorMessage);
+                    
+                    // Show retry button
+                    const errorSection = document.getElementById('errorSection');
+                    if (errorSection) {
+                        errorSection.style.display = 'block';
+                        const errorText = document.getElementById('errorText');
+                        if (errorText) {
+                            errorText.innerHTML = errorMessage.replace(/\n/g, '<br>');
+                        }
+                        
+                        // Add retry button
+                        const retryButton = document.createElement('button');
+                        retryButton.className = 'btn btn-primary mt-3';
+                        retryButton.innerHTML = '<i class="fas fa-redo"></i> Retry Analysis';
+                        retryButton.onclick = () => {
+                            errorSection.style.display = 'none';
+                            this.startAnalysis();
+                        };
+                        errorSection.querySelector('.card-body').appendChild(retryButton);
+                    }
+                } else {
+                    this.showError('Analysis failed: ' + error.message);
+                    
+                    // Show error section
+                    const errorSection = document.getElementById('errorSection');
+                    if (errorSection) {
+                        errorSection.style.display = 'block';
+                        document.getElementById('errorText').textContent = 'Analysis failed: ' + error.message;
+                    }
+                }
             }
-        }
     }
 
 
