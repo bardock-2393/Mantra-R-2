@@ -552,6 +552,35 @@
             display: block !important;
         }
 
+        /* Notification alert styles */
+        .alert.position-fixed {
+            box-shadow: var(--shadow-heavy);
+            border: none;
+            border-radius: 12px;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .alert.alert-info {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .alert.alert-info .btn-close {
+            filter: invert(1) sepia(1) saturate(5) hue-rotate(200deg);
+        }
+
         /* Responsive design improvements */
         @media (max-width: 768px) {
             .container {
@@ -688,10 +717,6 @@
                                                 <i class="fas fa-folder-open"></i>
                                                 Choose Video File
                                             </button>
-                                            <button class="upload-btn secondary" onclick="uploadDemoVideo(); console.log('uploadDemoVideo clicked'); return false;">
-                                                <i class="fas fa-play-circle"></i>
-                                                Use Demo Video
-                                            </button>
                                             <button class="btn btn-sm btn-outline-info" onclick="testUpload(); console.log('testUpload clicked'); return false;" style="margin-top: 10px;">
                                                 <i class="fas fa-bug"></i>
                                                 Debug Upload
@@ -735,9 +760,9 @@
                                                 <i class="fas fa-info-circle"></i>
                                                 <strong>Ready for Analysis:</strong> Your video is ready to be analyzed. Click the button below to start the AI analysis process.
                                             </div>
-                                            <button class="upload-btn primary" onclick="uploadAndAnalyze(); return false;">
+                                            <button class="upload-btn primary" onclick="enhancedUploadAndAnalyze(); return false;">
                                                 <i class="fas fa-play"></i>
-                                                Start Analysis
+                                                Start Analysis (or Demo)
                                             </button>
                                         </div>
                                     </div>
@@ -772,7 +797,7 @@
                             
                             <div class="d-flex justify-content-between">
                                 <button type="button" id="submitAnalysis" class="upload-btn primary" onclick="uploadAndAnalyze(); return false;">
-                                    <i class="fas fa-play"></i> Analyze Video
+                                    <i class="fas fa-play"></i> Analyze Video (or Demo)
                                 </button>
                                 <button type="button" id="resetBtn" class="upload-btn secondary" onclick="resetUpload(); return false;">
                                     <i class="fas fa-redo"></i> Reset
@@ -1070,6 +1095,52 @@
         
         // Override the existing uploadAndAnalyze function to show loading state
         function enhancedUploadAndAnalyze() {
+            // Check if a video is already selected
+            const videoFile = document.getElementById('videoFile');
+            const fileInfo = document.getElementById('fileInfo');
+            
+            // If no video is selected, automatically use demo video
+            if (!videoFile.files || videoFile.files.length === 0) {
+                console.log('No video selected, automatically using demo video');
+                
+                // Show a brief notification that demo video is being used
+                const notification = document.createElement('div');
+                notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+                notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                notification.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Demo Video Selected:</strong> No video was chosen, so we're using the demo video for analysis.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(notification);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 5000);
+                
+                // Call the demo video function
+                if (typeof uploadDemoVideo === 'function') {
+                    // First upload the demo video, then analyze
+                    uploadDemoVideo();
+                    
+                    // Wait a moment for the demo video to load, then start analysis
+                    setTimeout(() => {
+                        if (typeof uploadAndAnalyze === 'function') {
+                            uploadAndAnalyze();
+                        }
+                    }, 1000);
+                } else {
+                    // Fallback: just start analysis (app.js should handle demo video)
+                    if (typeof uploadAndAnalyze === 'function') {
+                        uploadAndAnalyze();
+                    }
+                }
+                return;
+            }
+            
             // Show processing state
             setProcessingState(true);
             
