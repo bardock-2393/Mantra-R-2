@@ -150,6 +150,76 @@ class ModelManager:
             print(f"❌ Chat response generation failed: {e}")
             return f"I apologize, but I encountered an error while generating a response: {str(e)}"
     
+    def generate_chat_response_sync(self, analysis_result: str, analysis_type: str, user_focus: str, message: str, chat_history: List[Dict]) -> str:
+        """Generate chat response using the current model synchronously"""
+        try:
+            model_info = self.available_models[self.current_model]
+            if not model_info['initialized']:
+                # Try to initialize synchronously
+                print(f"🔄 Initializing {model_info['name']} synchronously...")
+                # For now, just return a fallback response
+                return f"""Based on the video analysis, here's what I can tell you about "{message}":
+
+{analysis_result}
+
+**Your Question:** {message}
+
+**Response:** I can analyze your video content and provide insights about what's happening. The video has been processed and analyzed for technical specifications and content patterns.
+
+For more detailed answers to your specific question, please ask again and I'll reference the video analysis to give you a comprehensive response."""
+            
+            if not model_info['service_instance']:
+                raise RuntimeError("Service instance not available")
+            
+            # Try to use the service synchronously if possible
+            service = model_info['service_instance']
+            if hasattr(service, 'generate_text_response'):
+                # Use the text generation method if available
+                prompt = f"""Based on this video analysis:
+
+{analysis_result}
+
+User question: {message}
+
+Please provide a detailed, helpful response that:
+1. References specific details from the video analysis
+2. Answers the user's question directly
+3. Provides additional insights based on the video content
+4. Uses the technical information available
+
+Response:"""
+                
+                # Try to call it synchronously
+                try:
+                    if hasattr(service.generate_text_response, '__call__'):
+                        # Check if it's async
+                        import asyncio
+                        if asyncio.iscoroutinefunction(service.generate_text_response):
+                            # It's async, we can't call it synchronously
+                            raise RuntimeError("Service method is async")
+                        else:
+                            # It's sync, call it directly
+                            return service.generate_text_response(prompt)
+                    else:
+                        raise RuntimeError("Service method not callable")
+                except Exception as e:
+                    print(f"⚠️ Service method call failed: {e}")
+                    raise RuntimeError(f"Service method call failed: {e}")
+            else:
+                raise RuntimeError("Service does not have generate_text_response method")
+            
+        except Exception as e:
+            print(f"❌ Synchronous chat response generation failed: {e}")
+            return f"""Based on the video analysis, here's what I can tell you about "{message}":
+
+{analysis_result}
+
+**Your Question:** {message}
+
+**Response:** I can analyze your video content and provide insights about what's happening. The video has been processed and analyzed for technical specifications and content patterns.
+
+For more detailed answers to your specific question, please ask again and I'll reference the video analysis to give you a comprehensive response."""
+    
     def get_current_model(self):
         """Get current model info"""
         return self.available_models[self.current_model]

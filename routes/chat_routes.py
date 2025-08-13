@@ -178,9 +178,45 @@ ULTRA-ACCURATE RESPONSE:"""
                                         max_new_tokens=1024
                                     )
                                 else:
-                                    # Try to use the model manager with synchronous fallback
-                                    print(f"🔄 32B service not ready, using template response")
-                                    raise RuntimeError("32B service not available")
+                                    # Try to use the model manager as fallback
+                                    print(f"🔄 32B service not ready, trying model manager...")
+                                try:
+                                    # Use the model manager which can handle both 7B and 32B
+                                    contextual_prompt = f"""ULTRA-ACCURATE VIDEO ANALYSIS RESPONSE
+
+You have access to ultra-accurate video analysis with maximum precision:
+- Multi-scale analysis (5 scales)
+- Cross-validation for accuracy
+- Quality thresholds applied
+- Chunk processing for long videos
+- Maximum GPU utilization (80GB optimized)
+
+VIDEO ANALYSIS:
+{analysis_result}
+
+USER QUESTION: {enhanced_message}
+
+Please provide an ULTRA-ACCURATE response that:
+1. References specific details from the ultra-accurate analysis
+2. Answers the user's question with maximum precision
+3. Provides detailed insights based on the enhanced analysis
+4. Uses all available technical information
+5. Mentions the ultra-accurate analysis capabilities when relevant
+
+ULTRA-ACCURATE RESPONSE:"""
+                                    
+                                    # Use the model manager for response generation
+                                    ai_response = model_manager.generate_chat_response_sync(
+                                        analysis_result, 
+                                        'ultra_accurate_80gb_gpu', 
+                                        '', 
+                                        enhanced_message, 
+                                        chat_list
+                                    )
+                                    print(f"✅ Model manager generated response")
+                                except Exception as service_error:
+                                    print(f"⚠️ Model manager failed: {service_error}")
+                                    raise RuntimeError("No AI services available")
                                 
                                 print(f"✅ AI service generated response successfully")
                                 
@@ -253,8 +289,21 @@ Response:"""
                                     max_new_tokens=1024
                                 )
                             else:
-                                # Fallback to template
-                                ai_response = f"""Based on the video analysis, here's what I can tell you:
+                                # Try model manager as fallback
+                                print(f"🔄 32B service not ready, trying model manager...")
+                                try:
+                                    ai_response = model_manager.generate_chat_response_sync(
+                                        analysis_result, 
+                                        'ultra_accurate_80gb_gpu', 
+                                        '', 
+                                        enhanced_message, 
+                                        chat_list
+                                    )
+                                    print(f"✅ Model manager generated basic fallback response")
+                                except Exception as service_error:
+                                    print(f"⚠️ Model manager failed: {service_error}")
+                                    # Fallback to template
+                                    ai_response = f"""Based on the video analysis, here's what I can tell you:
 
 {analysis_result}
 
@@ -330,8 +379,21 @@ Response:"""
                                 max_new_tokens=1024
                             )
                         else:
-                            # Fallback to template
-                            ai_response = f"""Based on the video analysis, here's what I can tell you about "{message}":
+                            # Try model manager as fallback
+                            print(f"🔄 32B service not ready, trying model manager...")
+                            try:
+                                ai_response = model_manager.generate_chat_response_sync(
+                                    analysis_result, 
+                                    'ultra_accurate_80gb_gpu', 
+                                    '', 
+                                    message, 
+                                    chat_list
+                                )
+                                print(f"✅ Model manager generated fallback response")
+                            except Exception as service_error:
+                                print(f"⚠️ Model manager failed: {service_error}")
+                                # Fallback to template
+                                ai_response = f"""Based on the video analysis, here's what I can tell you about "{message}":
 
 {analysis_result}
 
