@@ -80,6 +80,40 @@ class VideoDetective {
         } else {
             console.log('ℹ️ Chat elements not found, chat functionality disabled');
         }
+        
+        // Character count for focus area
+        const userFocus = document.getElementById('userFocus');
+        const charCount = document.getElementById('charCount');
+        if (userFocus && charCount) {
+            userFocus.addEventListener('input', () => {
+                const currentLength = userFocus.value.length;
+                charCount.textContent = `${currentLength}/500`;
+                
+                // Change color based on length
+                if (currentLength > 450) {
+                    charCount.style.color = '#dc3545'; // Red
+                } else if (currentLength > 400) {
+                    charCount.style.color = '#ffc107'; // Yellow
+                } else {
+                    charCount.style.color = '#6c757d'; // Default gray
+                }
+            });
+        }
+        
+        // Analysis form submission
+        const analysisFormElement = document.getElementById('analysisFormElement');
+        if (analysisFormElement) {
+            analysisFormElement.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleAnalysisSubmit();
+            });
+        }
+        
+        // Reset button
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetAnalysis());
+        }
     }
 
     setupAutoResize() {
@@ -161,6 +195,132 @@ class VideoDetective {
         fileName.textContent = file.name;
         fileSize.textContent = this.formatFileSize(file.size);
         fileInfo.style.display = 'block';
+        
+        // Show the analysis form after file is selected
+        this.showAnalysisForm();
+    }
+
+    showAnalysisForm() {
+        const analysisForm = document.getElementById('analysisForm');
+        if (analysisForm) {
+            analysisForm.style.display = 'block';
+            // Scroll to the analysis form
+            analysisForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('📋 Analysis form displayed');
+        } else {
+            console.error('❌ Analysis form element not found');
+        }
+    }
+
+    handleAnalysisSubmit() {
+        const analysisType = document.getElementById('analysisType').value;
+        const userFocus = document.getElementById('userFocus').value;
+        
+        if (!analysisType || !userFocus.trim()) {
+            this.showError('Please select an analysis type and provide a focus area description.');
+            return;
+        }
+        
+        if (userFocus.trim().length < 10) {
+            this.showError('Please provide a more detailed focus area description (at least 10 characters).');
+            return;
+        }
+        
+        console.log('🚀 Starting analysis with:', { analysisType, userFocus });
+        
+        // Hide the analysis form and show progress
+        const analysisForm = document.getElementById('analysisForm');
+        if (analysisForm) {
+            analysisForm.style.display = 'none';
+        }
+        
+        // Show progress section
+        this.showProgressSection();
+        
+        // Start the analysis (this would call your backend API)
+        this.startAnalysis(analysisType, userFocus);
+    }
+
+    resetAnalysis() {
+        // Reset form fields
+        document.getElementById('analysisType').value = '';
+        document.getElementById('userFocus').value = '';
+        document.getElementById('charCount').textContent = '0/500';
+        document.getElementById('charCount').style.color = '#6c757d';
+        
+        // Hide analysis form
+        const analysisForm = document.getElementById('analysisForm');
+        if (analysisForm) {
+            analysisForm.style.display = 'none';
+        }
+        
+        // Reset file info
+        const fileInfo = document.getElementById('fileInfo');
+        if (fileInfo) {
+            fileInfo.style.display = 'none';
+        }
+        
+        // Reset video preview
+        const videoPreview = document.getElementById('videoPreview');
+        if (videoPreview) {
+            videoPreview.style.display = 'none';
+        }
+        
+        // Reset current file
+        this.currentFile = null;
+        
+        console.log('🔄 Analysis reset');
+    }
+
+    showProgressSection() {
+        const progressSection = document.getElementById('progressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+            progressSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('📊 Progress section displayed');
+        }
+    }
+
+    startAnalysis(analysisType, userFocus) {
+        // This function would integrate with your backend API
+        console.log('🔍 Starting AI analysis...');
+        
+        // Simulate progress updates
+        this.updateProgress(0, 'Initializing analysis...');
+        
+        setTimeout(() => this.updateProgress(25, 'Loading AI model...'), 1000);
+        setTimeout(() => this.updateProgress(50, 'Processing video frames...'), 3000);
+        setTimeout(() => this.updateProgress(75, 'Generating analysis...'), 6000);
+        setTimeout(() => this.updateProgress(100, 'Analysis complete!'), 9000);
+        
+        // In a real implementation, you would:
+        // 1. Send the video file and analysis parameters to your backend
+        // 2. Receive progress updates via WebSocket or polling
+        // 3. Display results when complete
+    }
+
+    updateProgress(percentage, status) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressStatus = document.getElementById('progressStatus');
+        
+        if (progressBar) progressBar.style.width = percentage + '%';
+        if (progressText) progressText.textContent = percentage + '%';
+        if (progressStatus) progressStatus.textContent = status;
+        
+        if (percentage === 100) {
+            // Show results section after completion
+            setTimeout(() => this.showResults(), 1000);
+        }
+    }
+
+    showResults() {
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) {
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('✅ Results section displayed');
+        }
     }
 
     formatFileSize(bytes) {

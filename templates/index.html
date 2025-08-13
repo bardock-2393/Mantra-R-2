@@ -20,6 +20,20 @@
             font-size: 0.875rem;
             color: #6c757d;
         }
+        
+        /* Ensure sections are properly displayed when shown */
+        .analysis-form.show,
+        .progress-section.show,
+        .results-section.show {
+            display: block !important;
+        }
+        
+        /* Smooth transitions for sections */
+        .analysis-form,
+        .progress-section,
+        .results-section {
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
 <body>
