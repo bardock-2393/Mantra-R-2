@@ -183,7 +183,7 @@ class Qwen25VL7BService:
             # Memory optimization for 7B model
             'batch_size': 2,      # 7B can handle 2 batches
             'gradient_checkpointing': False,  # Disable for inference
-            'use_flash_attention': True,  # Enable for 7B model
+            'use_flash_attention': False,  # Disable for compatibility - Flash Attention 2 not installed
             'compile_mode': 'reduce-overhead',  # Speed optimization
             # Timeout settings
             'vision_timeout': 1200,  # 20 minutes for vision processing
