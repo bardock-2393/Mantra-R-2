@@ -169,10 +169,11 @@ Develop an agentic chat assistant for visual understanding that can process vide
 
 ### **Prerequisites**
 - Python 3.8 or higher
-- Redis server
-- Google Gemini API key
-- 2GB+ RAM
-- Stable internet connection
+- Redis server (optional for local model usage)
+- NVIDIA GPU with 8GB+ VRAM (16GB+ recommended)
+- 8GB+ RAM (16GB+ recommended)
+- 5GB+ free storage space
+- Stable internet connection for initial model download
 
 ### **1. Clone Repository**
 ```bash
@@ -190,27 +191,40 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### **3. Configure API Keys**
+### **3. Configure Environment**
    ```bash
 # Create environment file
-   cp .env.example .env
+   cp env_example.txt .env
 
-# Edit with your API key
+# Edit with your configuration
 nano .env
 ```
 
-Add your Gemini API key:
+Configure your environment (optional - will use defaults if not set):
 ```env
-GOOGLE_API_KEY=your_gemini_api_key_here
+# Hugging Face token (optional, for private models)
+HF_TOKEN=your_huggingface_token_here
+
+# Model paths (optional - will use defaults)
+QWEN25VL_MODEL_PATH=Qwen/Qwen2.5-VL-7B-Instruct
+QWEN25VL_32B_MODEL_PATH=Qwen/Qwen2.5-VL-32B-Instruct
+
+# Flask configuration
 SECRET_KEY=your_secret_key_here
 ```
 
 ### **4. Start Services**
 ```bash
-# Start Redis (if not running)
+# Start Redis (optional, for session management)
 redis-server
 
-# Run the application
+# Run the application with 7B model
+python start_with_model.py
+
+# Or run with optimized settings
+python start_optimized.py
+
+# Or run basic version
 python main.py
 ```
 

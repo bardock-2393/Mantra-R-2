@@ -22,17 +22,286 @@
         }
         
         /* Ensure sections are properly displayed when shown */
-        .analysis-form.show,
         .progress-section.show,
         .results-section.show {
             display: block !important;
         }
         
         /* Smooth transitions for sections */
-        .analysis-form,
         .progress-section,
         .results-section {
             transition: all 0.3s ease;
+        }
+        
+        /* Upload area styling */
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        
+        .upload-area.dragover {
+            background-color: #e3f2fd;
+            border-color: #2196f3;
+        }
+        
+        /* File info styling */
+        .file-info .card {
+            border-left: 4px solid #007bff;
+        }
+        
+        /* Progress bar styling */
+        .progress {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        /* Chat interface styling */
+        .chat-interface-fullscreen {
+            display: none;
+            flex-direction: column;
+            height: 80vh;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+            background: #f8f9fa;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .chat-input-fullscreen {
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+            background: #f8f9fa;
+            border-radius: 0 0 10px 10px;
+        }
+        
+        .chat-messages-fullscreen {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .chat-message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .user-message {
+            justify-content: flex-end;
+        }
+        
+        .ai-message {
+            justify-content: flex-start;
+        }
+        
+        .message-content {
+            display: flex;
+            align-items: flex-start;
+            max-width: 80%;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 10px;
+            background: #007bff;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .ai-message .message-avatar {
+            background: #28a745;
+        }
+        
+        .message-text {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 100%;
+            word-wrap: break-word;
+        }
+        
+        .user-message .message-text {
+            background: #007bff;
+            color: white;
+        }
+        
+        /* Floating cleanup button */
+        .floating-cleanup {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .cleanup-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .cleanup-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+        }
+        
+        /* Evidence styling */
+        .evidence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .evidence-item {
+            text-align: center;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        
+        .evidence-item img,
+        .evidence-item video {
+            max-width: 100%;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .evidence-item img:hover,
+        .evidence-item video:hover {
+            transform: scale(1.05);
+        }
+        
+        .timestamp {
+            margin-top: 8px;
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+        }
+        
+        /* Loading modal */
+        #loadingModal {
+            display: none;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .chat-interface-fullscreen {
+                height: 90vh;
+            }
+            
+            .evidence-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .floating-cleanup {
+                bottom: 10px;
+                right: 10px;
+            }
+        }
+
+        /* Analysis steps styling */
+        .analysis-steps {
+            margin-top: 20px;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .step-item i {
+            margin-right: 12px;
+            font-size: 18px;
+        }
+        
+        .step-item.completed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .step-item.active {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        
+        .step-item.completed i {
+            color: #28a745;
+        }
+        
+        .step-item.active i {
+            color: #007bff;
+        }
+        
+        /* Progress bar styling */
+        .progress {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
         }
     </style>
 </head>
@@ -162,6 +431,7 @@
                     </div>
                 </div>
 
+
                 <!-- Progress Section -->
                 <div id="progressSection" class="progress-section">
                     <div class="card mb-4">
@@ -170,14 +440,36 @@
                         </div>
                         <div class="card-body">
                             <div class="progress mb-3" style="height: 25px;">
-                                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">
                                     <span id="progressText">0%</span>
                                 </div>
                             </div>
-                            <p id="progressStatus" class="text-muted">Initializing...</p>
+                            <p id="progressStatus" class="text-muted">Initializing AI analysis...</p>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle"></i>
-                                <strong>Note:</strong> Analysis is running in the background. This prevents timeout errors and allows for better GPU utilization.
+                                <strong>Analysis Status:</strong> The AI is processing your video. This may take several minutes depending on video length and complexity.
+                            </div>
+                            <div class="analysis-steps">
+                                <div class="step-item">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                    <span>Video uploaded and validated</span>
+                                </div>
+                                <div class="step-item" id="step1">
+                                    <i class="fas fa-circle text-muted"></i>
+                                    <span>Initializing AI model</span>
+                                </div>
+                                <div class="step-item" id="step2">
+                                    <i class="fas fa-circle text-muted"></i>
+                                    <span>Processing video frames</span>
+                                </div>
+                                <div class="step-item" id="step3">
+                                    <i class="fas fa-circle text-muted"></i>
+                                    <span>Generating analysis</span>
+                                </div>
+                                <div class="step-item" id="step4">
+                                    <i class="fas fa-circle text-muted"></i>
+                                    <span>Preparing chat interface</span>
+                                </div>
                             </div>
                         </div>
                     </div>

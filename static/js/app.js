@@ -55,6 +55,21 @@ class VideoDetective {
             videoFile.click();
         });
 
+        // Analysis form
+        const analysisFormElement = document.getElementById('analysisFormElement');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        if (analysisFormElement) {
+            analysisFormElement.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.analyzeVideo();
+            });
+        }
+        
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetUpload());
+        }
+
         // Chat functionality
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -210,7 +225,14 @@ class VideoDetective {
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
-                this.analyzeVideo();
+                
+                // Show success message
+                this.showSuccess(result.message || 'Video uploaded successfully!');
+                
+                // Auto-start analysis after upload
+                setTimeout(() => {
+                    this.analyzeVideo();
+                }, 1000);
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
@@ -221,33 +243,61 @@ class VideoDetective {
         }
     }
 
+    showAnalysisForm() {
+        const analysisForm = document.getElementById('analysisForm');
+        if (analysisForm) {
+            analysisForm.style.display = 'block';
+            analysisForm.classList.add('show');
+            
+            // Scroll to analysis form
+            analysisForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    hideAnalysisForm() {
+        const analysisForm = document.getElementById('analysisForm');
+        if (analysisForm) {
+            analysisForm.style.display = 'none';
+            analysisForm.classList.remove('show');
+        }
+    }
+
+
     showProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
-        
-        progress.style.display = 'block';
-        progressFill.style.width = '0%';
-        
-        // Simulate progress
-        let width = 0;
-        const interval = setInterval(() => {
-            if (width >= 90) {
-                clearInterval(interval);
-            } else {
-                width += Math.random() * 10;
-                progressFill.style.width = width + '%';
+        if (progress) {
+            progress.style.display = 'block';
+            
+            // Simulate progress
+            let width = 0;
+            const progressBar = progress.querySelector('.progress-bar');
+            if (progressBar) {
+                const interval = setInterval(() => {
+                    if (width >= 90) {
+                        clearInterval(interval);
+                    } else {
+                        width += Math.random() * 10;
+                        progressBar.style.width = width + '%';
+                        progressBar.textContent = `Uploading... ${Math.round(width)}%`;
+                    }
+                }, 200);
             }
-        }, 200);
+        }
     }
 
     hideProgress() {
         const progress = document.getElementById('uploadProgress');
-        const progressFill = progress.querySelector('.progress-fill');
-        
-        progressFill.style.width = '100%';
-        setTimeout(() => {
-            progress.style.display = 'none';
-        }, 500);
+        if (progress) {
+            const progressBar = progress.querySelector('.progress-bar');
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.textContent = 'Upload Complete!';
+            }
+            
+            setTimeout(() => {
+                progress.style.display = 'none';
+            }, 500);
+        }
     }
 
     async analyzeVideo() {
@@ -875,7 +925,7 @@ class VideoDetective {
                 // Update file info with actual data from server
                 if (result.filename) {
                     const fileInfo = document.getElementById('fileInfo');
-                    const fileName = fileInfo.querySelector('.file-name');
+                    const fileName = fileInfo.querySelector('#fileName');
                     if (fileName) {
                         fileName.textContent = result.filename;
                     }
@@ -884,8 +934,10 @@ class VideoDetective {
                 // Show success message
                 this.showSuccess('Demo video loaded successfully! 🎬');
                 
-                // Start analysis
-                this.analyzeVideo();
+                // Start analysis after a short delay
+                setTimeout(() => {
+                    this.analyzeVideo();
+                }, 1000);
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Failed to load demo video');
@@ -921,6 +973,9 @@ class VideoDetective {
                 previewVideo.src = '';
             }
         }
+        
+        // Hide analysis form
+        this.hideAnalysisForm();
         
         // Clear current file reference
         this.currentFile = null;
