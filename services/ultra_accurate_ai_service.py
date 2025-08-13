@@ -13,6 +13,14 @@ import traceback
 import gc
 import numpy as np
 
+# Import OpenCV at the top level
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    print("⚠️ OpenCV not available - some features may be limited")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -167,7 +175,8 @@ class UltraAccurateAIService:
     def _validate_long_video(self, video_path: str) -> Dict[str, Any]:
         """Validate long video file (up to 120 minutes)"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                return {"valid": False, "error": "OpenCV is not installed. Please install OpenCV to use this feature."}
             
             if not os.path.exists(video_path):
                 return {"valid": False, "error": "Video file not found"}
@@ -286,7 +295,8 @@ class UltraAccurateAIService:
     def _extract_chunk_frames_ultra_accurate(self, chunk: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract frames from chunk with ultra-high accuracy"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                raise ImportError("OpenCV is not installed. Cannot extract frames.")
             
             frames = []
             cap = cv2.VideoCapture(chunk["video_path"])
@@ -296,71 +306,75 @@ class UltraAccurateAIService:
                 return []
             
             # Set start position
-            cap.set(cv2.CAP_PROP_POS_FRAMES, chunk["frame_start"])
+            start_frame = chunk["frame_start"]
+            end_frame = chunk["frame_end"]
             
-            frame_count = chunk["frame_start"]
-            target_frames = self.long_video_config["frame_extraction"]["max_frames_per_chunk"]
-            min_frames = self.long_video_config["frame_extraction"]["min_frames_per_chunk"]
+            logger.info(f"🔍 Chunk {chunk['chunk_id']}: Extracting frames from {start_frame} to {end_frame}")
             
-            # Extract frames with adaptive sampling
+            # Set the starting position
+            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+            
+            # Extract frames with simple interval-based sampling
+            target_frames = min(50, end_frame - start_frame)  # Limit to reasonable number
+            if target_frames <= 0:
+                target_frames = 10  # Minimum frames to extract
+            
+            frame_interval = max(1, (end_frame - start_frame) // target_frames)
+            logger.info(f"🔍 Chunk {chunk['chunk_id']}: Using frame interval {frame_interval}")
+            
+            current_frame = start_frame
             frames_extracted = 0
-            total_frames_in_chunk = chunk["frame_end"] - chunk["frame_start"]
             
-            # Calculate frame interval to ensure we get enough frames
-            if total_frames_in_chunk > 0:
-                frame_interval = max(1, total_frames_in_chunk // min_frames)
-            else:
-                frame_interval = 1
-            
-            logger.info(f"🔍 Chunk {chunk['chunk_id']}: Extracting frames with interval {frame_interval}")
-            
-            while frame_count < chunk["frame_end"] and len(frames) < target_frames:
+            while current_frame < end_frame and len(frames) < target_frames:
+                # Set position and read frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
                 ret, frame = cap.read()
-                if not ret:
-                    break
                 
-                # Extract every nth frame to ensure we get frames
-                if frames_extracted % frame_interval == 0 or len(frames) < min_frames:
-                    # Quality assessment
-                    quality_score = self._assess_frame_quality_ultra_accurate(frame)
+                if not ret or frame is None:
+                    current_frame += frame_interval
+                    continue
+                
+                # Basic quality check (simplified)
+                try:
+                    # Simple quality assessment
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    quality_score = min(1.0, np.std(gray) / 50.0)  # Simple contrast-based quality
+                except:
+                    quality_score = 0.5
+                
+                # Accept frame if quality is reasonable or we need more frames
+                if quality_score >= 0.2 or len(frames) < 5:
+                    frame_data = {
+                        "frame_number": current_frame,
+                        "timestamp": current_frame / chunk["fps"],
+                        "quality_score": quality_score,
+                        "frame": frame,  # No enhancement for now
+                        "original_frame": frame.copy(),
+                        "motion_score": 0.0,  # Simplified for now
+                        "content_score": quality_score,  # Use quality as content score
+                        "edge_density": 0.0  # Simplified for now
+                    }
                     
-                    # Lower threshold for initial extraction, then apply quality filter
-                    if quality_score >= 0.3 or len(frames) < min_frames:  # Lower initial threshold
-                        # Enhanced frame processing
-                        enhanced_frame = self._enhance_frame_ultra_accurate(frame)
-                        
-                        frame_data = {
-                            "frame_number": frame_count,
-                            "timestamp": frame_count / chunk["fps"],
-                            "quality_score": quality_score,
-                            "frame": enhanced_frame,
-                            "original_frame": frame.copy(),
-                            "motion_score": self._calculate_motion_score_ultra_accurate(frame, frames),
-                            "content_score": self._calculate_content_score_ultra_accurate(frame),
-                            "edge_density": self._calculate_edge_density_ultra_accurate(frame)
-                        }
-                        
-                        frames.append(frame_data)
+                    frames.append(frame_data)
+                    logger.debug(f"✅ Extracted frame {current_frame} with quality {quality_score:.3f}")
                 
-                frame_count += 1
+                current_frame += frame_interval
                 frames_extracted += 1
+                
+                # Safety check
+                if frames_extracted > 1000:  # Prevent infinite loops
+                    break
             
             cap.release()
             
-            # If we still don't have enough frames, extract more with lower quality
-            if len(frames) < min_frames:
-                logger.warning(f"Not enough frames extracted for chunk {chunk['chunk_id']}, extracting more with lower quality")
-                additional_frames = self._extract_additional_frames_lower_quality(chunk, min_frames - len(frames))
-                frames.extend(additional_frames)
-            
-            # Final fallback: if still no frames, extract at least one frame
+            # If we still don't have frames, try to get at least one
             if len(frames) == 0:
-                logger.warning(f"No frames extracted for chunk {chunk['chunk_id']}, using fallback extraction")
+                logger.warning(f"No frames extracted for chunk {chunk['chunk_id']}, trying fallback")
                 fallback_frame = self._extract_fallback_frame(chunk)
                 if fallback_frame:
                     frames.append(fallback_frame)
             
-            logger.info(f"✅ Extracted {len(frames)} high-quality frames from chunk {chunk['chunk_id']}")
+            logger.info(f"✅ Extracted {len(frames)} frames from chunk {chunk['chunk_id']}")
             return frames
             
         except Exception as e:
@@ -377,7 +391,8 @@ class UltraAccurateAIService:
     def _extract_additional_frames_lower_quality(self, chunk: Dict[str, Any], additional_frames_needed: int) -> List[Dict[str, Any]]:
         """Extract additional frames with lower quality when needed"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                raise ImportError("OpenCV is not installed. Cannot extract frames.")
             
             additional_frames = []
             cap = cv2.VideoCapture(chunk["video_path"])
@@ -427,7 +442,8 @@ class UltraAccurateAIService:
     def _extract_fallback_frame(self, chunk: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Extract a single fallback frame when all other methods fail"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                raise ImportError("OpenCV is not installed. Cannot extract frames.")
             
             cap = cv2.VideoCapture(chunk["video_path"])
             if not cap.isOpened():
@@ -465,7 +481,8 @@ class UltraAccurateAIService:
     def _assess_frame_quality_ultra_accurate(self, frame: np.ndarray) -> float:
         """Ultra-accurate frame quality assessment"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                raise ImportError("OpenCV is not installed. Cannot assess frame quality.")
             
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             
@@ -614,7 +631,8 @@ class UltraAccurateAIService:
     def _enhance_frame_ultra_accurate(self, frame: np.ndarray) -> np.ndarray:
         """Ultra-accurate frame enhancement"""
         try:
-            import cv2
+            if not OPENCV_AVAILABLE:
+                raise ImportError("OpenCV is not installed. Cannot enhance frame.")
             
             enhanced = frame.copy()
             
