@@ -648,65 +648,14 @@ class UltraAccurateAIService:
 
     def _create_ultra_accurate_prompt(self, chunk: Dict[str, Any], frames: List[Dict[str, Any]], multi_scale_results: Dict[str, Any]) -> str:
         """Create ultra-accurate analysis prompt"""
-        prompt = f"""ANALYZE THIS VIDEO CHUNK WITH ULTRA-HIGH ACCURACY
+        prompt = f"""ULTRA-ACCURATE CHUNK ANALYSIS
 
-CHUNK INFORMATION:
-- Time Range: {chunk['start_time']:.1f}s - {chunk['end_time']:.1f}s
-- Duration: {chunk['duration']:.1f} seconds
-- Frame Count: {len(frames)}
-- Resolution: {chunk['resolution'][0]}x{chunk['resolution'][1]}
-- FPS: {chunk['fps']:.2f}
+CHUNK: {chunk['chunk_id']} ({chunk['start_time']:.1f}s - {chunk['end_time']:.1f}s)
+Duration: {chunk['duration']:.1f}s | Frames: {len(frames)} | Resolution: {chunk['resolution'][0]}x{chunk['resolution'][1]} | FPS: {chunk['fps']:.2f}
 
-ULTRA-ACCURACY REQUIREMENTS:
-1. Be 100% certain of every observation
-2. If uncertain, say "I'm uncertain about [specific detail]"
-3. Provide exact, measurable descriptions
-4. Use specific colors, sizes, positions, and timings
-5. Cross-reference observations across frames
-6. Acknowledge any limitations clearly
-
-ANALYSIS STRUCTURE:
-
-1. VISUAL ELEMENTS (Be Extremely Precise):
-   - Exact object identification (no guessing)
-   - Precise color descriptions (RGB values if possible)
-   - Exact spatial positioning (left, right, center, etc.)
-   - Specific sizes and proportions
-   - Exact motion patterns and speeds
-
-2. TEMPORAL ANALYSIS (Be Precise):
-   - Exact timing of events (seconds, frames)
-   - Duration of specific actions
-   - Sequence of movements
-   - Changes over time with specific details
-
-3. SPATIAL RELATIONSHIPS (Be Exact):
-   - Relative positions of objects
-   - Distances between elements
-   - Spatial layout and arrangement
-   - Background vs foreground positioning
-
-4. QUALITY ASSESSMENT:
-   - Video resolution and clarity
-   - Lighting conditions (bright, dim, shadows)
-   - Camera angles and perspectives
-   - Any technical limitations affecting analysis
-
-5. CONFIDENCE LEVELS:
-   - Mark each observation with confidence level
-   - High confidence: "I can clearly see..."
-   - Medium confidence: "I believe I can see..."
-   - Low confidence: "I think I might see..."
-
-6. MULTI-SCALE INSIGHTS:
-   - Overview level observations (0.25x scale)
-   - Medium detail observations (0.5x, 1.0x scales)
-   - High detail observations (1.5x, 2.0x scales)
-   - Cross-scale validation of observations
-
-Remember: ACCURACY OVER COMPLETENESS. It's better to be certain about fewer details than uncertain about many.
-
-Analyze this video chunk with maximum precision and detail."""
+STATUS: Ready for ultra-accurate processing
+MODE: Multi-scale analysis with cross-validation
+QUALITY: Maximum precision enabled"""
 
         return prompt
 
