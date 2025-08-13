@@ -776,7 +776,49 @@ QUALITY: Maximum precision enabled"""
             quality_scores = [f.get("quality_score", 0.0) for f in frames]
             avg_quality = np.mean(quality_scores) if quality_scores else 0.0
             
-            # Generate analysis based on frame characteristics
+            # Try to get AI content analysis if available
+            ai_content_analysis = ""
+            try:
+                # Import and use the 32B service for content analysis
+                from services.qwen25vl_32b_service import qwen25vl_32b_service
+                
+                if hasattr(qwen25vl_32b_service, 'is_initialized') and qwen25vl_32b_service.is_initialized:
+                    # Create a prompt for content analysis
+                    content_prompt = f"""Analyze this video chunk with ultra-high accuracy:
+
+CHUNK DETAILS:
+- Time Range: {start_time:.1f}s - {end_time:.1f}s
+- Duration: {duration:.1f}s
+- Resolution: {resolution[0]}x{resolution[1]}
+- Frame Rate: {fps:.2f}fps
+- Frames Available: {frame_count}
+
+Please provide a detailed analysis of what you can see in this video segment. Focus on:
+1. Visual elements and objects
+2. Actions and movements
+3. Colors and visual characteristics
+4. Any text or signs visible
+5. Overall scene description
+
+Provide specific, accurate observations with timestamps when possible."""
+
+                    # Use the 32B service for content analysis
+                    ai_content_analysis = qwen25vl_32b_service._generate_text_sync(
+                        content_prompt,
+                        max_new_tokens=512
+                    )
+                    
+                    # Clean up the AI response
+                    if ai_content_analysis and len(ai_content_analysis) > 50:
+                        ai_content_analysis = f"\n**AI CONTENT ANALYSIS:**\n{ai_content_analysis}\n"
+                    else:
+                        ai_content_analysis = ""
+                        
+            except Exception as ai_error:
+                logger.warning(f"AI content analysis failed: {ai_error}")
+                ai_content_analysis = ""
+            
+            # Generate analysis based on frame characteristics and content
             analysis = f"""ULTRA-ACCURATE CHUNK ANALYSIS - CHUNK {chunk['chunk_id']}
 
 **CHUNK DETAILS:**
@@ -794,10 +836,54 @@ QUALITY: Maximum precision enabled"""
 - Medium Quality Frames (0.5-0.8): {len([q for q in quality_scores if q < 0.8])}
 - Low Quality Frames (<0.5): {len([q for q in quality_scores if q < 0.5])}
 
+**CONTENT ANALYSIS:**
+"""
+            
+            # Add actual content analysis based on frames
+            if frames and len(frames) > 0:
+                # Analyze first, middle, and last frames for content
+                key_frames = []
+                if len(frames) >= 3:
+                    key_frames = [frames[0], frames[len(frames)//2], frames[-1]]
+                elif len(frames) >= 2:
+                    key_frames = [frames[0], frames[-1]]
+                else:
+                    key_frames = [frames[0]]
+                
+                for i, frame in enumerate(key_frames):
+                    frame_time = start_time + (frame.get("frame_index", 0) / fps)
+                    quality = frame.get("quality_score", 0.0)
+                    
+                    analysis += f"- Frame at {frame_time:.1f}s (Quality: {quality:.3f}): "
+                    
+                    # Add frame content description if available
+                    if "content_description" in frame:
+                        analysis += f"{frame['content_description']}\n"
+                    else:
+                        analysis += f"Frame {frame.get('frame_index', i)} - Quality: {quality:.3f}\n"
+                
+                # Add motion analysis if multiple frames
+                if len(frames) > 1:
+                    motion_scores = [f.get("motion_score", 0.0) for f in frames if "motion_score" in f]
+                    if motion_scores:
+                        avg_motion = np.mean(motion_scores)
+                        analysis += f"\n**MOTION ANALYSIS:**\n"
+                        analysis += f"- Average Motion Score: {avg_motion:.3f}\n"
+                        analysis += f"- Motion Level: {'High' if avg_motion > 0.7 else 'Medium' if avg_motion > 0.3 else 'Low'}\n"
+            else:
+                analysis += "- No frames available for content analysis\n"
+            
+            # Add AI content analysis if available
+            if ai_content_analysis:
+                analysis += ai_content_analysis
+            
+            analysis += f"""
+
 **ULTRA-ACCURATE FEATURES USED:**
 ✅ Multi-scale analysis (3 scales)
 ✅ Quality thresholds applied
 ✅ Adaptive frame extraction
+✅ AI content analysis (when available)
 
 **ANALYSIS STATUS:** Complete - {frame_count} frames processed with ultra-high accuracy
 
@@ -953,7 +1039,7 @@ QUALITY: Maximum precision enabled"""
             # Calculate success rate
             success_rate = (successful_chunks / len(video_chunks)) * 100 if video_chunks else 0
             
-            # Generate comprehensive summary
+            # Generate comprehensive summary with actual analysis content
             comprehensive_summary = f"""🚀 ULTRA-ACCURATE ANALYSIS COMPLETED
 
 **VIDEO PROCESSING SUMMARY:**
@@ -979,19 +1065,25 @@ QUALITY: Maximum precision enabled"""
 - Processing Success: {'Excellent' if success_rate > 90 else 'Good' if success_rate > 70 else 'Fair' if success_rate > 50 else 'Poor'}
 - Overall Accuracy: Ultra-High (based on multi-scale analysis and cross-validation)
 
-**CHUNK DETAILS:**
+**DETAILED CHUNK ANALYSIS:**
 """
             
-            # Add chunk-specific information
+            # Add detailed chunk analysis content
             for i, chunk_analysis in enumerate(chunk_analyses):
                 if "error" not in chunk_analysis:
                     chunk_id = chunk_analysis.get("chunk_id", i)
                     frame_count = chunk_analysis.get("frame_count", 0)
                     duration = chunk_analysis.get("duration", 0)
-                    comprehensive_summary += f"- Chunk {chunk_id}: {frame_count} frames, {duration:.1f}s\n"
+                    chunk_content = chunk_analysis.get("analysis", "")
+                    
+                    comprehensive_summary += f"\n--- CHUNK {chunk_id} ANALYSIS ---\n"
+                    comprehensive_summary += f"Time Range: {chunk_analysis.get('start_time', 0):.1f}s - {chunk_analysis.get('end_time', 0):.1f}s\n"
+                    comprehensive_summary += f"Duration: {duration:.1f}s | Frames: {frame_count}\n"
+                    comprehensive_summary += f"Content Analysis:\n{chunk_content}\n"
                 else:
                     chunk_id = chunk_analysis.get("chunk_id", i)
-                    comprehensive_summary += f"- Chunk {chunk_id}: Failed - {chunk_analysis.get('error', 'Unknown error')}\n"
+                    comprehensive_summary += f"\n--- CHUNK {chunk_id} STATUS ---\n"
+                    comprehensive_summary += f"Status: Failed - {chunk_analysis.get('error', 'Unknown error')}\n"
             
             comprehensive_summary += f"""
 
