@@ -11,13 +11,24 @@ class VideoDetective {
 
     init() {
         console.log('🚀 Initializing AI Video Detective Pro...');
+        console.log('🔍 Checking if functions are available...');
+        console.log('startAnalysis available:', typeof this.startAnalysis);
+        console.log('uploadDemoVideo available:', typeof this.uploadDemoVideo);
+        console.log('testUpload available:', typeof this.testUpload);
+        console.log('resetUpload available:', typeof this.resetUpload);
+        
         this.setupEventListeners();
         this.setupAutoResize();
         this.checkSessionStatus();
         this.setupPageCleanup();
         this.showDemoVideoPreview();
         this.initializeModelSelection();
-        this.updateAnalysisButtonState(); // Initialize button state
+        
+        // Debug: Check if upload button is visible
+        setTimeout(() => {
+            this.debugUploadButton();
+        }, 1000);
+        
         console.log('✅ AI Video Detective Pro initialized successfully!');
     }
 
@@ -258,13 +269,19 @@ class VideoDetective {
     }
 
     async startAnalysis() {
+        console.log('🚀 startAnalysis function called!');
+        console.log('📁 Current file:', this.currentFile);
+        console.log('📤 File uploaded flag:', this.fileUploaded);
+        
         if (!this.currentFile) {
+            console.log('❌ No current file, showing error');
             this.showError('Please select a video file first');
             return;
         }
 
         // Check if we have a valid file before proceeding
         if (!this.currentFile.name || this.currentFile.size === 0) {
+            console.log('❌ Invalid file, showing error');
             this.showError('Invalid video file. Please select a valid video file.');
             return;
         }
@@ -996,7 +1013,7 @@ class VideoDetective {
             font-weight: 500;
             max-width: 300px;
             animation: slideInRight 0.3s ease;
-        `;
+        `
         notification.textContent = message;
         
         document.body.appendChild(notification);
@@ -1012,7 +1029,7 @@ class VideoDetective {
 
     async cleanupSession() {
         try {
-            const response = await fetch('/session/cleanup', {
+            const response = await fetch('/api/session/cleanup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1022,7 +1039,7 @@ class VideoDetective {
             const result = await response.json();
             
             if (result.success) {
-                this.resetUpload();
+                this.resetUploadInternal();
                 this.hideCleanupButton();
                 this.showSuccess('Session cleaned up successfully! All files and data have been removed.');
             } else {
@@ -1158,7 +1175,7 @@ class VideoDetective {
                 // Update file info with actual data from server
                 if (result.filename) {
                     const fileInfo = document.getElementById('fileInfo');
-                    const fileName = fileInfo.querySelector('.file-name');
+                    const fileName = fileInfo.querySelector('#fileName');
                     if (fileName) {
                         fileName.textContent = result.filename;
                     }
@@ -1166,13 +1183,14 @@ class VideoDetective {
                 
                 // Mark demo video as uploaded
                 this.fileUploaded = true;
-                this.updateAnalysisButtonState(); // Update button state
                 
                 // Show success message
                 this.showSuccess('Demo video loaded successfully! 🎬');
                 
-                // Show analysis form
-                this.showAnalysisForm();
+                // Start analysis after a short delay
+                setTimeout(() => {
+                    this.analyzeVideo();
+                }, 1000);
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Failed to load demo video');
@@ -1183,86 +1201,6 @@ class VideoDetective {
         }
     }
 
-    resetUpload() {
-        // Clear current file
-        const videoFile = document.getElementById('videoFile');
-        videoFile.value = '';
-        
-        // Hide file info
-        const fileInfo = document.getElementById('fileInfo');
-        fileInfo.style.display = 'none';
-        
-        // Hide video preview and clean up object URL
-        const videoPreview = document.getElementById('videoPreview');
-        const previewVideo = document.getElementById('previewVideo');
-        if (videoPreview) {
-            videoPreview.style.display = 'none';
-        }
-        if (previewVideo && previewVideo.src) {
-            if (previewVideo.src.includes('/demo-video')) {
-                // For demo video, just clear the src
-                previewVideo.src = '';
-            } else {
-                // For uploaded videos, revoke the object URL
-                URL.revokeObjectURL(previewVideo.src);
-                previewVideo.src = '';
-            }
-        }
-        
-        // Hide analysis form
-        this.hideAnalysisForm();
-        
-        // Clear current file reference
-        this.currentFile = null;
-        
-        // Reset upload status
-        this.fileUploaded = false;
-        
-        // Update analysis button state
-        this.updateAnalysisButtonState();
-        
-        // Show upload section with animation
-        const uploadSection = document.getElementById('uploadSection');
-        const chatInterface = document.getElementById('chatInterface');
-        
-        chatInterface.style.transition = 'all 0.3s ease';
-        chatInterface.style.opacity = '0';
-        chatInterface.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            chatInterface.style.display = 'none';
-            
-            uploadSection.style.display = 'block';
-            uploadSection.style.opacity = '0';
-            uploadSection.style.transform = 'translateY(-20px)';
-            
-            setTimeout(() => {
-                uploadSection.style.transition = 'all 0.3s ease';
-                uploadSection.style.opacity = '1';
-                uploadSection.style.transform = 'translateY(0)';
-            }, 50);
-        }, 300);
-        
-        // Clear chat messages
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.innerHTML = '';
-        
-        // Disable chat input
-        const chatInput = document.getElementById('chatInput');
-        const sendBtn = document.getElementById('sendBtn');
-        chatInput.disabled = true;
-        sendBtn.disabled = true;
-        chatInput.style.height = 'auto';
-        
-        // Reset analysis state
-        this.analysisComplete = false;
-        
-        // Clean up old uploads when returning to home screen
-        this.cleanupOldUploads();
-        
-        console.log('🔄 Upload interface reset');
-    }
-    
     initializeModelSelection() {
         // Initialize model selection with current model
         this.updateModelInfo();
@@ -1427,12 +1365,107 @@ class VideoDetective {
 
     resetUpload() {
         console.log('🔄 Resetting upload...');
-        this.resetUpload();
+        // Call the actual reset method
+        this.resetUploadInternal();
+    }
+
+    resetUploadInternal() {
+        // Clear current file
+        const videoFile = document.getElementById('videoFile');
+        videoFile.value = '';
+        
+        // Hide file info
+        const fileInfo = document.getElementById('fileInfo');
+        fileInfo.style.display = 'none';
+        
+        // Hide video preview and clean up object URL
+        const videoPreview = document.getElementById('videoPreview');
+        const previewVideo = document.getElementById('previewVideo');
+        if (videoPreview) {
+            videoPreview.style.display = 'none';
+        }
+        if (previewVideo && previewVideo.src) {
+            if (previewVideo.src.includes('/demo-video')) {
+                // For demo video, just clear the src
+                previewVideo.src = '';
+            } else {
+                // For uploaded videos, revoke the object URL
+                URL.revokeObjectURL(previewVideo.src);
+                previewVideo.src = '';
+            }
+        }
+        
+        // Hide analysis form
+        this.hideAnalysisForm();
+        
+        // Clear current file reference
+        this.currentFile = null;
+        this.fileUploaded = false;
+        
+        // Show upload section with animation
+        const uploadSection = document.getElementById('uploadSection');
+        const chatInterface = document.getElementById('chatInterface');
+        
+        chatInterface.style.transition = 'all 0.3s ease';
+        chatInterface.style.opacity = '0';
+        chatInterface.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            chatInterface.style.display = 'none';
+            
+            uploadSection.style.display = 'block';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                uploadSection.style.transition = 'all 0.3s ease';
+                uploadSection.style.opacity = '1';
+                uploadSection.style.transform = 'translateY(0)';
+            }, 50);
+        }, 300);
+        
+        // Clear chat messages
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        
+        // Disable chat input
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        chatInput.style.height = 'auto';
+        
+        // Reset analysis state
+        this.analysisComplete = false;
+        
+        // Clean up old uploads when returning to home screen
+        this.cleanupOldUploadsInternal();
+        
+        console.log('🔄 Upload interface reset');
     }
 
     cleanupOldUploads() {
         console.log('🧹 Cleaning up old uploads...');
-        this.cleanupOldUploads();
+        // Call the actual cleanup method
+        this.cleanupOldUploadsInternal();
+    }
+
+    async cleanupOldUploadsInternal() {
+        try {
+            const response = await fetch('/api/cleanup-uploads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                console.log('🧹 Old uploads cleaned up');
+            }
+        } catch (error) {
+            console.log('Cleanup request failed (normal on page unload)');
+        }
     }
 }
 

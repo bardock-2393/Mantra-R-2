@@ -397,11 +397,11 @@
                                                 <i class="fas fa-folder-open"></i>
                                                 Choose Video File
                                             </button>
-                                            <button class="upload-btn secondary" onclick="uploadDemoVideo()">
+                                            <button class="upload-btn secondary" onclick="uploadDemoVideo(); console.log('uploadDemoVideo clicked'); return false;">
                                                 <i class="fas fa-play-circle"></i>
                                                 Use Demo Video
                                             </button>
-                                            <button class="btn btn-sm btn-outline-info" onclick="testUpload()" style="margin-top: 10px;">
+                                            <button class="btn btn-sm btn-outline-info" onclick="testUpload(); console.log('testUpload clicked'); return false;" style="margin-top: 10px;">
                                                 <i class="fas fa-bug"></i>
                                                 Debug Upload
                                             </button>
@@ -444,7 +444,7 @@
                                                 <i class="fas fa-info-circle"></i>
                                                 <strong>Ready for Analysis:</strong> Your video is ready to be analyzed. Click the button below to start the AI analysis process.
                                             </div>
-                                            <button class="upload-btn primary" onclick="startAnalysis()">
+                                            <button class="upload-btn primary" onclick="startAnalysis(); console.log('startAnalysis clicked'); return false;">
                                                 <i class="fas fa-play"></i>
                                                 Start Analysis
                                             </button>
