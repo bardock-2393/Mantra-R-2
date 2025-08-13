@@ -131,8 +131,22 @@ Develop an agentic chat assistant for visual understanding that can process vide
 
 ### **AI Model Selection**
 
-#### **Google Gemini AI**
-- **Rationale**: State-of-the-art multimodal AI model
+#### **Qwen2.5-VL-7B-Instruct (Primary)**
+- **Rationale**: State-of-the-art multimodal AI model with balanced performance
+- **Video Understanding**: Advanced video content comprehension and analysis
+- **Conversational AI**: Natural language processing capabilities
+- **Context Awareness**: Long-context window for multi-turn conversations
+- **Local Processing**: GPU-powered local inference (8GB+ GPU required)
+- **Performance**: Balanced speed and quality for video analysis
+
+#### **Qwen2.5-VL-32B-Instruct (High-Performance)**
+- **Rationale**: High-performance 32B parameter model for superior analysis
+- **Video Understanding**: Exceptional video content comprehension
+- **Memory Requirement**: 40GB+ GPU for optimal performance
+- **Quality**: Highest quality analysis with extended processing time
+
+#### **Google Gemini AI (Cloud)**
+- **Rationale**: Cloud-based multimodal AI model
 - **Video Understanding**: Advanced video content comprehension
 - **Conversational AI**: Natural language processing capabilities
 - **Context Awareness**: Long-context window for multi-turn conversations

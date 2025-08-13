@@ -15,16 +15,16 @@ class Config:
     # File Upload Configuration
     ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'webm', 'mkv', 'm4v'}
     
-    # GPU Configuration - Optimized for 80GB + 32B model + video processing
+    # GPU Configuration - Optimized for 16GB+ + 7B model + video processing
     GPU_CONFIG = {
         'enabled': True,
         'device': 'cuda:0',  # Primary GPU
-        'memory_limit': 80 * 1024 * 1024 * 1024,  # 80GB
-        'batch_size': 1,  # Reduced for 32B model + video processing
-        'precision': 'bfloat16',  # Better for 32B models than float16
-        'num_workers': 2,  # Reduced for memory efficiency
+        'memory_limit': 16 * 1024 * 1024 * 1024,  # 16GB (7B model requirement)
+        'batch_size': 2,  # 7B model can handle 2 batches
+        'precision': 'bfloat16',  # Better for 7B models than float16
+        'num_workers': 4,  # Increased for 7B model efficiency
         'gradient_checkpointing': False,  # Disable for inference
-        'use_flash_attention': False,  # Disable for compatibility
+        'use_flash_attention': True,  # Enable for 7B model
         'compile_mode': 'reduce-overhead'  # Speed optimization
     }
     

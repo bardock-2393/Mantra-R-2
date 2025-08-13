@@ -15,7 +15,7 @@ class VideoDetective {
         this.checkSessionStatus();
         this.setupPageCleanup();
         this.showDemoVideoPreview();
-        // Model selection functionality removed - always using 32B model
+        this.initializeModelSelection();
         console.log('✅ AI Video Detective Pro initialized successfully!');
     }
 
@@ -23,16 +23,6 @@ class VideoDetective {
         // File upload
         const videoFile = document.getElementById('videoFile');
         const uploadArea = document.getElementById('uploadArea');
-
-        if (!videoFile) {
-            console.error('❌ videoFile element not found');
-            return;
-        }
-
-        if (!uploadArea) {
-            console.error('❌ uploadArea element not found');
-            return;
-        }
 
         videoFile.addEventListener('change', (e) => this.handleFileSelect(e));
 
@@ -56,8 +46,9 @@ class VideoDetective {
         });
 
         uploadArea.addEventListener('click', (e) => {
-            // Don't open file dialog if clicking on other interactive elements
-            if (e.target.closest('.upload-buttons') || 
+            // Don't open file dialog if clicking on model selection or other interactive elements
+            if (e.target.closest('.model-selection') || 
+                e.target.closest('.upload-buttons') || 
                 e.target.closest('.upload-features')) {
                 return;
             }
@@ -68,45 +59,22 @@ class VideoDetective {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        if (chatInput && sendBtn) {
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendMessage();
-                }
-            });
-            
-            sendBtn.addEventListener('click', () => this.sendMessage());
-        } else {
-            console.log('ℹ️ Chat elements not found, chat functionality disabled');
-        }
-        
-
-        
-        // Analysis form submission
-        const analysisFormElement = document.getElementById('analysisFormElement');
-        if (analysisFormElement) {
-            analysisFormElement.addEventListener('submit', (e) => {
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                this.handleAnalysisSubmit();
-            });
-        }
+                this.sendMessage();
+            }
+        });
         
-        // Reset button
-        const resetBtn = document.getElementById('resetBtn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.resetAnalysis());
-        }
+        sendBtn.addEventListener('click', () => this.sendMessage());
     }
 
     setupAutoResize() {
         const chatInput = document.getElementById('chatInput');
-        if (chatInput) {
-            chatInput.addEventListener('input', () => {
-                chatInput.style.height = 'auto';
-                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-            });
-        }
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+        });
     }
 
     setupPageCleanup() {
@@ -163,9 +131,6 @@ class VideoDetective {
         this.currentFile = file;
         this.showFileInfo(file);
         this.showVideoPreview(file);
-        
-        // Show the analysis form after file is selected
-        this.showAnalysisForm();
     }
 
     isValidVideoFile(file) {
@@ -173,337 +138,15 @@ class VideoDetective {
         return validTypes.includes(file.type);
     }
 
-    showFileInfo(file, filename = null, fileSize = null) {
+    showFileInfo(file) {
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
-        const fileSizeElement = document.getElementById('fileSize');
+        const fileSize = document.getElementById('fileSize');
         
-        // Use provided filename or fallback to file.name
-        fileName.textContent = filename || file.name;
-        fileSizeElement.textContent = fileSize || this.formatFileSize(file.size);
+        fileName.textContent = file.name;
+        fileSize.textContent = this.formatFileSize(file.size);
         fileInfo.style.display = 'block';
-        
-        console.log('📁 File info displayed:', { name: filename || file.name, size: fileSize || this.formatFileSize(file.size) });
     }
-
-    showAnalysisForm() {
-        const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
-            analysisForm.style.display = 'block';
-            // Scroll to the analysis form
-            analysisForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            console.log('📋 Analysis form displayed');
-        } else {
-            console.error('❌ Analysis form element not found');
-        }
-    }
-
-    async handleAnalysisSubmit() {
-        console.log('🚀 Starting comprehensive video analysis...');
-        
-        // Check if we have a current file
-        if (!this.currentFile) {
-            this.showError('No video file selected. Please upload a video first.');
-            return;
-        }
-        
-        // Hide the analysis form and show progress
-        const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
-            analysisForm.style.display = 'none';
-        }
-        
-        // Show progress section
-        this.showProgressSection();
-        
-        // FIRST: Upload the video file
-        console.log('📤 Uploading video file before analysis...');
-        try {
-            await this.uploadFile(this.currentFile);
-            console.log('✅ Video uploaded successfully, now starting analysis...');
-            
-            // SECOND: Start the analysis
-            console.log('🚀 About to call startAnalysis() function...');
-            this.startAnalysis();
-            console.log('🚀 startAnalysis() function called');
-        } catch (error) {
-            console.error('❌ Upload failed:', error);
-            this.showError('Failed to upload video: ' + error.message);
-            
-            // Show analysis form again on error
-            if (analysisForm) {
-                analysisForm.style.display = 'block';
-            }
-        }
-    }
-
-    resetAnalysis() {
-        // Hide analysis form
-        const analysisForm = document.getElementById('analysisForm');
-        if (analysisForm) {
-            analysisForm.style.display = 'none';
-        }
-        
-        // Reset file info
-        const fileInfo = document.getElementById('fileInfo');
-        if (fileInfo) {
-            fileInfo.style.display = 'none';
-        }
-        
-        // Reset video preview
-        const videoPreview = document.getElementById('videoPreview');
-        if (videoPreview) {
-            videoPreview.style.display = 'none';
-        }
-        
-        // Reset current file
-        this.currentFile = null;
-        
-        console.log('🔄 Analysis reset');
-    }
-
-    showProgressSection() {
-        const progressSection = document.getElementById('progressSection');
-        if (progressSection) {
-            progressSection.style.display = 'block';
-            progressSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            console.log('📊 Progress section displayed');
-        }
-    }
-
-    async startAnalysis() {
-        console.log('🚀 Starting comprehensive AI analysis via API...');
-        
-        try {
-            // Show progress section
-            this.showProgressSection();
-            
-            // Verify we have a current file
-            if (!this.currentFile) {
-                throw new Error('No video file available for analysis');
-            }
-            
-            console.log('🔍 About to call /analyze API...');
-            console.log('🔍 Current file:', this.currentFile.name, this.currentFile.size);
-            
-            // Show progress message
-            const progressStatus = document.getElementById('progressStatus');
-            if (progressStatus) {
-                progressStatus.textContent = 'Starting AI analysis... This may take several minutes for large videos. Please wait patiently.';
-            }
-            
-            // Start analysis with improved polling strategy
-            console.log('🚀 Starting analysis with improved polling strategy...');
-            
-            // Start the analysis (don't wait for completion)
-            const startResponse = await fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    analysis_type: 'comprehensive_analysis',
-                    user_focus: 'Analyze this video comprehensively for all important events and observations'
-                })
-            });
-            
-            if (!startResponse.ok) {
-                throw new Error(`Analysis failed to start: ${startResponse.status}`);
-            }
-            
-            console.log('✅ Analysis started successfully, beginning polling...');
-            
-            // Update progress message
-            if (progressStatus) {
-                progressStatus.textContent = 'AI analysis started! Polling for completion... This may take 1-2 minutes.';
-            }
-            
-            // Poll for completion every 3 seconds with better error handling
-            let pollCount = 0;
-            const maxPolls = 200; // 10 minutes max (200 * 3 seconds)
-            
-            const pollInterval = setInterval(async () => {
-                pollCount++;
-                
-                try {
-                    console.log(`🔍 Polling attempt ${pollCount}/${maxPolls}...`);
-                    const statusResponse = await fetch('/api/session/status');
-                    
-                    if (!statusResponse.ok) {
-                        console.warn('⚠️ Status check failed:', statusResponse.status);
-                        if (pollCount >= maxPolls) {
-                            clearInterval(pollInterval);
-                            this.handleAnalysisTimeout();
-                        }
-                        return;
-                    }
-                    
-                    const statusData = await statusResponse.json();
-                    console.log('📊 Status response:', statusData);
-                    
-                    // Check if analysis is complete
-                    if (statusData.analysis_result && statusData.analysis_result.length > 100) {
-                        clearInterval(pollInterval);
-                        console.log('🎉 Analysis completed!');
-                        
-                        // Show results
-                        this.analysisComplete = true;
-                        this.showChatInterface();
-                        
-                        // Show completion message
-                        let completionMessage = '🎯 **Video Analysis Complete!**\n\nYour video has been successfully analyzed. Here\'s what I found:';
-                        
-                        if (statusData.analysis_result) {
-                            completionMessage += '\n\n**Analysis Summary:**\n' + statusData.analysis_result.substring(0, 300) + '...';
-                        }
-                        
-                        completionMessage += '\n\n**Next Steps**: Ask me anything about the video content. I can provide detailed insights about what\'s happening in your video.';
-                        
-                        // Add completion message with typing effect
-                        this.addChatMessageWithTyping('ai', completionMessage);
-                        
-                        // Hide progress section
-                        const progressSection = document.getElementById('progressSection');
-                        if (progressSection) {
-                            progressSection.style.display = 'none';
-                        }
-                        
-                        // Update progress status
-                        if (progressStatus) {
-                            progressStatus.textContent = '✅ Analysis completed! Chat interface is ready.';
-                        }
-                        
-                        return;
-                    }
-                    
-                    // Update progress with current time
-                    if (progressStatus) {
-                        progressStatus.textContent = `AI analysis in progress... (${new Date().toLocaleTimeString()}) - Attempt ${pollCount}/${maxPolls}`;
-                    }
-                    
-                    // Check if we've reached max polls
-                    if (pollCount >= maxPolls) {
-                        clearInterval(pollInterval);
-                        this.handleAnalysisTimeout();
-                    }
-                    
-                } catch (error) {
-                    console.error('❌ Error during polling:', error);
-                    if (pollCount >= maxPolls) {
-                        clearInterval(pollInterval);
-                        this.handleAnalysisTimeout();
-                    }
-                }
-            }, 3000); // Poll every 3 seconds instead of 5
-            
-        } catch (error) {
-            console.error('❌ Analysis failed:', error);
-            
-            const progressStatus = document.getElementById('progressStatus');
-            if (progressStatus) {
-                progressStatus.innerHTML = `
-                    <div class="alert alert-danger" role="alert">
-                        <h6>❌ Analysis Failed</h6>
-                        <p class="mb-2">Error: ${error.message}</p>
-                        <button class="btn btn-primary btn-sm" onclick="app.startAnalysis()">
-                            <i class="fas fa-redo"></i> Try Again
-                        </button>
-                    </div>
-                `;
-            }
-            
-            // Hide progress section on error
-            const progressSection = document.getElementById('progressSection');
-            if (progressSection) {
-                progressSection.style.display = 'none';
-            }
-        }
-    }
-    
-    handleAnalysisTimeout() {
-        console.log('⏰ Analysis timeout - showing manual check option');
-        
-        const progressStatus = document.getElementById('progressStatus');
-        if (progressStatus) {
-            progressStatus.innerHTML = `
-                <div class="alert alert-warning" role="alert">
-                    <h6>⏰ Analysis taking longer than expected</h6>
-                    <p class="mb-2">The analysis is still running in the background. You can:</p>
-                    <button class="btn btn-primary btn-sm me-2" onclick="app.checkAnalysisStatus()">
-                        <i class="fas fa-sync-alt"></i> Check Status Now
-                    </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="app.showChatInterface()">
-                        <i class="fas fa-comments"></i> Try Chat Anyway
-                    </button>
-                </div>
-            `;
-        }
-    }
-    
-    async checkAnalysisStatus() {
-        try {
-            console.log('🔍 Manual status check requested...');
-            
-            const progressStatus = document.getElementById('progressStatus');
-            if (progressStatus) {
-                progressStatus.textContent = 'Checking analysis status...';
-            }
-            
-            const statusResponse = await fetch('/api/session/status');
-            
-            if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                
-                if (statusData.analysis_result && statusData.analysis_result.length > 100) {
-                    console.log('🎉 Manual check: Analysis completed!');
-                    this.analysisComplete = true;
-                    this.showChatInterface();
-                    
-                    if (progressStatus) {
-                        progressStatus.textContent = '✅ Analysis completed! Chat interface is ready.';
-                    }
-                    
-                    // Hide progress section
-                    const progressSection = document.getElementById('progressSection');
-                    if (progressSection) {
-                        progressSection.style.display = 'none';
-                    }
-                } else {
-                    if (progressStatus) {
-                        progressStatus.innerHTML = `
-                            <div class="alert alert-info" role="alert">
-                                <h6>📊 Analysis Status</h6>
-                                <p class="mb-2">Analysis is still in progress. Please wait a bit longer or try again.</p>
-                                <button class="btn btn-primary btn-sm" onclick="app.checkAnalysisStatus()">
-                                    <i class="fas fa-sync-alt"></i> Check Again
-                                </button>
-                            </p>
-                        </div>
-                    `;
-                }
-            } else {
-                throw new Error(`Status check failed: ${statusResponse.status}`);
-            }
-            
-        } catch (error) {
-            console.error('❌ Manual status check failed:', error);
-            
-            const progressStatus = document.getElementById('progressStatus');
-            if (progressStatus) {
-                progressStatus.innerHTML = `
-                    <div class="alert alert-danger" role="alert">
-                        <h6>❌ Status Check Failed</h6>
-                        <p class="mb-2">Error: ${error.message}</p>
-                        <button class="btn btn-primary btn-sm" onclick="app.checkAnalysisStatus()">
-                            <i class="fas fa-sync-alt"></i> Try Again
-                        </button>
-                    </div>
-                `;
-            }
-        }
-    }
-
-
 
     formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
@@ -567,8 +210,7 @@ class VideoDetective {
                 this.hideProgress();
                 this.showFileInfo(file, result.filename, result.file_size);
                 this.showCleanupButton();
-                // Don't show analysis form here since it's called from analysis flow
-                console.log('✅ Upload successful, ready for analysis');
+                this.analyzeVideo();
             } else {
                 this.hideProgress();
                 this.showError(result.error || 'Upload failed');
@@ -581,19 +223,10 @@ class VideoDetective {
 
     showProgress() {
         const progress = document.getElementById('uploadProgress');
-        if (!progress) {
-            console.warn('⚠️ Upload progress element not found');
-            return;
-        }
-        
-        const progressBar = progress.querySelector('.progress-bar');
-        if (!progressBar) {
-            console.warn('⚠️ Progress bar element not found');
-            return;
-        }
+        const progressFill = progress.querySelector('.progress-fill');
         
         progress.style.display = 'block';
-        progressBar.style.width = '0%';
+        progressFill.style.width = '0%';
         
         // Simulate progress
         let width = 0;
@@ -602,25 +235,16 @@ class VideoDetective {
                 clearInterval(interval);
             } else {
                 width += Math.random() * 10;
-                progressBar.style.width = width + '%';
+                progressFill.style.width = width + '%';
             }
         }, 200);
     }
 
     hideProgress() {
         const progress = document.getElementById('uploadProgress');
-        if (!progress) {
-            console.warn('⚠️ Upload progress element not found');
-            return;
-        }
+        const progressFill = progress.querySelector('.progress-fill');
         
-        const progressBar = progress.querySelector('.progress-bar');
-        if (!progressBar) {
-            console.warn('⚠️ Progress bar element not found');
-            return;
-        }
-        
-        progressBar.style.width = '100%';
+        progressFill.style.width = '100%';
         setTimeout(() => {
             progress.style.display = 'none';
         }, 500);
@@ -672,18 +296,34 @@ class VideoDetective {
                 this.showChatInterface();
                 
                 // Show analysis completion message with evidence if available
-                let completionMessage = '🎯 **Video Analysis Setup Complete!**\n\nYour video has been successfully uploaded and processed. Here\'s what I\'ve prepared:';
+                let completionMessage = '🎯 **Video Analysis Complete!**\n\nI\'ve thoroughly analyzed your video and captured key insights. Here\'s what I found:';
                 
-                // DISABLED: Visual Evidence feature
-                // No evidence text will be displayed
+                if (result.evidence && result.evidence.length > 0) {
+                    const screenshotCount = result.evidence.filter(e => e.type === 'screenshot').length;
+                    const videoCount = result.evidence.filter(e => e.type === 'video_clip').length;
+                    
+                    let evidenceText = '';
+                    if (screenshotCount > 0 && videoCount > 0) {
+                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots and ${videoCount} video clips at key moments.`;
+                    } else if (screenshotCount > 0) {
+                        evidenceText = `📸 **Visual Evidence**: I've captured ${screenshotCount} screenshots at key timestamps.`;
+                    } else if (videoCount > 0) {
+                        evidenceText = `🎥 **Visual Evidence**: I've captured ${videoCount} video clips at key moments.`;
+                    }
+                    completionMessage += `\n\n${evidenceText}`;
+                }
                 
-                completionMessage += '\n\n**Current Status**: Video is ready for AI analysis!\n\n**Next Steps**: Ask me anything about the video content. I can provide:\n- Basic video information and metadata\n- Technical specifications and details\n- Analysis setup guidance\n- Help with video processing questions\n\n**For Full AI Analysis**: The server needs the Qwen2.5-VL-32B model loaded to provide detailed content analysis, object recognition, and behavioral insights.';
+                completionMessage += '\n\n**Ask me anything about the video content!** I can provide detailed insights about specific moments, events, objects, or any aspect you\'re interested in.';
                 
                 // Add completion message with typing effect
                 this.addChatMessageWithTyping('ai', completionMessage);
                 
-                // DISABLED: Evidence display
-                // No evidence will be shown
+                // Display evidence if available (after message appears)
+                if (result.evidence && result.evidence.length > 0) {
+                    setTimeout(() => {
+                        this.displayEvidence(result.evidence);
+                    }, 800); // Wait for fade-in effect to complete + buffer
+                }
             } else {
                 console.error('❌ Analysis failed:', result.error);
                 this.showError(result.error || 'Analysis failed');
@@ -695,8 +335,6 @@ class VideoDetective {
         }
     }
 
-    // DISABLED: Evidence display function
-    /*
     displayEvidence(evidence, title = 'Visual Evidence') {
         const chatMessages = document.getElementById('chatMessages');
         
@@ -771,7 +409,6 @@ class VideoDetective {
         
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
-    */
 
     openEvidenceModal(evidence) {
         const modal = document.getElementById('evidenceModal');
@@ -817,168 +454,60 @@ class VideoDetective {
     showChatInterface() {
         console.log('💬 Showing chat interface...');
         
-        try {
-            const uploadSection = document.getElementById('uploadSection');
-            const chatInterface = document.getElementById('chatInterface');
+        const uploadSection = document.getElementById('uploadSection');
+        const chatInterface = document.getElementById('chatInterface');
+        
+        // Hide upload section with animation
+        uploadSection.style.transition = 'all 0.3s ease';
+        uploadSection.style.opacity = '0';
+        uploadSection.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            uploadSection.style.display = 'none';
             
-            if (!uploadSection || !chatInterface) {
-                console.error('❌ Required elements not found:', { uploadSection: !!uploadSection, chatInterface: !!chatInterface });
-                return;
-            }
-            
-            // Hide upload section with animation
-            uploadSection.style.transition = 'all 0.3s ease';
-            uploadSection.style.opacity = '0';
-            uploadSection.style.transform = 'translateY(-20px)';
+            // Show chat interface
+            chatInterface.style.display = 'flex';
+            chatInterface.style.opacity = '0';
+            chatInterface.style.transform = 'translateY(20px)';
             
             setTimeout(() => {
-                uploadSection.style.display = 'none';
-                
-                // Show chat interface
-                chatInterface.style.display = 'flex';
-                chatInterface.style.opacity = '0';
-                chatInterface.style.transform = 'translateY(20px)';
-                
-                setTimeout(() => {
-                    chatInterface.style.transition = 'all 0.3s ease';
-                    chatInterface.style.opacity = '1';
-                    chatInterface.style.transform = 'translateY(0)';
-                }, 50);
-            }, 300);
-            
-            // Enable chat input and ensure event listeners are working
-            const chatInput = document.getElementById('chatInput');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (chatInput && sendBtn) {
-                // Remove any existing disabled state
-                chatInput.disabled = false;
-                sendBtn.disabled = false;
-                
-                // Ensure event listeners are attached
-                this.setupChatEventListeners();
-                
-                // Focus on input
-                chatInput.focus();
-                
-                console.log('✅ Chat interface elements enabled and focused');
-            } else {
-                console.error('❌ Chat input elements not found');
-            }
-            
-            console.log('✅ Chat interface should now be visible');
-            
-        } catch (error) {
-            console.error('❌ Error showing chat interface:', error);
-        }
-    }
-    
-    setupChatEventListeners() {
-        console.log('🔧 Setting up chat event listeners...');
+                chatInterface.style.transition = 'all 0.3s ease';
+                chatInterface.style.opacity = '1';
+                chatInterface.style.transform = 'translateY(0)';
+            }, 50);
+        }, 300);
         
+        // Enable chat input
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
-        const minimizeChatBtn = document.getElementById('minimizeChatBtn');
         
-        if (!chatInput || !sendBtn) {
-            console.error('❌ Chat elements not found for event listeners');
-            return;
-        }
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
         
-        // Remove existing event listeners to prevent duplicates
-        const newChatInput = chatInput.cloneNode(true);
-        const newSendBtn = sendBtn.cloneNode(true);
-        const newMinimizeChatBtn = minimizeChatBtn ? minimizeChatBtn.cloneNode(true) : null;
-        
-        chatInput.parentNode.replaceChild(newChatInput, chatInput);
-        sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
-        if (newMinimizeChatBtn && minimizeChatBtn) {
-            minimizeChatBtn.parentNode.replaceChild(newMinimizeChatBtn, minimizeChatBtn);
-        }
-        
-        // Add new event listeners
-        newChatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-        
-        newSendBtn.addEventListener('click', () => this.sendMessage());
-        
-        // Setup minimize button functionality
-        if (newMinimizeChatBtn) {
-            newMinimizeChatBtn.addEventListener('click', () => this.minimizeChat());
-        }
-        
-        // Setup auto-resize for textarea
-        newChatInput.addEventListener('input', () => {
-            newChatInput.style.height = 'auto';
-            newChatInput.style.height = Math.min(newChatInput.scrollHeight, 120) + 'px';
-        });
-        
-        console.log('✅ Chat event listeners setup complete');
-    }
-    
-    minimizeChat() {
-        console.log('📱 Minimizing chat interface...');
-        
-        const chatInterface = document.getElementById('chatInterface');
-        const uploadSection = document.getElementById('uploadSection');
-        
-        if (chatInterface && uploadSection) {
-            // Hide chat interface
-            chatInterface.style.display = 'none';
-            
-            // Show upload section with animation
-            uploadSection.style.display = 'block';
-            uploadSection.style.opacity = '0';
-            uploadSection.style.transform = 'translateY(-20px)';
-            
-            setTimeout(() => {
-                uploadSection.style.transition = 'all 0.3s ease';
-                uploadSection.style.opacity = '1';
-                uploadSection.style.transform = 'translateY(0)';
-            }, 50);
-            
-            console.log('✅ Chat interface minimized, upload section restored');
-        }
+        console.log('✅ Chat interface should now be visible');
     }
 
     async sendMessage() {
-        console.log('💬 sendMessage called');
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+
+        if (!message || this.isTyping) return;
+
+        // Add user message
+        this.addChatMessage('user', message);
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
         
+        // Disable input while processing
+        chatInput.disabled = true;
+        const sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+
+        // Show typing indicator
+        this.showTypingIndicator();
+
         try {
-            const chatInput = document.getElementById('chatInput');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (!chatInput || !sendBtn) {
-                console.error('❌ Chat elements not found in sendMessage');
-                return;
-            }
-            
-            const message = chatInput.value.trim();
-            console.log('📝 Message to send:', message);
-
-            if (!message || this.isTyping) {
-                console.log('⚠️ Message empty or typing in progress');
-                return;
-            }
-
-            // Add user message
-            this.addChatMessage('user', message);
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            
-            // Disable input while processing
-            chatInput.disabled = true;
-            sendBtn.disabled = true;
-
-            // Show typing indicator
-            this.showTypingIndicator();
-
-            console.log('🚀 Sending message to /chat endpoint...');
-            
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {
@@ -987,14 +516,7 @@ class VideoDetective {
                 body: JSON.stringify({ message: message })
             });
 
-            console.log('📡 Response received:', response.status, response.ok);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
             const result = await response.json();
-            console.log('📊 Chat result:', result);
 
             // Hide typing indicator
             this.hideTypingIndicator();
@@ -1010,24 +532,17 @@ class VideoDetective {
                     }, 800); // Wait for fade-in effect to complete + buffer
                 }
             } else {
-                console.error('❌ Chat API returned error:', result.error);
-                this.addChatMessage('ai', `Sorry, I encountered an error: ${result.error || 'Unknown error'}. Please try again.`);
+                this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
             }
         } catch (error) {
-            console.error('❌ Error in sendMessage:', error);
             this.hideTypingIndicator();
-            this.addChatMessage('ai', `Sorry, I encountered an error: ${error.message}. Please try again.`);
-        } finally {
-            // Re-enable input
-            const chatInput = document.getElementById('chatInput');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (chatInput && sendBtn) {
-                chatInput.disabled = false;
-                sendBtn.disabled = false;
-                chatInput.focus();
-            }
+            this.addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
         }
+        
+        // Re-enable input
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
     }
 
     showTypingIndicator() {
@@ -1103,51 +618,19 @@ class VideoDetective {
     }
 
     showMessageWithEffect(element, text) {
-        try {
-            // Start with opacity 0 and add fade-in effect
-            element.style.opacity = '0';
-            element.style.transform = 'translateY(10px)';
-            element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            
-            // Set the content immediately
-            element.innerHTML = text;
-            
-            // Trigger the fade-in animation
-            setTimeout(() => {
-                element.style.opacity = '1';
-                element.style.transform = 'translateY(0)';
-            }, 50);
-        } catch (error) {
-            console.error('❌ Error in showMessageWithEffect:', error);
-            // Fallback: just set the content without animation
-            if (element) {
-                element.innerHTML = text;
-            }
-        }
-    }
-    
-    showTypingIndicator() {
-        try {
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator) {
-                typingIndicator.style.display = 'block';
-                this.isTyping = true;
-            }
-        } catch (error) {
-            console.error('❌ Error showing typing indicator:', error);
-        }
-    }
-    
-    hideTypingIndicator() {
-        try {
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator) {
-                typingIndicator.style.display = 'none';
-                this.isTyping = false;
-            }
-        } catch (error) {
-            console.error('❌ Error hiding typing indicator:', error);
-        }
+        // Start with opacity 0 and add fade-in effect
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(10px)';
+        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        
+        // Set the content immediately
+        element.innerHTML = text;
+        
+        // Trigger the fade-in animation
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 50);
     }
 
     formatAIResponse(message) {
@@ -1244,7 +727,7 @@ class VideoDetective {
 
     async cleanupSession() {
         try {
-            const response = await fetch('/api/session/cleanup', {
+            const response = await fetch('/session/cleanup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1334,30 +817,28 @@ class VideoDetective {
         try {
             console.log('🎬 Showing demo video preview...');
             
-            // Check if demo video route exists
-            fetch('/demo-video', { method: 'HEAD' })
-                .then(response => {
-                    if (response.ok) {
-                        // Demo video route exists, show preview
-                        const videoPreview = document.getElementById('videoPreview');
-                        const previewVideo = document.getElementById('previewVideo');
-                        
-                        if (videoPreview && previewVideo) {
-                            // Set the demo video source
-                            previewVideo.src = '/demo-video';
-                            
-                            // Show the preview section
-                            videoPreview.style.display = 'block';
-                            
-                            console.log('🎬 Demo video preview shown');
-                        }
-                    } else {
-                        console.log('ℹ️ Demo video route not available, skipping preview');
-                    }
-                })
-                .catch(error => {
-                    console.log('ℹ️ Demo video route not available, skipping preview:', error.message);
-                });
+            // Show video preview with demo video URL
+            const videoPreview = document.getElementById('videoPreview');
+            const previewVideo = document.getElementById('previewVideo');
+            
+            // Set the demo video source
+            previewVideo.src = '/demo-video';
+            
+            // Show the preview section
+            videoPreview.style.display = 'block';
+            
+            // Update preview header for demo video
+            const previewHeader = videoPreview.querySelector('.preview-header h3');
+            if (previewHeader) {
+                previewHeader.textContent = 'Demo Video Preview';
+            }
+            
+            const previewDescription = videoPreview.querySelector('.preview-header p');
+            if (previewDescription) {
+                previewDescription.textContent = 'Preview the BMW M4 demo video before using it for analysis';
+            }
+            
+            console.log('🎬 Demo video preview shown');
         } catch (error) {
             console.error('Failed to show demo video preview:', error);
         }
@@ -1486,7 +967,129 @@ class VideoDetective {
         console.log('🔄 Upload interface reset');
     }
     
-    // Model selection functionality removed - always using 32B model
+    initializeModelSelection() {
+        // Initialize model selection with current model
+        this.updateModelInfo();
+        
+        // Add event listener for model switching
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            // Remove any existing event listeners to prevent duplicates
+            modelSelect.removeEventListener('change', this.handleModelChange);
+            
+            // Add the event listener
+            this.handleModelChange = this.handleModelChange.bind(this);
+            modelSelect.addEventListener('change', this.handleModelChange);
+            
+            // Add click event to prevent bubbling
+            modelSelect.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+        
+        // Also prevent clicks on the model selection container from bubbling
+        const modelSelection = document.querySelector('.model-selection');
+        if (modelSelection) {
+            modelSelection.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+    }
+    
+    handleModelChange(e) {
+        // Prevent event bubbling
+        e.stopPropagation();
+        this.switchModel(e.target.value);
+    }
+    
+    async switchModel(modelName) {
+        try {
+            console.log(`🔄 Switching to model: ${modelName}`);
+            
+            // Show loading state
+            this.showModelLoadingState(modelName);
+            
+            // Call API to switch model
+            const response = await fetch('/api/switch-model', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ model: modelName })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ Successfully switched to ${modelName}`);
+                this.updateModelInfo();
+                this.showSuccess(`Successfully switched to ${result.model_name}`);
+            } else {
+                console.error(`❌ Failed to switch to ${modelName}: ${result.error}`);
+                this.showError(`Failed to switch model: ${result.error}`);
+                // Revert selection
+                this.revertModelSelection();
+            }
+            
+        } catch (error) {
+            console.error('❌ Model switch error:', error);
+            this.showError('Failed to switch model. Please try again.');
+            this.revertModelSelection();
+        }
+    }
+    
+    showModelLoadingState(modelName) {
+        const modelInfo = document.getElementById('modelInfo');
+        if (modelInfo) {
+            modelInfo.innerHTML = `<small>🔄 Switching to ${modelName}...</small>`;
+        }
+        
+        // Disable select during switch
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            modelSelect.disabled = true;
+        }
+    }
+    
+    updateModelInfo() {
+        const modelSelect = document.getElementById('modelSelect');
+        const modelInfo = document.getElementById('modelInfo');
+        
+        if (modelSelect && modelInfo) {
+            const selectedModel = modelSelect.value;
+            const modelDescriptions = {
+                'minicpm': 'Fast and efficient vision-language model for quick analysis',
+                'qwen25vl': 'Advanced multimodal model with enhanced video understanding capabilities',
+                'qwen25vl_32b': 'High-performance 32B parameter model with superior video analysis capabilities'
+            };
+            
+            // Update the model info text
+            modelInfo.innerHTML = `<small>${modelDescriptions[selectedModel] || 'Select an AI model for video analysis'}</small>`;
+            
+            // Add visual feedback for selected model
+            modelSelect.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+            modelSelect.classList.add(`model-selected-${selectedModel}`);
+            
+            // Update the model selection container styling
+            const modelSelection = document.querySelector('.model-selection');
+            if (modelSelection) {
+                modelSelection.classList.remove('model-selected-minicpm', 'model-selected-qwen25vl', 'model-selected-qwen25vl_32b');
+                modelSelection.classList.add(`model-selected-${selectedModel}`);
+            }
+        }
+    }
+    
+    revertModelSelection() {
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+            // Revert to previous selection (you might want to store the previous value)
+            modelSelect.value = 'minicpm';
+            this.updateModelInfo();
+        }
+        
+        // Re-enable select
+        modelSelect.disabled = false;
+    }
 }
 
 // Add CSS animations

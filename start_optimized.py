@@ -59,9 +59,11 @@ def check_gpu():
             print(f"   Name: {device_name}")
             print(f"   Memory: {device_memory:.1f} GB")
             
-            # Check if we have enough memory for 32B model
-            if device_memory >= 40:
-                print("✅ Sufficient GPU memory for Qwen2.5-VL-32B")
+            # Check if we have enough memory for 7B model
+            if device_memory >= 16:
+                print("✅ Sufficient GPU memory for Qwen2.5-VL-7B")
+            elif device_memory >= 8:
+                print("✅ Sufficient GPU memory for Qwen2.5-VL-7B (minimum)")
             else:
                 print("⚠️ Limited GPU memory - may need optimization")
             

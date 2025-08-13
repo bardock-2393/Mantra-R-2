@@ -9,7 +9,9 @@ HF_TOKEN=your-huggingface-token-here
 
 # Model Paths (optional - will use defaults if not set)
 MINICPM_MODEL_PATH=openbmb/MiniCPM-V-2_6
+# Primary model configuration (7B - balanced performance, 8GB+ GPU)
 QWEN25VL_MODEL_PATH=Qwen/Qwen2.5-VL-7B-Instruct
+# High-performance model configuration (32B - requires 40GB+ GPU)
 QWEN25VL_32B_MODEL_PATH=Qwen/Qwen2.5-VL-32B-Instruct
 
 # API Keys (if using external services)

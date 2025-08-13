@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Model Loading Script for AI Video Detective
-Loads the Qwen2.5-VL-32B model and integrates it with the AI service
+Loads the Qwen2.5-VL-7B model and integrates it with the AI service
 """
 
 import os
@@ -24,16 +24,21 @@ def check_environment():
     
     # Check CUDA availability
     if not torch.cuda.is_available():
-        print("❌ CUDA not available. GPU is required for Qwen2.5-VL-32B")
+        print("❌ CUDA not available. GPU is required for Qwen2.5-VL-7B")
         return False
     
     # Check GPU memory
     gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
     print(f"💾 GPU Memory: {gpu_memory:.1f}GB")
     
-    if gpu_memory < 30:
-        print("⚠️ Warning: GPU memory may be insufficient for 32B model")
-        print("   Recommended: 40GB+ for optimal performance")
+    # 7B model requires less memory than 32B
+    if gpu_memory < 8:
+        print("❌ Error: Insufficient GPU memory for 7B model")
+        print("   Required: 8GB+, Recommended: 16GB+")
+        return False
+    elif gpu_memory < 12:
+        print("⚠️ Warning: GPU memory may be insufficient for optimal 7B performance")
+        print("   Recommended: 16GB+ for optimal performance")
     
     # Check required packages
     required_packages = [
@@ -60,25 +65,26 @@ def check_environment():
     print("✅ Environment check passed")
     return True
 
-async def load_qwen25vl_32b():
-    """Load the Qwen2.5-VL-32B model"""
+async def load_qwen25vl_7b():
+    """Load the Qwen2.5-VL-7B model"""
     try:
-        print("🚀 Loading Qwen2.5-VL-32B model...")
+        print("🚀 Loading Qwen2.5-VL-7B model...")
         
-        # Import the service
-        from services.qwen25vl_32b_service import Qwen25VL32BService
+        # Import the model manager
+        from services.model_manager import model_manager
         
-        # Create service instance
-        service = Qwen25VL32BService()
+        # Initialize the 7B model
+        success = await model_manager.initialize_model('qwen25vl_7b')
         
-        # Initialize the model
-        await service.initialize()
-        
-        print("✅ Qwen2.5-VL-32B model loaded successfully!")
-        return service
+        if success:
+            print("✅ Qwen2.5-VL-7B model loaded successfully!")
+            return model_manager
+        else:
+            print("❌ Failed to load Qwen2.5-VL-7B model")
+            return None
         
     except Exception as e:
-        print(f"❌ Failed to load Qwen2.5-VL-32B model: {e}")
+        print(f"❌ Failed to load Qwen2.5-VL-7B model: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -91,86 +97,57 @@ def update_ai_service(loaded_service):
         # Import the main AI service
         from services.ai_service import ai_service
         
-        # Update the service with the loaded model
-        ai_service.model = loaded_service.model
-        ai_service.tokenizer = loaded_service.tokenizer
-        ai_service.processor = loaded_service.processor
-        ai_service.is_initialized = True
+        # Get the current model info
+        current_model = loaded_service.get_current_model()
         
-        print("✅ AI service updated with loaded model")
-        return True
+        if current_model['initialized'] and current_model['service_instance']:
+            # Update the service with the loaded model
+            ai_service.model = current_model['service_instance'].model
+            ai_service.tokenizer = current_model['service_instance'].tokenizer
+            ai_service.processor = current_model['service_instance'].processor
+            ai_service.is_initialized = True
+            
+            print("✅ AI service updated with loaded model")
+            return True
+        else:
+            print("❌ Model not properly initialized")
+            return False
         
     except Exception as e:
         print(f"❌ Failed to update AI service: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-async def test_model(service):
-    """Test the loaded model with a simple prompt"""
-    try:
-        print("🧪 Testing loaded model...")
-        
-        # Simple test prompt
-        test_prompt = "Hello, can you describe what you see in this image?"
-        
-        # Generate response
-        response = await service._generate_text(test_prompt, max_new_tokens=100)
-        
-        print(f"✅ Model test successful!")
-        print(f"📝 Response: {response[:200]}...")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Model test failed: {e}")
         return False
 
 async def main():
-    """Main function to load and integrate the model"""
-    print("🎯 AI Video Detective - Model Loading Script")
+    """Main function to load the 7B model"""
+    print("🎯 AI Video Detective - Loading Qwen2.5-VL-7B Model")
     print("=" * 60)
     
     # Check environment
     if not check_environment():
-        print("❌ Environment check failed. Please fix issues and try again.")
+        print("❌ Environment check failed")
         return False
     
-    # Load the model
-    loaded_service = await load_qwen25vl_32b()
-    if not loaded_service:
+    # Load the 7B model
+    model_manager = await load_qwen25vl_7b()
+    if not model_manager:
         print("❌ Model loading failed")
         return False
     
-    # Update the main AI service
-    if not update_ai_service(loaded_service):
+    # Update AI service
+    if not update_ai_service(model_manager):
         print("❌ Failed to update AI service")
         return False
     
-    # Test the model
-    if not await test_model(loaded_service):
-        print("❌ Model test failed")
-        return False
-    
-    print("\n🎉 Model loading and integration completed successfully!")
-    print("🚀 AI Video Detective is now ready for full video analysis!")
-    print("\nNext steps:")
-    print("1. Restart your Flask application")
-    print("2. Upload a video for analysis")
-    print("3. Ask questions about the video content")
+    print("✅ Qwen2.5-VL-7B model loaded and integrated successfully!")
+    print("🚀 Ready to analyze videos!")
     
     return True
 
 if __name__ == "__main__":
     try:
-        success = asyncio.run(main())
-        if success:
-            print("\n✅ Script completed successfully!")
-        else:
-            print("\n❌ Script failed!")
-            sys.exit(1)
+        asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Script interrupted by user")
-        sys.exit(0)
+        print("\n👋 Model loading stopped. Goodbye!")
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
         import traceback
